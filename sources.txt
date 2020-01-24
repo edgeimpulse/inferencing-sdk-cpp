@@ -1,0 +1,3 @@
+tensorflow and third_party folders based on: https://github.com/tensorflow/tensorflow/#979c105c2cea75e0e481359d2d0c74fdbc9f867e
+utensor based on: https://github.com/janjongboom/utensor/#3a76b5870aee0a3d4ab3f17a9ed434fcca897520
+CMSIS-DSP based on: https://github.com/ARM-software/CMSIS_5/tree/4d378e81968c6bec5441a42885b24db7cf189bca

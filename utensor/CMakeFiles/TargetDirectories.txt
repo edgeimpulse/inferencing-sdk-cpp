@@ -1,0 +1,4 @@
+/home/janjongboom/example-standalone-inferencing/edge-impulse-sdk/utensor/CMakeFiles/rebuild_cache.dir
+/home/janjongboom/example-standalone-inferencing/edge-impulse-sdk/utensor/CMakeFiles/edit_cache.dir
+/home/janjongboom/example-standalone-inferencing/edge-impulse-sdk/utensor/CMakeFiles/utensor.dir
+/home/janjongboom/example-standalone-inferencing/edge-impulse-sdk/utensor/CMakeFiles/test.dir
