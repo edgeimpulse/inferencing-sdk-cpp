@@ -13,9 +13,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
+#include <stdio.h>
 #include "tensorflow/lite/experimental/micro/debug_log.h"
 
-// On mbed platforms, we set up a serial port and write to it for debug logging.
+// Use standard IO on Posix systems for debugging
 extern "C" void DebugLog(const char* s) {
   printf("%s", s);
 }
