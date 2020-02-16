@@ -1,2 +1,0 @@
-/usr/bin/ar qc libutensor.a  CMakeFiles/utensor.dir/src/uTensor/core/context.cpp.o CMakeFiles/utensor.dir/src/uTensor/core/tensor.cpp.o CMakeFiles/utensor.dir/src/uTensor/core/uTensorBase.cpp.o CMakeFiles/utensor.dir/src/uTensor/core/vm.cpp.o CMakeFiles/utensor.dir/src/uTensor/loaders/tensorIdxImporter.cpp.o CMakeFiles/utensor.dir/src/uTensor/ops/MathOps.cpp.o CMakeFiles/utensor.dir/src/uTensor/util/quantization_utils.cpp.o CMakeFiles/utensor.dir/src/uTensor/util/uTensor_util.cpp.o
-/usr/bin/ranlib libutensor.a
