@@ -36,9 +36,6 @@ else()
         message(STATUS "The compiler ${CMAKE_CXX_COMPILER} has no C++11 support. Please use a different C++ compiler.")
 endif()
 
-# Build with code coverage
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fprofile-arcs -ftest-coverage -ggdb")
-
 add_library(utensor STATIC ${SOURCES})
 
 # Configure GTest
@@ -50,7 +47,7 @@ if(GTEST_FOUND)
     add_subdirectory(unity)
 
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DGTEST_DONT_DEFINE_FOO=1 -DHAVE_GTEST")
-    
+
     # Add the helper header
     include_directories(${PROJECT_SOURCE_DIR}/TESTS)
 

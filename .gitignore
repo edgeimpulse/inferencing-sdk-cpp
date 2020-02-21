@@ -4,3 +4,4 @@ utensor/CMakeFiles/
 utensor/Makefile
 utensor/CMakeCache.txt
 utensor.lib
+utensor/libutensor.a
