@@ -227,7 +227,8 @@ int extract_mfcc_features(signal_t *signal, matrix_t *output_matrix, void *confi
 
     // and run the MFCC extraction (using 32 rather than 40 filters here to optimize speed on embedded)
     int ret = speechpy::feature::mfcc(output_matrix, &preemphasized_audio_signal,
-        frequency, config.frame_length, config.frame_stride, config.num_cepstral, config.num_filters, config.fft_length);
+        frequency, config.frame_length, config.frame_stride, config.num_cepstral, config.num_filters, config.fft_length,
+        config.low_frequency, config.high_frequency);
     if (ret != EIDSP_OK) {
         printf("ERR: MFCC failed (%d)\n", ret);
         EIDSP_ERR(ret);

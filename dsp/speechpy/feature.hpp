@@ -85,8 +85,8 @@ public:
         // num_filter + 2 is because for num_filter filterbanks we need
         // num_filter+2 point.
         numpy::linspace(
-            functions::frequency_to_mel(low_freq),
-            functions::frequency_to_mel(high_freq),
+            functions::frequency_to_mel(static_cast<float>(low_freq)),
+            functions::frequency_to_mel(static_cast<float>(high_freq)),
             num_filter + 2,
             mels);
 
@@ -169,9 +169,9 @@ public:
      * @param num_filters (int): the number of filters in the filterbank,
      *     default 40.
      * @param fft_length (int): number of FFT points. Default is 512.
-     * @param low_frequency (float): lowest band edge of mel filters.
+     * @param low_frequency (int): lowest band edge of mel filters.
      *     In Hz, default is 0.
-     * @param high_frequency (float): highest band edge of mel filters.
+     * @param high_frequency (int): highest band edge of mel filters.
      *     In Hz, default is samplerate/2
      * @EIDSP_OK if OK
      */
@@ -179,13 +179,13 @@ public:
         signal_t *signal,
         uint32_t sampling_frequency,
         float frame_length = 0.02f, float frame_stride = 0.02f, uint16_t num_filters = 40,
-        uint16_t fft_length = 512, float low_frequency = 300.0f, float high_frequency = 0.0f
+        uint16_t fft_length = 512, uint32_t low_frequency = 300, uint32_t high_frequency = 0
         )
     {
         int ret = 0;
 
-        if (high_frequency == 0.0f) {
-            high_frequency = static_cast<float>(sampling_frequency) / 2;
+        if (high_frequency == 0) {
+            high_frequency = sampling_frequency / 2;
         }
 
         stack_frames_info_t stack_frame_info = { 0 };
@@ -342,9 +342,9 @@ public:
      * @param num_filters (int): the number of filters in the filterbank,
      *     default 40.
      * @param fft_length (int): number of FFT points. Default is 512.
-     * @param low_frequency (float): lowest band edge of mel filters.
+     * @param low_frequency (int): lowest band edge of mel filters.
      *     In Hz, default is 0.
-     * @param high_frequency (float): highest band edge of mel filters.
+     * @param high_frequency (int): highest band edge of mel filters.
      *     In Hz, default is samplerate/2
      * @param dc_elimination Whether the first dc component should
      *     be eliminated or not.
@@ -353,7 +353,7 @@ public:
     static int mfcc(matrix_t *out_features, signal_t *signal,
         uint32_t sampling_frequency, float frame_length = 0.02f, float frame_stride = 0.01f,
         uint8_t num_cepstral = 13, uint16_t num_filters = 40, uint16_t fft_length = 512,
-        float low_frequency = 0.0f, float high_frequency = 0.0f, bool dc_elimination = true)
+        uint32_t low_frequency = 0, uint32_t high_frequency = 0, bool dc_elimination = true)
     {
         if (out_features->cols != num_cepstral) {
             EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
@@ -385,7 +385,8 @@ public:
         }
 
         ret = mfe(&features_matrix, &energy_matrix, signal,
-            sampling_frequency, frame_length, frame_stride, num_filters, fft_length);
+            sampling_frequency, frame_length, frame_stride, num_filters, fft_length,
+            low_frequency, high_frequency);
         if (ret != EIDSP_OK) {
             EIDSP_ERR(ret);
         }

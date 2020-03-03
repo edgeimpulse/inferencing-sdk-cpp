@@ -1265,7 +1265,7 @@ public:
      */
     static int linspace(float start, float stop, uint32_t number, float *out)
     {
-        if (number < 2 || !out) {
+        if (number < 1 || !out) {
             EIDSP_ERR(EIDSP_PARAMETER_INVALID);
         }
 
