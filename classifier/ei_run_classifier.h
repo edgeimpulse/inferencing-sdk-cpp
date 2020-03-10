@@ -28,6 +28,7 @@
 #include "model-parameters/anomaly_clusters.h"
 #endif
 #include "ei_run_dsp.h"
+#include "ei_classifier_types.h"
 #if defined(EI_CLASSIFIER_HAS_SAMPLER) && EI_CLASSIFIER_HAS_SAMPLER == 1
 #include "ei_sampler.h"
 #endif
@@ -52,23 +53,9 @@ static tflite::ErrorReporter* error_reporter = &micro_error_reporter;
 #error "Unknown inferencing engine"
 #endif
 
-typedef struct {
-    const char *label;
-    float value;
-} ei_impulse_result_classification_t;
-
-typedef struct {
-    int sampling;
-    int dsp;
-    int classification;
-    int anomaly;
-} ei_impulse_result_timing_t;
-
-typedef struct {
-    ei_impulse_result_classification_t classification[EI_CLASSIFIER_LABEL_COUNT];
-    float anomaly;
-    ei_impulse_result_timing_t timing;
-} ei_impulse_result_t;
+#ifdef __cplusplus
+namespace {
+#endif // __cplusplus
 
 /**
  * Run the classifier over a raw features array
@@ -77,7 +64,7 @@ typedef struct {
  * @param result Object to store the results in
  * @param debug Whether to show debug messages (default: false)
  */
-EI_IMPULSE_ERROR run_classifier(
+extern "C" EI_IMPULSE_ERROR run_classifier(
     signal_t *signal,
     ei_impulse_result_t *result,
     bool debug = false)
@@ -300,6 +287,8 @@ EI_IMPULSE_ERROR run_classifier(
     return EI_IMPULSE_OK;
 }
 
+#if EIDSP_SIGNAL_C_FN_POINTER == 0
+
 /**
  * Run the impulse, if you provide an instance of sampler it will also persist the data for you
  * @param sampler Instance to an **initialized** sampler
@@ -375,5 +364,11 @@ EI_IMPULSE_ERROR run_impulse(
     return run_impulse(NULL, result, data_fn, debug);
 }
 #endif
+
+#endif // #if EIDSP_SIGNAL_C_FN_POINTER == 0
+
+#ifdef __cplusplus
+}
+#endif // __cplusplus
 
 #endif // _EDGE_IMPULSE_RUN_CLASSIFIER_H_

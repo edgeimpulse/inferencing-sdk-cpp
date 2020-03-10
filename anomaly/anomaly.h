@@ -27,6 +27,10 @@
 #include <math.h>
 #include "anomaly_types.h"
 
+#ifdef __cplusplus
+namespace {
+#endif // __cplusplus
+
 /**
  * Standard scaler, scales all values in the input vector
  * Note that this *modifies* the array in place!
@@ -74,5 +78,9 @@ float get_min_distance_to_cluster(float *input, size_t input_size, const ei_clas
     }
     return min;
 }
+
+#ifdef __cplusplus
+}
+#endif // __cplusplus
 
 #endif // _EDGE_IMPULSE_ANOMALY_H_

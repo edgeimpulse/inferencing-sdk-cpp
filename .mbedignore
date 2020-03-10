@@ -1,3 +1,4 @@
 utensor/CMakeFiles/
 tensorflow/lite/experimental/micro/mbed/
 porting/posix/
+classifier/ei_run_classifier_c*

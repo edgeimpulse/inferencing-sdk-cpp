@@ -27,6 +27,10 @@
 #include "dsp/spectral/spectral.hpp"
 #include "dsp/speechpy/speechpy.hpp"
 
+#ifdef __cplusplus
+namespace {
+#endif // __cplusplus
+
 using namespace ei;
 
 int extract_spectral_analysis_features(signal_t *signal, matrix_t *output_matrix, void *config_ptr) {
@@ -261,5 +265,9 @@ int extract_mfcc_features(signal_t *signal, matrix_t *output_matrix, void *confi
 
     return EIDSP_OK;
 }
+
+#ifdef __cplusplus
+}
+#endif // __cplusplus
 
 #endif // _EDGE_IMPULSE_RUN_DSP_H_
