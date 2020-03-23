@@ -31,6 +31,7 @@
 #include <functional>
 #ifdef __MBED__
 #include "mbed.h"
+using namespace mbed;
 #endif // __MBED__
 #endif // __cplusplus
 

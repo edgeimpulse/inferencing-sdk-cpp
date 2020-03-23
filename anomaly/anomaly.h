@@ -25,6 +25,7 @@
 
 #include <stdio.h>
 #include <math.h>
+#include <stdint.h>
 #include "anomaly_types.h"
 
 #ifdef __cplusplus

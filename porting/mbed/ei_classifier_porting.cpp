@@ -25,24 +25,44 @@
 #include "mbed.h"
 #include "ei_classifier_porting.h"
 
-__weak EI_IMPULSE_ERROR ei_run_impulse_check_canceled() {
+using namespace rtos;
+
+#ifdef ARDUINO
+#define EI_WEAK_FN __attribute__((weak))
+#else
+#define EI_WEAK_FN __weak
+#endif
+
+EI_WEAK_FN EI_IMPULSE_ERROR ei_run_impulse_check_canceled() {
     return EI_IMPULSE_OK;
 }
 
 /**
  * Cancelable sleep, can be triggered with signal from other thread
  */
-__weak EI_IMPULSE_ERROR ei_sleep(int32_t time_ms) {
+EI_WEAK_FN EI_IMPULSE_ERROR ei_sleep(int32_t time_ms) {
     ThisThread::sleep_for(time_ms);
     return EI_IMPULSE_OK;
 }
 
 uint64_t ei_read_timer_ms() {
+#if DEVICE_LPTICKER
+    return lp_ticker_read() / 1000L;
+#elif DEVICE_USTICKER
     return us_ticker_read() / 1000L;
+#else
+    #error "Target does not have DEVICE_LPTICKER NOR DEVICE_USTICKER"
+#endif
 }
 
 uint64_t ei_read_timer_us() {
+#if DEVICE_LPTICKER
+    return lp_ticker_read();
+#elif DEVICE_USTICKER
     return us_ticker_read();
+#else
+    #error "Target does not have DEVICE_LPTICKER NOR DEVICE_USTICKER"
+#endif
 }
 
 #endif // __MBED__

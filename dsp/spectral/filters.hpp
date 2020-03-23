@@ -26,6 +26,10 @@
 #include <math.h>
 #include "../numpy.hpp"
 
+#ifndef M_PI
+#define M_PI 3.14159265358979323846264338327950288
+#endif // M_PI
+
 namespace ei {
 namespace spectral {
 namespace filters {

@@ -29,6 +29,10 @@
 #include "../numpy.hpp"
 #include "../memory.hpp"
 
+#ifndef M_PI
+#define M_PI 3.14159265358979323846264338327950288
+#endif // M_PI
+
 // DCT type II, unscaled
 int ei::dct::transform(float vector[], size_t len) {
 	const size_t fft_data_out_size = (len / 2 + 1) * sizeof(ei::fft_complex_t);
