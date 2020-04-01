@@ -46,20 +46,20 @@ EI_WEAK_FN EI_IMPULSE_ERROR ei_sleep(int32_t time_ms) {
 }
 
 uint64_t ei_read_timer_ms() {
-#if DEVICE_LPTICKER
-    return lp_ticker_read() / 1000L;
-#elif DEVICE_USTICKER
+#if DEVICE_USTICKER
     return us_ticker_read() / 1000L;
+#elif DEVICE_LPTICKER
+    return lp_ticker_read() / 1000L;
 #else
     #error "Target does not have DEVICE_LPTICKER NOR DEVICE_USTICKER"
 #endif
 }
 
 uint64_t ei_read_timer_us() {
-#if DEVICE_LPTICKER
-    return lp_ticker_read();
-#elif DEVICE_USTICKER
+#if DEVICE_USTICKER
     return us_ticker_read();
+#elif DEVICE_LPTICKER
+    return lp_ticker_read();
 #else
     #error "Target does not have DEVICE_LPTICKER NOR DEVICE_USTICKER"
 #endif
