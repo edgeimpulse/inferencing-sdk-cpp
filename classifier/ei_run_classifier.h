@@ -39,9 +39,9 @@
 #include "utensor-model/trained.hpp"
 #include "utensor-model/trained_weight.hpp"            // keep the weights in ROM for now, we have plenty of internal flash
 #elif (EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_TFLITE)
-#include "tensorflow/lite/experimental/micro/kernels/all_ops_resolver.h"
-#include "tensorflow/lite/experimental/micro/micro_error_reporter.h"
-#include "tensorflow/lite/experimental/micro/micro_interpreter.h"
+#include "tensorflow/lite/micro/kernels/all_ops_resolver.h"
+#include "tensorflow/lite/micro/micro_error_reporter.h"
+#include "tensorflow/lite/micro/micro_interpreter.h"
 #include "tensorflow/lite/schema/schema_generated.h"
 #include "tensorflow/lite/version.h"
 

@@ -1,3 +1,6 @@
-tensorflow and third_party folders based on: https://github.com/tensorflow/tensorflow/#979c105c2cea75e0e481359d2d0c74fdbc9f867e
+tensorflow and third_party folders based on: https://github.com/tensorflow/tensorflow/#4997cdbbaac38f199170c1a40f53f7e3d91321fe
+TensorFlow source was prepared using `make -f tensorflow/lite/micro/tools/make/Makefile generate_projects`
+The files were taken from `tensorflow/lite/micro/tools/make/gen/osx_x86_64/prj/hello_world/make`
+The file `tensorflow/lite/micro/debug_log.cc` was then deleted.
 utensor based on: https://github.com/janjongboom/utensor/#3a76b5870aee0a3d4ab3f17a9ed434fcca897520
 CMSIS-DSP based on: https://github.com/ARM-software/CMSIS_5/tree/4d378e81968c6bec5441a42885b24db7cf189bca
