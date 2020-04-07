@@ -1070,6 +1070,11 @@ public:
             EIDSP_ERR(EIDSP_PARAMETER_INVALID);
         }
 
+        if (number == 1) {
+            out[0] = start;
+            return EIDSP_OK;
+        }
+
         // step size
         float step = (stop - start) / (number - 1);
 
