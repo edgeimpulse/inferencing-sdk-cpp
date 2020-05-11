@@ -34,7 +34,7 @@
 #include "dct/fast-dct-fft.h"
 #include "kissfft/kiss_fftr.h"
 #if EIDSP_USE_CMSIS_DSP
-#include "arm_math.h"
+#include "edge-impulse-sdk/CMSIS/DSP/Include/arm_math.h"
 #endif
 
 #ifdef __MBED__

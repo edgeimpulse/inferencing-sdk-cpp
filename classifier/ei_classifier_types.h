@@ -24,7 +24,7 @@
 #define _EDGE_IMPULSE_RUN_CLASSIFIER_TYPES_H_
 
 #include <stdint.h>
-#include "model_metadata.h"
+#include "model-parameters/model_metadata.h"
 
 typedef struct {
     const char *label;

@@ -23,9 +23,11 @@
 #ifndef _EDGE_IMPULSE_RUN_DSP_H_
 #define _EDGE_IMPULSE_RUN_DSP_H_
 
-#include "model_metadata.h"
-#include "dsp/spectral/spectral.hpp"
-#include "dsp/speechpy/speechpy.hpp"
+#include "model-parameters/model_metadata.h"
+#include "edge-impulse-sdk/dsp/spectral/spectral.hpp"
+#include "edge-impulse-sdk/dsp/speechpy/speechpy.hpp"
+
+extern void ei_printf(const char *format, ...);
 
 #ifdef __cplusplus
 namespace {
@@ -47,14 +49,14 @@ int extract_spectral_analysis_features(signal_t *signal, matrix_t *output_matrix
     // scale the signal
     ret = numpy::scale(&input_matrix, config.scale_axes);
     if (ret != EIDSP_OK) {
-        printf("ERR: Failed to scale signal (%d)\n", ret);
+        ei_printf("ERR: Failed to scale signal (%d)\n", ret);
         EIDSP_ERR(ret);
     }
 
     // transpose the matrix so we have one row per axis (nifty!)
     ret = numpy::transpose(&input_matrix);
     if (ret != EIDSP_OK) {
-        printf("ERR: Failed to transpose matrix (%d)\n", ret);
+        ei_printf("ERR: Failed to transpose matrix (%d)\n", ret);
         EIDSP_ERR(ret);
     }
 
@@ -66,7 +68,7 @@ int extract_spectral_analysis_features(signal_t *signal, matrix_t *output_matrix
     size_t output_matrix_cols = spectral::feature::calculate_spectral_buffer_size(
         true, config.spectral_peaks_count, edges_matrix_in.rows
     );
-    // printf("output_matrix_size %hux%zu\n", input_matrix.rows, output_matrix_cols);
+    // ei_printf("output_matrix_size %hux%zu\n", input_matrix.rows, output_matrix_cols);
     if (output_matrix->cols * output_matrix->rows != output_matrix_cols * config.axes) {
         EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
     }
@@ -89,7 +91,7 @@ int extract_spectral_analysis_features(signal_t *signal, matrix_t *output_matrix
         sampling_freq, filter_type, config.filter_cutoff, config.filter_order,
         config.fft_length, config.spectral_peaks_count, config.spectral_peaks_threshold, &edges_matrix_in);
     if (ret != EIDSP_OK) {
-        printf("ERR: Failed to calculate spectral features (%d)\n", ret);
+        ei_printf("ERR: Failed to calculate spectral features (%d)\n", ret);
         EIDSP_ERR(ret);
     }
 
@@ -140,14 +142,14 @@ int extract_flatten_features(signal_t *signal, matrix_t *output_matrix, void *co
     // scale the signal
     ret = numpy::scale(&input_matrix, config.scale_axes);
     if (ret != EIDSP_OK) {
-        printf("ERR: Failed to scale signal (%d)\n", ret);
+        ei_printf("ERR: Failed to scale signal (%d)\n", ret);
         EIDSP_ERR(ret);
     }
 
     // transpose the matrix so we have one row per axis (nifty!)
     ret = numpy::transpose(&input_matrix);
     if (ret != EIDSP_OK) {
-        printf("ERR: Failed to transpose matrix (%d)\n", ret);
+        ei_printf("ERR: Failed to transpose matrix (%d)\n", ret);
         EIDSP_ERR(ret);
     }
 
@@ -216,8 +218,8 @@ int extract_mfcc_features(signal_t *signal, matrix_t *output_matrix, void *confi
         speechpy::feature::calculate_mfcc_buffer_size(
             signal->total_length, frequency, config.frame_length, config.frame_stride, config.num_cepstral);
     if (out_matrix_size.rows * out_matrix_size.cols != output_matrix->rows * output_matrix->cols) {
-        printf("out_matrix = %hux%hu\n", output_matrix->rows, output_matrix->cols);
-        printf("calculated size = %hux%hu\n", out_matrix_size.rows, out_matrix_size.cols);
+        ei_printf("out_matrix = %hux%hu\n", output_matrix->rows, output_matrix->cols);
+        ei_printf("calculated size = %hux%hu\n", out_matrix_size.rows, out_matrix_size.cols);
         EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
     }
 
@@ -234,14 +236,14 @@ int extract_mfcc_features(signal_t *signal, matrix_t *output_matrix, void *confi
         frequency, config.frame_length, config.frame_stride, config.num_cepstral, config.num_filters, config.fft_length,
         config.low_frequency, config.high_frequency);
     if (ret != EIDSP_OK) {
-        printf("ERR: MFCC failed (%d)\n", ret);
+        ei_printf("ERR: MFCC failed (%d)\n", ret);
         EIDSP_ERR(ret);
     }
 
 #ifdef __MBED__
     t.stop();
 
-    // printf("mfcc done in %d ms.\n", t.read_ms());
+    // ei_printf("mfcc done in %d ms.\n", t.read_ms());
 
     t.reset();
     t.start();
@@ -250,14 +252,14 @@ int extract_mfcc_features(signal_t *signal, matrix_t *output_matrix, void *confi
     // cepstral mean and variance normalization
     ret = speechpy::processing::cmvnw(output_matrix, config.win_size, true);
     if (ret != EIDSP_OK) {
-        printf("ERR: cmvnw failed (%d)\n", ret);
+        ei_printf("ERR: cmvnw failed (%d)\n", ret);
         EIDSP_ERR(ret);
     }
 
 #ifdef __MBED__
     t.stop();
 
-    // printf("cmvnw done in %d ms.\n", t.read_ms());
+    // ei_printf("cmvnw done in %d ms.\n", t.read_ms());
 #endif
 
     output_matrix->cols = out_matrix_size.rows * out_matrix_size.cols;

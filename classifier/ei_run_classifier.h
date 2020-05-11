@@ -32,20 +32,20 @@
 #if defined(EI_CLASSIFIER_HAS_SAMPLER) && EI_CLASSIFIER_HAS_SAMPLER == 1
 #include "ei_sampler.h"
 #endif
-#include "ei_classifier_porting.h"
-#include "dsp_blocks.h"
+#include "edge-impulse-sdk/porting/ei_classifier_porting.h"
+#include "model-parameters/dsp_blocks.h"
 
 #if EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_UTENSOR
 #include "utensor-model/trained.hpp"
 #include "utensor-model/trained_weight.hpp"            // keep the weights in ROM for now, we have plenty of internal flash
 #elif (EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_TFLITE)
-#include "tensorflow/lite/micro/kernels/all_ops_resolver.h"
-#include "tensorflow/lite/micro/micro_error_reporter.h"
-#include "tensorflow/lite/micro/micro_interpreter.h"
-#include "tensorflow/lite/schema/schema_generated.h"
-#include "tensorflow/lite/version.h"
+#include "edge-impulse-sdk/tensorflow/lite/micro/kernels/all_ops_resolver.h"
+#include "edge-impulse-sdk/tensorflow/lite/micro/micro_error_reporter.h"
+#include "edge-impulse-sdk/tensorflow/lite/micro/micro_interpreter.h"
+#include "edge-impulse-sdk/tensorflow/lite/schema/schema_generated.h"
+#include "edge-impulse-sdk/tensorflow/lite/version.h"
 
-#include "tflite-trained.h"
+#include "tflite-model/tflite-trained.h"
 
 static tflite::MicroErrorReporter micro_error_reporter;
 static tflite::ErrorReporter* error_reporter = &micro_error_reporter;
@@ -70,11 +70,11 @@ extern "C" EI_IMPULSE_ERROR run_classifier(
     bool debug = false)
 {
     // if (debug) {
-    //     printf("Input data: ");
+    //     ei_printf("Input data: ");
     //     for (size_t ix = 0; ix < raw_features_size; ix++) {
-    //         printf("%f ", raw_features[ix]);
+    //         ei_printf("%f ", raw_features[ix]);
     //     }
-    //     printf("\n");
+    //     ei_printf("\n");
     // }
 
     ei::matrix_t features_matrix(1, EI_CLASSIFIER_NN_INPUT_FRAME_SIZE);
@@ -87,7 +87,7 @@ extern "C" EI_IMPULSE_ERROR run_classifier(
         ei_model_dsp_t block = ei_dsp_blocks[ix];
 
         if (out_features_index + block.n_output_features > EI_CLASSIFIER_NN_INPUT_FRAME_SIZE) {
-            printf("ERR: Would write outside feature buffer\n");
+            ei_printf("ERR: Would write outside feature buffer\n");
             return EI_IMPULSE_DSP_ERROR;
         }
 
@@ -95,7 +95,7 @@ extern "C" EI_IMPULSE_ERROR run_classifier(
 
         int ret = block.extract_fn(signal, &fm, block.config);
         if (ret != EIDSP_OK) {
-            printf("ERR: Failed to run DSP process (%d)\n", ret);
+            ei_printf("ERR: Failed to run DSP process (%d)\n", ret);
             return EI_IMPULSE_DSP_ERROR;
         }
 
@@ -109,15 +109,15 @@ extern "C" EI_IMPULSE_ERROR run_classifier(
     result->timing.dsp = ei_read_timer_ms() - dsp_start_ms;
 
     if (debug) {
-        printf("Features (%d ms.): ", result->timing.dsp);
+        ei_printf("Features (%d ms.): ", result->timing.dsp);
         for (size_t ix = 0; ix < features_matrix.cols; ix++) {
-            printf("%f ", features_matrix.buffer[ix]);
+            ei_printf("%f ", features_matrix.buffer[ix]);
         }
-        printf("\n");
+        ei_printf("\n");
     }
 
     if (debug) {
-        printf("Running neural network...\n");
+        ei_printf("Running neural network...\n");
     }
 #if EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_UTENSOR
     // now turn into floats...
@@ -147,13 +147,13 @@ extern "C" EI_IMPULSE_ERROR run_classifier(
         }
 
         if (debug) {
-            printf("Predictions (time: %d ms.):\n", result->timing.classification);
+            ei_printf("Predictions (time: %d ms.):\n", result->timing.classification);
         }
         const float* ptr_pred = pred_tensor->read<float>(0, 0);
 
         for (uint32_t ix = 0; ix < output_neurons; ix++) {
             if (debug) {
-                printf("%s:\t%f\n", ei_classifier_inferencing_categories[ix], *(ptr_pred + ix));
+                ei_printf("%s:\t%f\n", ei_classifier_inferencing_categories[ix], *(ptr_pred + ix));
             }
             result->classification[ix].label = ei_classifier_inferencing_categories[ix];
             result->classification[ix].value = *(ptr_pred + ix);
@@ -165,7 +165,7 @@ extern "C" EI_IMPULSE_ERROR run_classifier(
         // Finding the minimum value for your model may require some trial and error.
         uint8_t *tensor_arena = (uint8_t*)malloc(EI_CLASSIFIER_TFLITE_ARENA_SIZE);
         if (!tensor_arena) {
-            printf("Failed to allocate TFLite arena (%d bytes)\n", EI_CLASSIFIER_TFLITE_ARENA_SIZE);
+            ei_printf("Failed to allocate TFLite arena (%d bytes)\n", EI_CLASSIFIER_TFLITE_ARENA_SIZE);
             return EI_IMPULSE_TFLITE_ARENA_ALLOC_FAILED;
         }
 
@@ -191,6 +191,8 @@ extern "C" EI_IMPULSE_ERROR run_classifier(
                 free(tensor_arena);
                 return EI_IMPULSE_TFLITE_ERROR;
             }
+
+            ei_printf("Loaded model yes\n");
 
             tflite_first_run = false;
         }
@@ -235,11 +237,11 @@ extern "C" EI_IMPULSE_ERROR run_classifier(
 
         // Read the predicted y value from the model's output tensor
         if (debug) {
-            printf("Predictions (time: %d ms.):\n", result->timing.classification);
+            ei_printf("Predictions (time: %d ms.):\n", result->timing.classification);
         }
         for (uint32_t ix = 0; ix < EI_CLASSIFIER_LABEL_COUNT; ix++) {
             if (debug) {
-                printf("%s:\t%f\n", ei_classifier_inferencing_categories[ix], output->data.f[ix]);
+                ei_printf("%s:\t%f\n", ei_classifier_inferencing_categories[ix], output->data.f[ix]);
             }
             result->classification[ix].label = ei_classifier_inferencing_categories[ix];
             result->classification[ix].value = output->data.f[ix];
@@ -270,7 +272,7 @@ extern "C" EI_IMPULSE_ERROR run_classifier(
         uint64_t anomaly_end_ms = ei_read_timer_ms();
 
         if (debug) {
-            printf("Anomaly score (time: %llu ms.): %f\n", anomaly_end_ms - anomaly_start_ms, anomaly);
+            ei_printf("Anomaly score (time: %llu ms.): %f\n", anomaly_end_ms - anomaly_start_ms, anomaly);
         }
 
         result->timing.anomaly = anomaly_end_ms - anomaly_start_ms;
@@ -339,7 +341,7 @@ EI_IMPULSE_ERROR run_impulse(
     signal_t signal;
     int err = numpy::signal_from_buffer(x, EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE, &signal);
     if (err != 0) {
-        printf("ERR: signal_from_buffer failed (%d)\n", err);
+        ei_printf("ERR: signal_from_buffer failed (%d)\n", err);
         return EI_IMPULSE_DSP_ERROR;
     }
 

@@ -24,7 +24,7 @@
 #define _EDGE_IMPULSE_MODEL_TYPES_H_
 
 #include <stdint.h>
-#include "dsp/numpy.hpp"
+#include "edge-impulse-sdk/dsp/numpy.hpp"
 
 typedef struct {
     size_t n_output_features;

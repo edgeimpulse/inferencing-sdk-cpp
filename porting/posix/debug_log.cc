@@ -14,9 +14,17 @@ limitations under the License.
 ==============================================================================*/
 
 #include <stdio.h>
+#include <stdarg.h>
 #include "tensorflow/lite/micro/debug_log.h"
 
 // Use standard IO on Posix systems for debugging
 extern "C" void DebugLog(const char* s) {
   printf("%s", s);
+}
+
+void ei_printf(const char *format, ...) {
+  va_list myargs;
+  va_start(myargs, format);
+  vprintf(format, myargs);
+  va_end(myargs);
 }
