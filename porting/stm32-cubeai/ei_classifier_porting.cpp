@@ -20,40 +20,22 @@
  * SOFTWARE.
  */
 
-#ifndef _EI_CLASSIFIER_PORTING_H_
-#define _EI_CLASSIFIER_PORTING_H_
+#include "main.h"
+#include "edge-impulse-sdk/porting/ei_classifier_porting.h"
 
-#include <stdint.h>
+__attribute__((weak)) EI_IMPULSE_ERROR ei_run_impulse_check_canceled() {
+    return EI_IMPULSE_OK;
+}
 
-typedef enum {
-    EI_IMPULSE_OK = 0,
-    EI_IMPULSE_ERROR_SHAPES_DONT_MATCH = -1,
-    EI_IMPULSE_CANCELED = -2,
-    EI_IMPULSE_TFLITE_ERROR = -3,
-    EI_IMPULSE_DSP_ERROR = -5,
-    EI_IMPULSE_TFLITE_ARENA_ALLOC_FAILED = -6,
-    EI_IMPULSE_CUBEAI_ERROR = -7
-} EI_IMPULSE_ERROR;
+__attribute__((weak)) EI_IMPULSE_ERROR ei_sleep(int32_t time_ms) {
+    HAL_Delay(time_ms);
+    return EI_IMPULSE_OK;
+}
 
-/**
- * Cancelable sleep, can be triggered with signal from other thread
- */
-EI_IMPULSE_ERROR ei_sleep(int32_t time_ms);
+uint64_t ei_read_timer_ms() {
+    return HAL_GetTick();
+}
 
-/**
- * Check if the sampler thread was canceled, use this in conjunction with
- * the same signaling mechanism as ei_sleep
- */
-EI_IMPULSE_ERROR ei_run_impulse_check_canceled();
-
-/**
- * Read the millisecond timer
- */
-uint64_t ei_read_timer_ms();
-
-/**
- * Read the microsecond timer
- */
-uint64_t ei_read_timer_us();
-
-#endif // _EI_CLASSIFIER_PORTING_H_
+uint64_t ei_read_timer_us() {
+    return HAL_GetTick() * 1000;
+}

@@ -20,40 +20,13 @@
  * SOFTWARE.
  */
 
-#ifndef _EI_CLASSIFIER_PORTING_H_
-#define _EI_CLASSIFIER_PORTING_H_
+#include <stdio.h>
+#include <stdarg.h>
 
-#include <stdint.h>
-
-typedef enum {
-    EI_IMPULSE_OK = 0,
-    EI_IMPULSE_ERROR_SHAPES_DONT_MATCH = -1,
-    EI_IMPULSE_CANCELED = -2,
-    EI_IMPULSE_TFLITE_ERROR = -3,
-    EI_IMPULSE_DSP_ERROR = -5,
-    EI_IMPULSE_TFLITE_ARENA_ALLOC_FAILED = -6,
-    EI_IMPULSE_CUBEAI_ERROR = -7
-} EI_IMPULSE_ERROR;
-
-/**
- * Cancelable sleep, can be triggered with signal from other thread
- */
-EI_IMPULSE_ERROR ei_sleep(int32_t time_ms);
-
-/**
- * Check if the sampler thread was canceled, use this in conjunction with
- * the same signaling mechanism as ei_sleep
- */
-EI_IMPULSE_ERROR ei_run_impulse_check_canceled();
-
-/**
- * Read the millisecond timer
- */
-uint64_t ei_read_timer_ms();
-
-/**
- * Read the microsecond timer
- */
-uint64_t ei_read_timer_us();
-
-#endif // _EI_CLASSIFIER_PORTING_H_
+// override this function in your main to redirect debug output to e.g. UART1
+__attribute__((weak)) void ei_printf(const char *format, ...) {
+    va_list myargs;
+    va_start(myargs, format);
+    vprintf(format, myargs);
+    va_end(myargs);
+}

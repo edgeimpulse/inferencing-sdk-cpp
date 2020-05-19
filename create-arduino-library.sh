@@ -16,6 +16,7 @@ SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 rm -rf $SCRIPTPATH/utensor
 rm -rf $SCRIPTPATH/tensorflow/lite/micro/mbed/
 rm -rf $SCRIPTPATH/porting/posix/
+rm -rf $SCRIPTPATH/porting/stm32-cubeai/
 rm -rf $SCRIPTPATH/classifier/ei_run_classifier_c*
 rm -rf $SCRIPTPATH/CMSIS/DSP/Source/TransformFunctions/arm_bitreversal2.S
 rm -rf $SCRIPTPATH/CMSIS/DSP/Source/MatrixFunctions/*.c

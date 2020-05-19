@@ -49,6 +49,26 @@
 
 static tflite::MicroErrorReporter micro_error_reporter;
 static tflite::ErrorReporter* error_reporter = &micro_error_reporter;
+#elif (EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_CUBEAI)
+
+#include <assert.h>
+#include "cubeai-model/network.h"
+#include "cubeai-model/network_data.h"
+
+static_assert(AI_NETWORK_IN_1_SIZE == EI_CLASSIFIER_NN_INPUT_FRAME_SIZE, "AI_NETWORK_IN_1_SIZE should equal EI_CLASSIFIER_NN_INPUT_FRAME_SIZE");
+AI_ALIGNED(4)
+static ai_float in_data[AI_NETWORK_IN_1_SIZE];
+
+static_assert(AI_NETWORK_OUT_1_SIZE == EI_CLASSIFIER_LABEL_COUNT, "AI_NETWORK_OUT_1_SIZE should equal EI_CLASSIFIER_LABEL_COUNT");
+AI_ALIGNED(4)
+static ai_float out_data[AI_NETWORK_OUT_1_SIZE];
+
+/* Global buffer to handle the activations data buffer - R/W data */
+AI_ALIGNED(4)
+static ai_u8 activations[AI_NETWORK_DATA_ACTIVATIONS_SIZE];
+
+static ai_handle network = AI_HANDLE_NULL;
+
 #else
 #error "Unknown inferencing engine"
 #endif
@@ -253,6 +273,90 @@ extern "C" EI_IMPULSE_ERROR run_classifier(
             return EI_IMPULSE_CANCELED;
         }
     }
+#elif EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_CUBEAI
+
+    if (!network) {
+#if defined(STM32H7)
+		/* By default the CRC IP clock is enabled */
+		__HAL_RCC_CRC_CLK_ENABLE();
+#else
+		if (!__HAL_RCC_CRC_IS_CLK_ENABLED()) {
+			ei_printf("W: CRC IP clock is NOT enabled\r\n");
+		}
+
+		/* By default the CRC IP clock is enabled */
+		__HAL_RCC_CRC_CLK_ENABLE();
+#endif
+
+    	ai_error err;
+
+        if (debug) {
+    	    ei_printf("Creating network...\n");
+        }
+
+    	// create the network
+	    err = ai_network_create(&network, (const ai_buffer*)AI_NETWORK_DATA_CONFIG);
+	    if (err.type != AI_ERROR_NONE) {
+	    	ei_printf("CubeAI error - type=%d code=%d\r\n", err.type, err.code);
+	    	return EI_IMPULSE_CUBEAI_ERROR;
+	    }
+
+        const ai_network_params params = {
+           AI_NETWORK_DATA_WEIGHTS(ai_network_data_weights_get()),
+           AI_NETWORK_DATA_ACTIVATIONS(activations) };
+
+        if (debug) {
+            ei_printf("Initializing network...\n");
+        }
+
+        if (!ai_network_init(network, &params)) {
+            err = ai_network_get_error(network);
+	    	ei_printf("CubeAI error - type=%d code=%d\r\n", err.type, err.code);
+	    	return EI_IMPULSE_CUBEAI_ERROR;
+        }
+    }
+
+    uint64_t ctx_start_ms = ei_read_timer_ms();
+
+    // features_matrix.buffer <-- input data
+    memcpy(in_data, features_matrix.buffer, AI_NETWORK_IN_1_SIZE * sizeof(float));
+
+    ai_i32 n_batch;
+    ai_error err;
+
+    /* 1 - Create the AI buffer IO handlers */
+    ai_buffer ai_input[AI_NETWORK_IN_NUM] = AI_NETWORK_IN ;
+    ai_buffer ai_output[AI_NETWORK_OUT_NUM] = AI_NETWORK_OUT ;
+
+    /* 2 - Initialize input/output buffer handlers */
+    ai_input[0].n_batches = 1;
+    ai_input[0].data = AI_HANDLE_PTR(in_data);
+    ai_output[0].n_batches = 1;
+    ai_output[0].data = AI_HANDLE_PTR(out_data);
+
+    /* 3 - Perform the inference */
+    n_batch = ai_network_run(network, &ai_input[0], &ai_output[0]);
+    if (n_batch != 1) {
+        err = ai_network_get_error(network);
+    	ei_printf("CubeAI error - type=%d code=%d\r\n", err.type, err.code);
+    	return EI_IMPULSE_CUBEAI_ERROR;
+    }
+
+    uint64_t ctx_end_ms = ei_read_timer_ms();
+
+    result->timing.classification = ctx_end_ms - ctx_start_ms;
+
+    if (debug) {
+        ei_printf("Predictions (time: %d ms.):\n", result->timing.classification);
+    }
+    for (uint32_t ix = 0; ix < EI_CLASSIFIER_LABEL_COUNT; ix++) {
+        if (debug) {
+            ei_printf("%s:\t%f\n", ei_classifier_inferencing_categories[ix], out_data[ix]);
+        }
+        result->classification[ix].label = ei_classifier_inferencing_categories[ix];
+        result->classification[ix].value = out_data[ix];
+    }
+
 #endif
 
 #if EI_CLASSIFIER_HAS_ANOMALY == 1
@@ -272,7 +376,7 @@ extern "C" EI_IMPULSE_ERROR run_classifier(
         uint64_t anomaly_end_ms = ei_read_timer_ms();
 
         if (debug) {
-            ei_printf("Anomaly score (time: %llu ms.): %f\n", anomaly_end_ms - anomaly_start_ms, anomaly);
+            ei_printf("Anomaly score (time: %d ms.): %f\n", static_cast<int>(anomaly_end_ms - anomaly_start_ms), anomaly);
         }
 
         result->timing.anomaly = anomaly_end_ms - anomaly_start_ms;

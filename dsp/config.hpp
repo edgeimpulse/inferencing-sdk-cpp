@@ -24,7 +24,7 @@
 #define _EIDSP_CPP_CONFIG_H_
 
 #ifndef EIDSP_USE_CMSIS_DSP
-#if defined(__MBED__) || defined(__TARGET_CPU_CORTEX_M0) || defined(__TARGET_CPU_CORTEX_M0PLUS) || defined(__TARGET_CPU_CORTEX_M3) || defined(__TARGET_CPU_CORTEX_M4) || defined(__TARGET_CPU_CORTEX_M7)
+#if defined(__MBED__) || defined(__TARGET_CPU_CORTEX_M0) || defined(__TARGET_CPU_CORTEX_M0PLUS) || defined(__TARGET_CPU_CORTEX_M3) || defined(__TARGET_CPU_CORTEX_M4) || defined(__TARGET_CPU_CORTEX_M7) || defined(USE_HAL_DRIVER)
 #define EIDSP_USE_CMSIS_DSP      1
 #define EIDSP_i16                q15_t
 #define EIDSP_i8                 q7_t
@@ -34,6 +34,10 @@
 #define EIDSP_i16                int16_t
 #define EIDSP_i8                 int8_t
 #endif
+#elif EIDSP_USE_CMSIS_DSP == 1
+#define EIDSP_i16                q15_t
+#define EIDSP_i8                 q7_t
+#define ARM_MATH_ROUNDING        1
 #endif // EIDSP_USE_CMSIS_DSP
 
 #ifndef EIDSP_USE_ASSERTS
