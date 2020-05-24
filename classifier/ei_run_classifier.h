@@ -212,8 +212,6 @@ extern "C" EI_IMPULSE_ERROR run_classifier(
                 return EI_IMPULSE_TFLITE_ERROR;
             }
 
-            ei_printf("Loaded model yes\n");
-
             tflite_first_run = false;
         }
 
