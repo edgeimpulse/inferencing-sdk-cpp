@@ -62,3 +62,6 @@ find $SCRIPTPATH/ -name '*.h' -exec bash -c "sed -i -e 's/#include \"ruy\/profil
 find $SCRIPTPATH/ -name '*.c*' -exec bash -c "sed -i -e 's/#include \"ruy\/profiler\/instrumentation/#include \"edge-impulse-sdk\/third_party\/ruy\/ruy\/profiler\/instrumentation/' {}" {} \;
 find $SCRIPTPATH/ -name '*.h' -exec bash -c "sed -i -e 's/#include \"fixedpoint\/fixedpoint/#include \"edge-impulse-sdk\/third_party\/gemmlowp\/fixedpoint\/fixedpoint/' {}" {} \;
 find $SCRIPTPATH/ -name '*.c*' -exec bash -c "sed -i -e 's/#include \"fixedpoint\/fixedpoint/#include \"edge-impulse-sdk\/third_party\/gemmlowp\/fixedpoint\/fixedpoint/' {}" {} \;
+
+# remove all the -e files
+find $SCRIPTPATH/ -name "*-e" -exec rm -f {} \;

@@ -14,20 +14,19 @@ limitations under the License.
 ==============================================================================*/
 
 #include "tensorflow/lite/micro/debug_log.h"
-
-#include <mbed.h>
+#include <stdio.h>
 #include <stdarg.h>
 
 // On mbed platforms, we set up a serial port and write to it for debug logging.
 extern "C" void DebugLog(const char* s) {
-  printf("%s", s);
+    printf("%s", s);
 }
 
 #ifndef ARDUINO
 void ei_printf(const char *format, ...) {
-  va_list myargs;
-  va_start(myargs, format);
-  vprintf(format, myargs);
-  va_end(myargs);
+    va_list myargs;
+    va_start(myargs, format);
+    vprintf(format, myargs);
+    va_end(myargs);
 }
 #endif

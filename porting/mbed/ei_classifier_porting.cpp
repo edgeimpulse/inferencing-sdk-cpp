@@ -69,3 +69,30 @@ uint64_t ei_read_timer_us() {
 }
 
 #endif // __MBED__
+
+// Non-Mbed Arduino targets (should probably move to it's own file)
+#if !defined(__MBED__) && defined(ARDUINO)
+
+#include <Arduino.h>
+#include "../ei_classifier_porting.h"
+
+#define EI_WEAK_FN __attribute__((weak))
+
+EI_WEAK_FN EI_IMPULSE_ERROR ei_run_impulse_check_canceled() {
+    return EI_IMPULSE_OK;
+}
+
+EI_WEAK_FN EI_IMPULSE_ERROR ei_sleep(int32_t time_ms) {
+    delay(time_ms);
+    return EI_IMPULSE_OK;
+}
+
+uint64_t ei_read_timer_ms() {
+    return millis();
+}
+
+uint64_t ei_read_timer_us() {
+    return micros();
+}
+
+#endif // !defined(MBED) && defined(ARDUINO)
