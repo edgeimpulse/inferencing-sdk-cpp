@@ -85,7 +85,7 @@ namespace processing {
      * @param scale (float): The scaling factor (multiplies by this number).
      * @returns 0 when successful
      */
-    static int scale(float *signal, size_t signal_size, float scale = 1)
+    __attribute__((unused)) static int scale(float *signal, size_t signal_size, float scale = 1)
     {
         EI_DSP_MATRIX_B(temp, 1, signal_size, signal);
         return numpy::scale(&temp, scale);

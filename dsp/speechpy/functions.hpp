@@ -39,7 +39,7 @@ public:
      * @returns The mel scale values(or a single mel).
      */
     static float frequency_to_mel(float f) {
-        return 1127.0 * log(1 + f / 700.0f);
+        return 1127.0 * numpy::log(1 + f / 700.0f);
     }
 
     /**

@@ -400,7 +400,7 @@ extern "C" EI_IMPULSE_ERROR run_classifier(
  * @param data_fn Function to retrieve data from sensors
  * @param debug Whether to log debug messages (default false)
  */
-EI_IMPULSE_ERROR run_impulse(
+__attribute__((unused)) EI_IMPULSE_ERROR run_impulse(
 #if defined(EI_CLASSIFIER_HAS_SAMPLER) && EI_CLASSIFIER_HAS_SAMPLER == 1
         EdgeSampler *sampler,
 #endif
@@ -457,7 +457,7 @@ EI_IMPULSE_ERROR run_impulse(
  * @param data_fn Function to retrieve data from sensors
  * @param debug Whether to log debug messages (default false)
  */
-EI_IMPULSE_ERROR run_impulse(
+__attribute__((unused)) EI_IMPULSE_ERROR run_impulse(
         ei_impulse_result_t *result,
 #ifdef __MBED__
         Callback<void(float*, size_t)> data_fn,

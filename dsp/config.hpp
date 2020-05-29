@@ -38,6 +38,9 @@
 #define EIDSP_i16                q15_t
 #define EIDSP_i8                 q7_t
 #define ARM_MATH_ROUNDING        1
+#elif EIDSP_USE_CMSIS_DSP == 0
+#define EIDSP_i16                int16_t
+#define EIDSP_i8                 int8_t
 #endif // EIDSP_USE_CMSIS_DSP
 
 #ifndef EIDSP_USE_ASSERTS

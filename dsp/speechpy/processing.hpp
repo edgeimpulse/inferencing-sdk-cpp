@@ -148,7 +148,7 @@ namespace processing {
      * @param cof (float): The preemphasising coefficient. 0 equals to no filtering.
      * @returns 0 when successful
      */
-    static int preemphasis(float *signal, size_t signal_size, int shift = 1, float cof = 0.98f)
+    __attribute__((unused)) static int preemphasis(float *signal, size_t signal_size, int shift = 1, float cof = 0.98f)
     {
         if (shift < 0) {
             shift = signal_size + shift;

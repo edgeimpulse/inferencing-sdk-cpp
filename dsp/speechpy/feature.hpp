@@ -111,7 +111,11 @@ public:
             EIDSP_ERR(EIDSP_OUT_OF_MEM);
         }
         for (uint16_t ix = 0; ix < num_filter + 2; ix++) {
-            freq_index[ix] = static_cast<int>(floor((coefficients + 1) * hertz[ix] / sampling_freq));
+            // here is a really annoying bug in Speechpy which calculates the frequency index wrong for the last bucket
+            // the last 'hertz' value is not 8,000 (with sampling rate 16,000) but 7,999.999999
+            // thus calculating the bucket to 64, not 65.
+            // we're adjusting this here a tiny bit to ensure we have the same result
+            freq_index[ix] = static_cast<int>(floor(((coefficients + 1) * hertz[ix] / sampling_freq) - 0.00001));
         }
         ei_dsp_free(hertz, hertz_mem_size);
 
@@ -214,7 +218,9 @@ public:
             EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
         }
 
-        memset(out_features->buffer, 0, out_features->rows * out_features->cols * sizeof(float));
+        for(int i = 0; i < out_features->rows * out_features->cols; i++) {
+            *(out_features->buffer + i) = 0;
+        }
 
         uint16_t coefficients = fft_length / 2 + 1;
 
@@ -393,8 +399,9 @@ public:
 
         // ok... now we need to calculate the MFCC from this...
         // first do log() over all features...
-        for (size_t ix = 0; ix < features_matrix.rows * features_matrix.cols; ix++) {
-            features_matrix.buffer[ix] = log(features_matrix.buffer[ix]);
+        ret = numpy::log(&features_matrix);
+        if (ret != EIDSP_OK) {
+            EIDSP_ERR(ret);
         }
 
         // now do DST type 2
@@ -406,15 +413,15 @@ public:
         // replace first cepstral coefficient with log of frame energy for DC elimination
         if (dc_elimination) {
             for (size_t row = 0; row < features_matrix.rows; row++) {
-                features_matrix.buffer[row * features_matrix.cols] = log(energy_matrix.buffer[row]);
+                features_matrix.buffer[row * features_matrix.cols] = numpy::log(energy_matrix.buffer[row]);
             }
         }
 
         // copy to the output...
         for (size_t row = 0; row < features_matrix.rows; row++) {
-            memcpy(out_features->buffer + (num_cepstral * row),
-                features_matrix.buffer + (features_matrix.cols * row),
-                num_cepstral * sizeof(float));
+            for(int i = 0; i < num_cepstral; i++) {
+                *(out_features->buffer + (num_cepstral * row) + i) = *(features_matrix.buffer + (features_matrix.cols * row) + i);
+            }
         }
 
         return EIDSP_OK;

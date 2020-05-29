@@ -35,7 +35,7 @@ namespace {
 
 using namespace ei;
 
-int extract_spectral_analysis_features(signal_t *signal, matrix_t *output_matrix, void *config_ptr) {
+__attribute__((unused)) int extract_spectral_analysis_features(signal_t *signal, matrix_t *output_matrix, void *config_ptr) {
     ei_dsp_config_spectral_analysis_t config = *((ei_dsp_config_spectral_analysis_t*)config_ptr);
 
     int ret;
@@ -102,7 +102,7 @@ int extract_spectral_analysis_features(signal_t *signal, matrix_t *output_matrix
     return EIDSP_OK;
 }
 
-int extract_raw_features(signal_t *signal, matrix_t *output_matrix, void *config_ptr) {
+__attribute__((unused)) int extract_raw_features(signal_t *signal, matrix_t *output_matrix, void *config_ptr) {
     ei_dsp_config_raw_t config = *((ei_dsp_config_raw_t*)config_ptr);
 
     // input matrix from the raw signal
@@ -120,7 +120,7 @@ int extract_raw_features(signal_t *signal, matrix_t *output_matrix, void *config
     return EIDSP_OK;
 }
 
-int extract_flatten_features(signal_t *signal, matrix_t *output_matrix, void *config_ptr) {
+__attribute__((unused)) int extract_flatten_features(signal_t *signal, matrix_t *output_matrix, void *config_ptr) {
     ei_dsp_config_flatten_t config = *((ei_dsp_config_flatten_t*)config_ptr);
 
     size_t expected_matrix_size = 0;
@@ -195,7 +195,7 @@ static int preemphasized_audio_signal_get_data(size_t offset, size_t length, flo
     return preemphasis->get_data(offset, length, out_ptr);
 }
 
-int extract_mfcc_features(signal_t *signal, matrix_t *output_matrix, void *config_ptr) {
+__attribute__((unused)) int extract_mfcc_features(signal_t *signal, matrix_t *output_matrix, void *config_ptr) {
     ei_dsp_config_mfcc_t config = *((ei_dsp_config_mfcc_t*)config_ptr);
 
     if (config.axes != 1) {
