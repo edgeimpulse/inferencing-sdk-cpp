@@ -25,20 +25,22 @@
 
 #ifndef EIDSP_USE_CMSIS_DSP
 #if defined(__MBED__) || defined(__TARGET_CPU_CORTEX_M0) || defined(__TARGET_CPU_CORTEX_M0PLUS) || defined(__TARGET_CPU_CORTEX_M3) || defined(__TARGET_CPU_CORTEX_M4) || defined(__TARGET_CPU_CORTEX_M7) || defined(USE_HAL_DRIVER)
-#define EIDSP_USE_CMSIS_DSP      1
+    // Mbed OS versions before 5.7 are not based on CMSIS5, disable CMSIS-DSP and CMSIS-NN instructions
+    #if defined(__MBED__) && (MBED_VERSION < MBED_ENCODE_VERSION((5), (7), (0)))
+        #define EIDSP_USE_CMSIS_DSP      0
+    #else
+        #define EIDSP_USE_CMSIS_DSP      1
+    #endif // Mbed OS 5.7 version check
+#else
+    #define EIDSP_USE_CMSIS_DSP     0
+#endif // Mbed / ARM Core check
+#endif // ifndef EIDSP_USE_CMSIS_DSP
+
+#if EIDSP_USE_CMSIS_DSP == 1
 #define EIDSP_i16                q15_t
 #define EIDSP_i8                 q7_t
 #define ARM_MATH_ROUNDING        1
 #else
-#define EIDSP_USE_CMSIS_DSP      0
-#define EIDSP_i16                int16_t
-#define EIDSP_i8                 int8_t
-#endif
-#elif EIDSP_USE_CMSIS_DSP == 1
-#define EIDSP_i16                q15_t
-#define EIDSP_i8                 q7_t
-#define ARM_MATH_ROUNDING        1
-#elif EIDSP_USE_CMSIS_DSP == 0
 #define EIDSP_i16                int16_t
 #define EIDSP_i8                 int8_t
 #endif // EIDSP_USE_CMSIS_DSP

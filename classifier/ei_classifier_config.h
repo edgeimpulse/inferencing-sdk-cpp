@@ -24,12 +24,18 @@
 #define _EI_CLASSIFIER_CONFIG_H_
 
 #ifndef EI_CLASSIFIER_TFLITE_ENABLE_CMSIS_NN
-#if defined(__MBED__) || defined(__TARGET_CPU_CORTEX_M0) || defined(__TARGET_CPU_CORTEX_M0PLUS) || defined(__TARGET_CPU_CORTEX_M3) || defined(__TARGET_CPU_CORTEX_M4) || defined(__TARGET_CPU_CORTEX_M7)
-#define EI_CLASSIFIER_TFLITE_ENABLE_CMSIS_NN     1
+#if defined(__MBED__)
+    #include "mbed.h"
+    #if (MBED_VERSION < MBED_ENCODE_VERSION(5, 7, 0))
+        #define EI_CLASSIFIER_TFLITE_ENABLE_CMSIS_NN      0
+    #else
+        #define EI_CLASSIFIER_TFLITE_ENABLE_CMSIS_NN      1
+    #endif // Mbed OS 5.7 version check
+#elif defined(__TARGET_CPU_CORTEX_M0) || defined(__TARGET_CPU_CORTEX_M0PLUS) || defined(__TARGET_CPU_CORTEX_M3) || defined(__TARGET_CPU_CORTEX_M4) || defined(__TARGET_CPU_CORTEX_M7)
+    #define EI_CLASSIFIER_TFLITE_ENABLE_CMSIS_NN      1
 #else
-#define EI_CLASSIFIER_TFLITE_ENABLE_CMSIS_NN     0
+    #define EI_CLASSIFIER_TFLITE_ENABLE_CMSIS_NN      0
 #endif
 #endif // EI_CLASSIFIER_TFLITE_ENABLE_CMSIS_NN
-
 
 #endif // _EI_CLASSIFIER_CONFIG_H_

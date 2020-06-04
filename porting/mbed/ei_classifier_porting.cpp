@@ -29,6 +29,9 @@
 using namespace rtos;
 
 #ifdef ARDUINO
+#if !defined(DEVICE_USTICKER) && !defined(DEVICE_LPTICKER)
+#include <Arduino.h>
+#endif
 #define EI_WEAK_FN __attribute__((weak))
 #else
 #define EI_WEAK_FN __weak
@@ -42,7 +45,11 @@ EI_WEAK_FN EI_IMPULSE_ERROR ei_run_impulse_check_canceled() {
  * Cancelable sleep, can be triggered with signal from other thread
  */
 EI_WEAK_FN EI_IMPULSE_ERROR ei_sleep(int32_t time_ms) {
+#if MBED_VERSION >= MBED_ENCODE_VERSION((5), (11), (0))
     ThisThread::sleep_for(time_ms);
+#else
+    wait_ms(time_ms);
+#endif // MBED_VERSION >= MBED_ENCODE_VERSION((5), (11), (0))
     return EI_IMPULSE_OK;
 }
 
@@ -51,6 +58,8 @@ uint64_t ei_read_timer_ms() {
     return us_ticker_read() / 1000L;
 #elif DEVICE_LPTICKER
     return ei_read_timer_us() / 1000L;
+#elif defined(ARDUINO)
+    return millis();
 #else
     #error "Target does not have DEVICE_LPTICKER nor DEVICE_USTICKER"
 #endif
@@ -63,6 +72,8 @@ uint64_t ei_read_timer_us() {
 	const ticker_info_t *info = lp_ticker_get_info();
 	uint32_t n_ticks = lp_ticker_read();
     return (uint64_t)n_ticks * (1000000UL / info->frequency);
+#elif defined(ARDUINO)
+    return micros();
 #else
     #error "Target does not have DEVICE_LPTICKER nor DEVICE_USTICKER"
 #endif

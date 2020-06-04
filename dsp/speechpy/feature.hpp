@@ -99,6 +99,20 @@ public:
         }
         for (uint16_t ix = 0; ix < num_filter + 2; ix++) {
             hertz[ix] = functions::mel_to_frequency(mels[ix]);
+            if (hertz[ix] < low_freq) {
+                hertz[ix] = low_freq;
+            }
+            if (hertz[ix] > high_freq) {
+                hertz[ix] = high_freq;
+            }
+
+            // here is a really annoying bug in Speechpy which calculates the frequency index wrong for the last bucket
+            // the last 'hertz' value is not 8,000 (with sampling rate 16,000) but 7,999.999999
+            // thus calculating the bucket to 64, not 65.
+            // we're adjusting this here a tiny bit to ensure we have the same result
+            if (ix == num_filter + 2 - 1) {
+                hertz[ix] -= 0.001;
+            }
         }
         ei_dsp_free(mels, mels_mem_size);
 
@@ -111,11 +125,7 @@ public:
             EIDSP_ERR(EIDSP_OUT_OF_MEM);
         }
         for (uint16_t ix = 0; ix < num_filter + 2; ix++) {
-            // here is a really annoying bug in Speechpy which calculates the frequency index wrong for the last bucket
-            // the last 'hertz' value is not 8,000 (with sampling rate 16,000) but 7,999.999999
-            // thus calculating the bucket to 64, not 65.
-            // we're adjusting this here a tiny bit to ensure we have the same result
-            freq_index[ix] = static_cast<int>(floor(((coefficients + 1) * hertz[ix] / sampling_freq) - 0.00001));
+            freq_index[ix] = static_cast<int>(floor((coefficients + 1) * hertz[ix] / sampling_freq));
         }
         ei_dsp_free(hertz, hertz_mem_size);
 
