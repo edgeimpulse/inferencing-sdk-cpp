@@ -46,6 +46,9 @@
 #include "edge-impulse-sdk/tensorflow/lite/version.h"
 
 #include "tflite-model/tflite-trained.h"
+#if defined(EI_CLASSIFIER_HAS_TFLITE_OPS_RESOLVER) && EI_CLASSIFIER_HAS_TFLITE_OPS_RESOLVER == 1
+#include "tflite-model/tflite-resolver.h"
+#endif // EI_CLASSIFIER_HAS_TFLITE_OPS_RESOLVER
 
 static tflite::MicroErrorReporter micro_error_reporter;
 static tflite::ErrorReporter* error_reporter = &micro_error_reporter;
@@ -92,7 +95,8 @@ extern "C" EI_IMPULSE_ERROR run_classifier(
     // if (debug) {
     //     ei_printf("Input data: ");
     //     for (size_t ix = 0; ix < raw_features_size; ix++) {
-    //         ei_printf("%f ", raw_features[ix]);
+    //         ei_printf_float(raw_features[ix]);
+    //         ei_printf(" ");
     //     }
     //     ei_printf("\n");
     // }
@@ -131,7 +135,8 @@ extern "C" EI_IMPULSE_ERROR run_classifier(
     if (debug) {
         ei_printf("Features (%d ms.): ", result->timing.dsp);
         for (size_t ix = 0; ix < features_matrix.cols; ix++) {
-            ei_printf("%f ", features_matrix.buffer[ix]);
+            ei_printf_float(features_matrix.buffer[ix]);
+            ei_printf(" ");
         }
         ei_printf("\n");
     }
@@ -173,7 +178,9 @@ extern "C" EI_IMPULSE_ERROR run_classifier(
 
         for (uint32_t ix = 0; ix < output_neurons; ix++) {
             if (debug) {
-                ei_printf("%s:\t%f\n", ei_classifier_inferencing_categories[ix], *(ptr_pred + ix));
+                ei_printf("%s:\t", ei_classifier_inferencing_categories[ix]);
+                ei_printf_float(*(ptr_pred + ix));
+                ei_printf("\n");
             }
             result->classification[ix].label = ei_classifier_inferencing_categories[ix];
             result->classification[ix].value = *(ptr_pred + ix);
@@ -215,7 +222,11 @@ extern "C" EI_IMPULSE_ERROR run_classifier(
             tflite_first_run = false;
         }
 
+#ifdef EI_TFLITE_RESOLVER
+        EI_TFLITE_RESOLVER
+#else
         tflite::ops::micro::AllOpsResolver resolver;
+#endif
 
         // Build an interpreter to run the model with.
         tflite::MicroInterpreter interpreter(
@@ -259,7 +270,9 @@ extern "C" EI_IMPULSE_ERROR run_classifier(
         }
         for (uint32_t ix = 0; ix < EI_CLASSIFIER_LABEL_COUNT; ix++) {
             if (debug) {
-                ei_printf("%s:\t%f\n", ei_classifier_inferencing_categories[ix], output->data.f[ix]);
+                ei_printf("%s:\t", ei_classifier_inferencing_categories[ix]);
+                ei_printf_float(output->data.f[ix]);
+                ei_printf("\n");
             }
             result->classification[ix].label = ei_classifier_inferencing_categories[ix];
             result->classification[ix].value = output->data.f[ix];
@@ -349,7 +362,9 @@ extern "C" EI_IMPULSE_ERROR run_classifier(
     }
     for (uint32_t ix = 0; ix < EI_CLASSIFIER_LABEL_COUNT; ix++) {
         if (debug) {
-            ei_printf("%s:\t%f\n", ei_classifier_inferencing_categories[ix], out_data[ix]);
+            ei_printf("%s:\t", ei_classifier_inferencing_categories[ix]);
+            ei_printf_float(out_data[ix]);
+            ei_printf("\n");
         }
         result->classification[ix].label = ei_classifier_inferencing_categories[ix];
         result->classification[ix].value = out_data[ix];
@@ -374,7 +389,9 @@ extern "C" EI_IMPULSE_ERROR run_classifier(
         uint64_t anomaly_end_ms = ei_read_timer_ms();
 
         if (debug) {
-            ei_printf("Anomaly score (time: %d ms.): %f\n", static_cast<int>(anomaly_end_ms - anomaly_start_ms), anomaly);
+            ei_printf("Anomaly score (time: %d ms.): ", static_cast<int>(anomaly_end_ms - anomaly_start_ms));
+            ei_printf_float(anomaly);
+            ei_printf("\n");
         }
 
         result->timing.anomaly = anomaly_end_ms - anomaly_start_ms;

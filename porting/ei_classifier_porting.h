@@ -24,6 +24,7 @@
 #define _EI_CLASSIFIER_PORTING_H_
 
 #include <stdint.h>
+#include "tensorflow/lite/micro/debug_log.h"
 
 typedef enum {
     EI_IMPULSE_OK = 0,
@@ -55,5 +56,17 @@ uint64_t ei_read_timer_ms();
  * Read the microsecond timer
  */
 uint64_t ei_read_timer_us();
+
+/**
+ * Print wrapper around printf()
+ * This is used internally to print debug information.
+ */
+void ei_printf(const char *format, ...);
+
+/**
+ * Override this function if your target cannot properly print floating points
+ * If not overriden, this will be sent through `ei_printf()`.
+ */
+void ei_printf_float(float f);
 
 #endif // _EI_CLASSIFIER_PORTING_H_

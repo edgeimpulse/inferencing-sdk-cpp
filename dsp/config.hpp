@@ -26,11 +26,15 @@
 #ifndef EIDSP_USE_CMSIS_DSP
 #if defined(__MBED__) || defined(__TARGET_CPU_CORTEX_M0) || defined(__TARGET_CPU_CORTEX_M0PLUS) || defined(__TARGET_CPU_CORTEX_M3) || defined(__TARGET_CPU_CORTEX_M4) || defined(__TARGET_CPU_CORTEX_M7) || defined(USE_HAL_DRIVER)
     // Mbed OS versions before 5.7 are not based on CMSIS5, disable CMSIS-DSP and CMSIS-NN instructions
-    #if defined(__MBED__) && (MBED_VERSION < MBED_ENCODE_VERSION((5), (7), (0)))
-        #define EIDSP_USE_CMSIS_DSP      0
-    #else
-        #define EIDSP_USE_CMSIS_DSP      1
-    #endif // Mbed OS 5.7 version check
+    #if defined(__MBED__)
+        #if (MBED_VERSION < MBED_ENCODE_VERSION((5), (7), (0)))
+            #define EIDSP_USE_CMSIS_DSP      0
+    	#else
+            #define EIDSP_USE_CMSIS_DSP      1
+        #endif // Mbed OS 5.7 version check
+	#else
+        #define EIDSP_USE_CMSIS_DSP		1
+	#endif
 #else
     #define EIDSP_USE_CMSIS_DSP     0
 #endif // Mbed / ARM Core check

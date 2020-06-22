@@ -20,38 +20,12 @@
  * SOFTWARE.
  */
 
-#include "main.h"
-#include "edge-impulse-sdk/porting/ei_classifier_porting.h"
+#include "tensorflow/lite/micro/debug_log.h"
+#include "../ei_classifier_porting.h"
+#include <stdio.h>
 #include <stdarg.h>
 
-__attribute__((weak)) EI_IMPULSE_ERROR ei_run_impulse_check_canceled() {
-    return EI_IMPULSE_OK;
-}
-
-__attribute__((weak)) EI_IMPULSE_ERROR ei_sleep(int32_t time_ms) {
-    HAL_Delay(time_ms);
-    return EI_IMPULSE_OK;
-}
-
-uint64_t ei_read_timer_ms() {
-    return HAL_GetTick();
-}
-
-uint64_t ei_read_timer_us() {
-    return HAL_GetTick() * 1000;
-}
-
-__attribute__((weak)) void ei_printf(const char *format, ...) {
-    va_list myargs;
-    va_start(myargs, format);
-    vprintf(format, myargs);
-    va_end(myargs);
-}
-
-__attribute__((weak)) void ei_printf_float(float f) {
-    ei_printf("%f", f);
-}
-
-extern "C" __attribute__((weak)) void DebugLog(const char* s) {
+// On mbed platforms, we set up a serial port and write to it for debug logging.
+extern "C" void DebugLog(const char* s) {
     ei_printf("%s", s);
 }

@@ -23,19 +23,13 @@
 #ifdef __MBED__
 
 #include "mbed.h"
+#include <stdarg.h>
 #include "us_ticker_api.h"
 #include "../ei_classifier_porting.h"
 
 using namespace rtos;
 
-#ifdef ARDUINO
-#if !defined(DEVICE_USTICKER) && !defined(DEVICE_LPTICKER)
-#include <Arduino.h>
-#endif
-#define EI_WEAK_FN __attribute__((weak))
-#else
 #define EI_WEAK_FN __weak
-#endif
 
 EI_WEAK_FN EI_IMPULSE_ERROR ei_run_impulse_check_canceled() {
     return EI_IMPULSE_OK;
@@ -58,8 +52,6 @@ uint64_t ei_read_timer_ms() {
     return us_ticker_read() / 1000L;
 #elif DEVICE_LPTICKER
     return ei_read_timer_us() / 1000L;
-#elif defined(ARDUINO)
-    return millis();
 #else
     #error "Target does not have DEVICE_LPTICKER nor DEVICE_USTICKER"
 #endif
@@ -72,38 +64,24 @@ uint64_t ei_read_timer_us() {
 	const ticker_info_t *info = lp_ticker_get_info();
 	uint32_t n_ticks = lp_ticker_read();
     return (uint64_t)n_ticks * (1000000UL / info->frequency);
-#elif defined(ARDUINO)
-    return micros();
 #else
     #error "Target does not have DEVICE_LPTICKER nor DEVICE_USTICKER"
 #endif
 }
 
+__attribute__((weak)) void ei_printf(const char *format, ...) {
+    va_list myargs;
+    va_start(myargs, format);
+    vprintf(format, myargs);
+    va_end(myargs);
+}
+
+__attribute__((weak)) void ei_printf_float(float f) {
+    ei_printf("%f", f);
+}
+
+extern "C" __attribute__((weak)) void DebugLog(const char* s) {
+    ei_printf("%s", s);
+}
+
 #endif // __MBED__
-
-// Non-Mbed Arduino targets (should probably move to it's own file)
-#if !defined(__MBED__) && defined(ARDUINO)
-
-#include <Arduino.h>
-#include "../ei_classifier_porting.h"
-
-#define EI_WEAK_FN __attribute__((weak))
-
-EI_WEAK_FN EI_IMPULSE_ERROR ei_run_impulse_check_canceled() {
-    return EI_IMPULSE_OK;
-}
-
-EI_WEAK_FN EI_IMPULSE_ERROR ei_sleep(int32_t time_ms) {
-    delay(time_ms);
-    return EI_IMPULSE_OK;
-}
-
-uint64_t ei_read_timer_ms() {
-    return millis();
-}
-
-uint64_t ei_read_timer_us() {
-    return micros();
-}
-
-#endif // !defined(MBED) && defined(ARDUINO)

@@ -20,15 +20,10 @@
  * SOFTWARE.
  */
 
-#if defined (__unix__) || (defined (__APPLE__) && defined (__MACH__))
-
-#include <inttypes.h>
-#include <math.h>
-#include <stdio.h>
-#include <time.h>
-#include <unistd.h>
 #include <stdarg.h>
-#include "ei_classifier_porting.h"
+#include "../ei_classifier_porting.h"
+#include "ei_device_eta_ecm3532.h"
+#include "eta_bsp.h"
 
 __attribute__((weak)) EI_IMPULSE_ERROR ei_run_impulse_check_canceled() {
     return EI_IMPULSE_OK;
@@ -38,42 +33,16 @@ __attribute__((weak)) EI_IMPULSE_ERROR ei_run_impulse_check_canceled() {
  * Cancelable sleep, can be triggered with signal from other thread
  */
 __attribute__((weak)) EI_IMPULSE_ERROR ei_sleep(int32_t time_ms) {
-    usleep(time_ms * 1000);
+    EiDevice.delay_ms(time_ms);
     return EI_IMPULSE_OK;
 }
 
 uint64_t ei_read_timer_ms() {
-    uint64_t ms; // Milliseconds
-    uint64_t s;  // Seconds
-    struct timespec spec;
-
-    clock_gettime(CLOCK_REALTIME, &spec);
-
-    s  = spec.tv_sec;
-    ms = round(spec.tv_nsec / 1.0e6); // Convert nanoseconds to milliseconds
-    if (ms > 999) {
-        s++;
-        ms = 0;
-    }
-
-    return (s * 1000) + ms;
+    return EtaCspTimerCountGetMs();
 }
 
 uint64_t ei_read_timer_us() {
-    uint64_t us; // Milliseconds
-    uint64_t s;  // Seconds
-    struct timespec spec;
-
-    clock_gettime(CLOCK_REALTIME, &spec);
-
-    s  = spec.tv_sec;
-    us = round(spec.tv_nsec / 1.0e3); // Convert nanoseconds to nanoseconds
-    if (us > 999999) {
-        s++;
-        us = 0;
-    }
-
-    return (s * 1000000) + us;
+    return 0;
 }
 
 __attribute__((weak)) void ei_printf(const char *format, ...) {
@@ -90,5 +59,3 @@ __attribute__((weak)) void ei_printf_float(float f) {
 extern "C" __attribute__((weak)) void DebugLog(const char* s) {
     ei_printf("%s", s);
 }
-
-#endif // (__unix__) || (defined (__APPLE__) && defined (__MACH__))
