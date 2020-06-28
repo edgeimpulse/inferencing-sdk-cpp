@@ -26,7 +26,7 @@
  * limitations under the License.
  */
 
-#include "arm_math.h"
+#include "edge-impulse-sdk/CMSIS/DSP/Include/arm_math.h"
 
 void arm_radix2_butterfly_q15(
         q15_t * pSrc,

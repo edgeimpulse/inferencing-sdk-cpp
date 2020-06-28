@@ -19,7 +19,7 @@ limitations under the License.
 
 #include "tensorflow/lite/kernels/internal/reference/softmax.h"
 
-#include "arm_nnfunctions.h"
+#include "edge-impulse-sdk/CMSIS/NN/Include/arm_nnfunctions.h"
 #include "tensorflow/lite/kernels/internal/tensor_ctypes.h"
 #include "tensorflow/lite/kernels/kernel_util.h"
 
@@ -50,7 +50,8 @@ TfLiteStatus CalculateSoftmaxParams(TfLiteContext* context,
 
     int input_left_shift;
     tflite::PreprocessSoftmaxScaling(
-        params->beta, input->params.scale, kScaledDiffIntegerBits,
+        static_cast<double>(params->beta),
+        static_cast<double>(input->params.scale), kScaledDiffIntegerBits,
         &op_data->input_multiplier, &input_left_shift);
     op_data->input_left_shift = input_left_shift;
     op_data->diff_min =
@@ -291,6 +292,9 @@ TfLiteStatus SoftmaxEval(TfLiteContext* context, TfLiteNode* node) {
 }  // namespace activations
 
 TfLiteRegistration* Register_SOFTMAX() {
+  // TODO(b/149408647): Once we remove AddBuiltin from MicroOpResolver and
+  // completely switch to the templated AddBuiltin from MicroMutableOpResolver,
+  // this struct no longer needs to be static and can be returned by value.
   static TfLiteRegistration r = {/*init=*/nullptr,
                                  /*free=*/nullptr,
                                  /*prepare=*/activations::SoftmaxPrepare,

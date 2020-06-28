@@ -29,7 +29,7 @@
  *
  * -------------------------------------------------------------------- */
 
-#include "arm_nnsupportfunctions.h"
+#include "edge-impulse-sdk/CMSIS/NN/Include/arm_nnsupportfunctions.h"
 
 /**
  * @ingroup groupSupport

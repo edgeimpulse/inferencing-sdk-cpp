@@ -25,7 +25,7 @@
 #ifndef _ARM_SORTING_H_
 #define _ARM_SORTING_H_
 
-#include "arm_math.h"
+#include "edge-impulse-sdk/CMSIS/DSP/Include/arm_math.h"
 
 #ifdef   __cplusplus
 extern "C"

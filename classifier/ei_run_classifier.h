@@ -39,11 +39,12 @@
 #include "utensor-model/trained.hpp"
 #include "utensor-model/trained_weight.hpp"            // keep the weights in ROM for now, we have plenty of internal flash
 #elif (EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_TFLITE)
-#include "edge-impulse-sdk/tensorflow/lite/micro/kernels/all_ops_resolver.h"
+#include "edge-impulse-sdk/tensorflow/lite/micro/all_ops_resolver.h"
 #include "edge-impulse-sdk/tensorflow/lite/micro/micro_error_reporter.h"
 #include "edge-impulse-sdk/tensorflow/lite/micro/micro_interpreter.h"
 #include "edge-impulse-sdk/tensorflow/lite/schema/schema_generated.h"
 #include "edge-impulse-sdk/tensorflow/lite/version.h"
+#include "edge-impulse-sdk/classifier/ei_aligned_malloc.h"
 
 #include "tflite-model/tflite-trained.h"
 #if defined(EI_CLASSIFIER_HAS_TFLITE_OPS_RESOLVER) && EI_CLASSIFIER_HAS_TFLITE_OPS_RESOLVER == 1
@@ -189,9 +190,8 @@ extern "C" EI_IMPULSE_ERROR run_classifier(
 #elif (EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_TFLITE)
     {
         // Create an area of memory to use for input, output, and intermediate arrays.
-        // Finding the minimum value for your model may require some trial and error.
-        uint8_t *tensor_arena = (uint8_t*)malloc(EI_CLASSIFIER_TFLITE_ARENA_SIZE);
-        if (!tensor_arena) {
+        uint8_t *tensor_arena = (uint8_t*)ei_aligned_malloc(16, EI_CLASSIFIER_TFLITE_ARENA_SIZE);
+        if (tensor_arena == NULL) {
             ei_printf("Failed to allocate TFLite arena (%d bytes)\n", EI_CLASSIFIER_TFLITE_ARENA_SIZE);
             return EI_IMPULSE_TFLITE_ARENA_ALLOC_FAILED;
         }
@@ -215,7 +215,7 @@ extern "C" EI_IMPULSE_ERROR run_classifier(
                     "Model provided is schema version %d not equal "
                     "to supported version %d.",
                     model->version(), TFLITE_SCHEMA_VERSION);
-                free(tensor_arena);
+                ei_aligned_free(tensor_arena);
                 return EI_IMPULSE_TFLITE_ERROR;
             }
 
@@ -225,7 +225,7 @@ extern "C" EI_IMPULSE_ERROR run_classifier(
 #ifdef EI_TFLITE_RESOLVER
         EI_TFLITE_RESOLVER
 #else
-        tflite::ops::micro::AllOpsResolver resolver;
+        tflite::AllOpsResolver resolver;
 #endif
 
         // Build an interpreter to run the model with.
@@ -236,7 +236,7 @@ extern "C" EI_IMPULSE_ERROR run_classifier(
         TfLiteStatus allocate_status = interpreter.AllocateTensors();
         if (allocate_status != kTfLiteOk) {
             error_reporter->Report("AllocateTensors() failed");
-            free(tensor_arena);
+            ei_aligned_free(tensor_arena);
             return EI_IMPULSE_TFLITE_ERROR;
         }
 
@@ -256,7 +256,7 @@ extern "C" EI_IMPULSE_ERROR run_classifier(
         TfLiteStatus invoke_status = interpreter.Invoke();
         if (invoke_status != kTfLiteOk) {
             error_reporter->Report("Invoke failed (%d)\n", invoke_status);
-            free(tensor_arena);
+            ei_aligned_free(tensor_arena);
             return EI_IMPULSE_TFLITE_ERROR;
         }
 
@@ -278,7 +278,7 @@ extern "C" EI_IMPULSE_ERROR run_classifier(
             result->classification[ix].value = output->data.f[ix];
         }
 
-        free(tensor_arena);
+        ei_aligned_free(tensor_arena);
 
         if (ei_run_impulse_check_canceled() == EI_IMPULSE_CANCELED) {
             return EI_IMPULSE_CANCELED;

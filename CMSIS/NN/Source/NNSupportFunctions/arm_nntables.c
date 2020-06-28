@@ -28,7 +28,7 @@
  *
  * -------------------------------------------------------------------- */
 
-#include "arm_nnsupportfunctions.h"
+#include "edge-impulse-sdk/CMSIS/NN/Include/arm_nnsupportfunctions.h"
 
 /**
  * @brief tables for various activation functions

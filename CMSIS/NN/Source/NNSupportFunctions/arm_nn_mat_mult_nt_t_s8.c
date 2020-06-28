@@ -28,10 +28,16 @@
  *
  * -------------------------------------------------------------------- */
 
-#include "arm_math.h"
-#include "arm_nnfunctions.h"
-#include "arm_nnsupportfunctions.h"
+#include "edge-impulse-sdk/CMSIS/DSP/Include/arm_math.h"
+#include "edge-impulse-sdk/CMSIS/NN/Include/arm_nnfunctions.h"
+#include "edge-impulse-sdk/CMSIS/NN/Include/arm_nnsupportfunctions.h"
 
+// Work around for https://github.com/ARMmbed/mbed-os/issues/12568
+__STATIC_FORCEINLINE uint32_t __patched_SXTB16_RORn(uint32_t op1, uint32_t rotate) {
+uint32_t result;
+__ASM ("sxtb16 %0, %1, ROR %2" : "=r" (result) : "r" (op1), "i" (rotate) );
+return result;
+}
 /**
  * @ingroup groupSupport
  */
@@ -106,21 +112,21 @@ arm_status arm_nn_mat_mult_nt_t_s8(const q7_t *lhs,
                 val0 = arm_nn_read_q7x4_ia((const q7_t **)&lhs_ptr);
                 val3 = __SXTB16(val0);
                 val4 = arm_nn_read_q7x4((const q7_t *)&rhs_ptr[off0]);
-                val1 = __SXTB16_RORn(val1, 8);
-                val0 = __SXTB16_RORn(val0, 8);
+                val1 = __patched_SXTB16_RORn(val1, 8);
+                val0 = __patched_SXTB16_RORn(val0, 8);
 
                 // 4 x MAC res00, res01
                 res00 = __SMLAD(val3, val2, res00);
                 val5  = __SXTB16(val4);
                 res00 = __SMLAD(val0, val1, res00);
-                val4  = __SXTB16_RORn(val4, 8);
+                val4  = __patched_SXTB16_RORn(val4, 8);
                 res01 = __SMLAD(val3, val5, res01);
                 res01 = __SMLAD(val0, val4, res01);
 
                 // 4 x MAC res10, res11
                 val0  = arm_nn_read_q7x4((const q7_t *)&lhs_ptr[off0]);
                 val3  = __SXTB16(val0);
-                val0  = __SXTB16_RORn(val0, 8);
+                val0  = __patched_SXTB16_RORn(val0, 8);
                 res10 = __SMLAD(val3, val2, res10);
                 res11 = __SMLAD(val3, val5, res11);
                 res10 = __SMLAD(val0, val1, res10);
@@ -131,21 +137,21 @@ arm_status arm_nn_mat_mult_nt_t_s8(const q7_t *lhs,
                 val2 = __SXTB16(val1);
                 val0 = arm_nn_read_q7x4_ia((const q7_t **)&lhs_ptr);
                 val3 = __SXTB16(val0);
-                val1 = __SXTB16_RORn(val1, 8);
-                val0 = __SXTB16_RORn(val0, 8);
+                val1 = __patched_SXTB16_RORn(val1, 8);
+                val0 = __patched_SXTB16_RORn(val0, 8);
 
                 // 4 x MAC res00, res01
                 res00 = __SMLAD(val3, val2, res00);
                 val5  = __SXTB16(val4);
                 res00 = __SMLAD(val0, val1, res00);
-                val4  = __SXTB16_RORn(val4, 8);
+                val4  = __patched_SXTB16_RORn(val4, 8);
                 res01 = __SMLAD(val3, val5, res01);
                 res01 = __SMLAD(val0, val4, res01);
 
                 // 4 x MAC res10, res11
                 val0  = arm_nn_read_q7x4((const q7_t *)&lhs_ptr[off0]);
                 val3  = __SXTB16(val0);
-                val0  = __SXTB16_RORn(val0, 8);
+                val0  = __patched_SXTB16_RORn(val0, 8);
                 res10 = __SMLAD(val3, val2, res10);
                 res11 = __SMLAD(val3, val5, res11);
                 res10 = __SMLAD(val0, val1, res10);
@@ -156,21 +162,21 @@ arm_status arm_nn_mat_mult_nt_t_s8(const q7_t *lhs,
                 val2 = __SXTB16(val1);
                 val0 = arm_nn_read_q7x4_ia((const q7_t **)&lhs_ptr);
                 val3 = __SXTB16(val0);
-                val1 = __SXTB16_RORn(val1, 8);
-                val0 = __SXTB16_RORn(val0, 8);
+                val1 = __patched_SXTB16_RORn(val1, 8);
+                val0 = __patched_SXTB16_RORn(val0, 8);
 
                 // 4 x MAC res00, res01
                 res00 = __SMLAD(val3, val2, res00);
                 val5  = __SXTB16(val4);
                 res00 = __SMLAD(val0, val1, res00);
-                val4  = __SXTB16_RORn(val4, 8);
+                val4  = __patched_SXTB16_RORn(val4, 8);
                 res01 = __SMLAD(val3, val5, res01);
                 res01 = __SMLAD(val0, val4, res01);
 
                 // 4 x MAC res10, res11
                 val0  = arm_nn_read_q7x4((const q7_t *)&lhs_ptr[off0]);
                 val3  = __SXTB16(val0);
-                val0  = __SXTB16_RORn(val0, 8);
+                val0  = __patched_SXTB16_RORn(val0, 8);
                 res10 = __SMLAD(val3, val2, res10);
                 res11 = __SMLAD(val3, val5, res11);
                 res10 = __SMLAD(val0, val1, res10);
@@ -181,21 +187,21 @@ arm_status arm_nn_mat_mult_nt_t_s8(const q7_t *lhs,
                 val2 = __SXTB16(val1);
                 val0 = arm_nn_read_q7x4_ia((const q7_t **)&lhs_ptr);
                 val3 = __SXTB16(val0);
-                val1 = __SXTB16_RORn(val1, 8);
-                val0 = __SXTB16_RORn(val0, 8);
+                val1 = __patched_SXTB16_RORn(val1, 8);
+                val0 = __patched_SXTB16_RORn(val0, 8);
 
                 // 4 x MAC res00, res01
                 res00 = __SMLAD(val3, val2, res00);
                 val5  = __SXTB16(val4);
                 res00 = __SMLAD(val0, val1, res00);
-                val4  = __SXTB16_RORn(val4, 8);
+                val4  = __patched_SXTB16_RORn(val4, 8);
                 res01 = __SMLAD(val3, val5, res01);
                 res01 = __SMLAD(val0, val4, res01);
 
                 // 4 x MAC res10, res11
                 val0  = arm_nn_read_q7x4((const q7_t *)&lhs_ptr[off0]);
                 val3  = __SXTB16(val0);
-                val0  = __SXTB16_RORn(val0, 8);
+                val0  = __patched_SXTB16_RORn(val0, 8);
                 res10 = __SMLAD(val3, val2, res10);
                 res11 = __SMLAD(val3, val5, res11);
                 res10 = __SMLAD(val0, val1, res10);
@@ -272,9 +278,9 @@ arm_status arm_nn_mat_mult_nt_t_s8(const q7_t *lhs,
                 val3 = __SXTB16(val0);
                 val5 = __SXTB16(val2);
                 val4 = __SXTB16(val1);
-                val0 = __SXTB16_RORn(val0, 8);
-                val2 = __SXTB16_RORn(val2, 8);
-                val1 = __SXTB16_RORn(val1, 8);
+                val0 = __patched_SXTB16_RORn(val0, 8);
+                val2 = __patched_SXTB16_RORn(val2, 8);
+                val1 = __patched_SXTB16_RORn(val1, 8);
 
                 // 4 x MAC res00, res01
                 res00 = __SMLAD(val5, val3, res00);
@@ -288,9 +294,9 @@ arm_status arm_nn_mat_mult_nt_t_s8(const q7_t *lhs,
                 val3 = __SXTB16(val0);
                 val5 = __SXTB16(val2);
                 val4 = __SXTB16(val1);
-                val0 = __SXTB16_RORn(val0, 8);
-                val2 = __SXTB16_RORn(val2, 8);
-                val1 = __SXTB16_RORn(val1, 8);
+                val0 = __patched_SXTB16_RORn(val0, 8);
+                val2 = __patched_SXTB16_RORn(val2, 8);
+                val1 = __patched_SXTB16_RORn(val1, 8);
 
                 // 4 x MAC res00, res01
                 res00 = __SMLAD(val5, val3, res00);
@@ -304,9 +310,9 @@ arm_status arm_nn_mat_mult_nt_t_s8(const q7_t *lhs,
                 val3 = __SXTB16(val0);
                 val5 = __SXTB16(val2);
                 val4 = __SXTB16(val1);
-                val0 = __SXTB16_RORn(val0, 8);
-                val2 = __SXTB16_RORn(val2, 8);
-                val1 = __SXTB16_RORn(val1, 8);
+                val0 = __patched_SXTB16_RORn(val0, 8);
+                val2 = __patched_SXTB16_RORn(val2, 8);
+                val1 = __patched_SXTB16_RORn(val1, 8);
 
                 // 4 x MAC res00, res01
                 res00 = __SMLAD(val5, val3, res00);
@@ -320,9 +326,9 @@ arm_status arm_nn_mat_mult_nt_t_s8(const q7_t *lhs,
                 val3 = __SXTB16(val0);
                 val5 = __SXTB16(val2);
                 val4 = __SXTB16(val1);
-                val0 = __SXTB16_RORn(val0, 8);
-                val2 = __SXTB16_RORn(val2, 8);
-                val1 = __SXTB16_RORn(val1, 8);
+                val0 = __patched_SXTB16_RORn(val0, 8);
+                val2 = __patched_SXTB16_RORn(val2, 8);
+                val1 = __patched_SXTB16_RORn(val1, 8);
 
                 // 4 x MAC res00, res01
                 res00 = __SMLAD(val5, val3, res00);

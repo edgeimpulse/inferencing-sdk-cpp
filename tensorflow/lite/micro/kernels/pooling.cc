@@ -18,8 +18,8 @@ limitations under the License.
 ==============================================================================*/
 #include "tensorflow/lite/kernels/internal/reference/pooling.h"
 
-// These are headers from the ARM CMSIS-NN library.
-#include "arm_nnfunctions.h"  // NOLINT
+#include "edge-impulse-sdk/CMSIS/NN/Include/arm_nnfunctions.h"
+#include "flatbuffers/base.h"  // from @flatbuffers
 #include "tensorflow/lite/c/builtin_op_data.h"
 #include "tensorflow/lite/kernels/internal/reference/integer_ops/pooling.h"
 #include "tensorflow/lite/kernels/internal/tensor_ctypes.h"
@@ -110,7 +110,7 @@ TfLiteStatus AverageEvalInt8(TfLiteContext* context, const TfLiteNode* node,
 
   TFLITE_DCHECK_LE(activation_min, activation_max);
 
-#if defined(__ARM_FEATURE_DSP)
+#if defined(__ARM_FEATURE_DSP) || defined(__ARM_FEATURE_MVE)
   RuntimeShape input_shape = GetTensorShape(input);
   TFLITE_DCHECK_EQ(input_shape.DimensionsCount(), 4);
 
@@ -169,8 +169,8 @@ TfLiteStatus AverageEvalInt8(TfLiteContext* context, const TfLiteNode* node,
 }
 
 void MaxEvalFloat(TfLiteContext* context, TfLiteNode* node,
-                  TfLitePoolParams* params, OpData* data,
-                  TfLiteTensor* input, TfLiteTensor* output) {
+                  TfLitePoolParams* params, OpData* data, TfLiteTensor* input,
+                  TfLiteTensor* output) {
   float activation_min, activation_max;
   CalculateActivationRange(params->activation, &activation_min,
                            &activation_max);
@@ -211,8 +211,8 @@ void MaxEvalQuantizedUInt8(TfLiteContext* context, TfLiteNode* node,
 }
 
 TfLiteStatus MaxEvalInt8(TfLiteContext* context, const TfLiteNode* node,
-                             const TfLitePoolParams* params, const OpData* data,
-                             TfLiteTensor* input, TfLiteTensor* output) {
+                         const TfLitePoolParams* params, const OpData* data,
+                         TfLiteTensor* input, TfLiteTensor* output) {
   int32_t activation_min, activation_max;
   (void)CalculateActivationRangeQuantized(context, params->activation, output,
                                           &activation_min, &activation_max);
@@ -250,11 +250,12 @@ TfLiteStatus MaxEvalInt8(TfLiteContext* context, const TfLiteNode* node,
 
   TF_LITE_ENSURE_EQ(
       context,
-      arm_max_pool_s8_opt(input_height, input_width, output_height, output_width,
-                     stride_height, stride_width, filter_height, filter_width,
-                     padding_height, padding_width, activation_min,
-                     activation_max, depth, GetTensorData<int8_t>(input),
-                     scratch_buffer, GetTensorData<int8_t>(output)),
+      arm_max_pool_s8_opt(input_height, input_width, output_height,
+                          output_width, stride_height, stride_width,
+                          filter_height, filter_width, padding_height,
+                          padding_width, activation_min, activation_max, depth,
+                          GetTensorData<int8_t>(input), scratch_buffer,
+                          GetTensorData<int8_t>(output)),
       ARM_MATH_SUCCESS);
 #else
 #pragma message( \
@@ -286,7 +287,7 @@ void* Init(TfLiteContext* context, const char* buffer, size_t length) {
 }
 
 TfLiteStatus Prepare(TfLiteContext* context, TfLiteNode* node) {
-#if defined(__ARM_FEATURE_DSP)
+#if defined(__ARM_FEATURE_DSP) || defined(__ARM_FEATURE_MVE)
   const TfLiteTensor* input = GetInput(context, node, kInputTensor);
   const TfLiteTensor* output = GetOutput(context, node, kOutputTensor);
 

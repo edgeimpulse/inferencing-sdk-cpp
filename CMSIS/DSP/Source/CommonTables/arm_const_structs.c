@@ -27,7 +27,7 @@
  * limitations under the License.
  */
 
-#include "arm_math.h"
+#include "edge-impulse-sdk/CMSIS/DSP/Include/arm_math.h"
 #include "arm_const_structs.h"
 
 /*
@@ -94,15 +94,6 @@ const arm_cfft_instance_f64 arm_cfft_sR_f64_len4096 = {
 /* Floating-point structs */
 #if !defined(ARM_MATH_MVEF) || defined(ARM_MATH_AUTOVECTORIZE)
 
-/* 
-
-Those structures cannot be used to initialize the MVE version of the FFT F32 instances.
-So they are not compiled when MVE is defined.
-
-For the MVE version, the new arm_cfft_init_f32 must be used.
-
-
-*/
 
 #if !defined(ARM_DSP_CONFIG_TABLES) || defined(ARM_ALL_FFT_TABLES) || (defined(ARM_TABLE_TWIDDLECOEF_F32_16) && defined(ARM_TABLE_BITREVIDX_FLT_16))
 const arm_cfft_instance_f32 arm_cfft_sR_f32_len16 = {

@@ -25,8 +25,7 @@
 /**
    \mainpage CMSIS DSP Software Library
    *
-   * Introduction
-   * ------------
+   * \section intro Introduction
    *
    * This user manual describes the CMSIS DSP software library,
    * a suite of common signal processing functions for use on Cortex-M and Cortex-A processor 
@@ -50,8 +49,7 @@
    * The library has generally separate functions for operating on 8-bit integers, 16-bit integers,
    * 32-bit integer and 32-bit floating-point values.
    *
-   * Using the Library
-   * ------------
+   * \section using Using the Library
    *
    * The library installer contains prebuilt versions of the libraries in the <code>Lib</code> folder.
    *
@@ -81,21 +79,18 @@
    * public header file <code> arm_math.h</code> for Cortex-M cores with little endian and big endian. Same header file will be used for floating point unit(FPU) variants.
    *
    *
-   * Examples
-   * --------
+   * \section example Examples
    *
    * The library ships with a number of examples which demonstrate how to use the library functions.
    *
-   * Toolchain Support
-   * ------------
+   * \section toolchain Toolchain Support
    *
    * The library is now tested on Fast Models building with cmake.
    * Core M0, M7, A5 are tested.
    * 
    * 
    *
-   * Building the Library
-   * ------------
+   * \section building Building the Library
    *
    * The library installer contains a project file to rebuild libraries on MDK toolchain in the <code>CMSIS\\DSP\\Projects\\ARM</code> folder.
    * - arm_cortexM_math.uvprojx
@@ -105,8 +100,7 @@
    *
    * There is also a work in progress cmake build. The README file is giving more details.
    *
-   * Preprocessor Macros
-   * ------------
+   * \section preprocessor Preprocessor Macros
    *
    * Each library project have different preprocessor macros.
    *
@@ -156,8 +150,7 @@
    * Float16 implementations of some algorithms (Requires MVE extension).
    *
    * <hr>
-   * CMSIS-DSP in ARM::CMSIS Pack
-   * -----------------------------
+   * \section pack CMSIS-DSP in ARM::CMSIS Pack
    *
    * The following files relevant to CMSIS-DSP are present in the <b>ARM::CMSIS</b> Pack directories:
    * |File/Folder                      |Content                                                                 |
@@ -171,8 +164,7 @@
    * |\b CMSIS\\DSP\\Source            | DSP_Lib source files                                                   |
    *
    * <hr>
-   * Revision History of CMSIS-DSP
-   * ------------
+   * \section rev Revision History of CMSIS-DSP
    * Please refer to \ref ChangeLog_pg.
    */
 
@@ -397,49 +389,6 @@ extern "C"
 #include <float.h>
 #include <limits.h>
 
-
-#define F64_MAX   ((float64_t)DBL_MAX)
-#define F32_MAX   ((float32_t)FLT_MAX)
-
-#if defined(ARM_MATH_FLOAT16)
-#define F16_MAX   ((float16_t)FLT_MAX)
-#endif
-
-#define F64_MIN   (-DBL_MAX)
-#define F32_MIN   (-FLT_MAX)
-
-#if defined(ARM_MATH_FLOAT16)
-#define F16_MIN   (-(float16_t)FLT_MAX)
-#endif
-
-#define F64_ABSMAX   ((float64_t)DBL_MAX)
-#define F32_ABSMAX   ((float32_t)FLT_MAX)
-
-#if defined(ARM_MATH_FLOAT16)
-#define F16_ABSMAX   ((float16_t)FLT_MAX)
-#endif
-
-#define F64_ABSMIN   ((float64_t)0.0)
-#define F32_ABSMIN   ((float32_t)0.0)
-
-#if defined(ARM_MATH_FLOAT16)
-#define F16_ABSMIN   ((float16_t)0.0)
-#endif
-
-#define Q31_MAX   ((q31_t)(0x7FFFFFFFL))
-#define Q15_MAX   ((q15_t)(0x7FFF))
-#define Q7_MAX    ((q7_t)(0x7F))
-#define Q31_MIN   ((q31_t)(0x80000000L))
-#define Q15_MIN   ((q15_t)(0x8000))
-#define Q7_MIN    ((q7_t)(0x80))
-
-#define Q31_ABSMAX   ((q31_t)(0x7FFFFFFFL))
-#define Q15_ABSMAX   ((q15_t)(0x7FFF))
-#define Q7_ABSMAX    ((q7_t)(0x7F))
-#define Q31_ABSMIN   ((q31_t)0)
-#define Q15_ABSMIN   ((q15_t)0)
-#define Q7_ABSMIN    ((q7_t)0)
-
 /* evaluate ARM DSP feature */
 #if (defined (__ARM_FEATURE_DSP) && (__ARM_FEATURE_DSP == 1))
   #define ARM_MATH_DSP                   1
@@ -447,75 +396,60 @@ extern "C"
 
 #if defined(ARM_MATH_NEON)
 #include <arm_neon.h>
+#if __ARM_FEATURE_FP16_VECTOR_ARITHMETIC
+  #if !defined(ARM_MATH_NEON_FLOAT16)
+  #define ARM_MATH_NEON_FLOAT16
+  #endif
 #endif
+#endif
+
+#if !defined(ARM_MATH_AUTOVECTORIZE)
+
+#if __ARM_FEATURE_MVE
+  #if !defined(ARM_MATH_MVEI)
+    #define ARM_MATH_MVEI
+  #endif
+#endif
+
+#if (__ARM_FEATURE_MVE & 2)
+  #if !defined(ARM_MATH_MVEF)
+    #define ARM_MATH_MVEF
+  #endif
+  #if !defined(ARM_MATH_MVE_FLOAT16)
+    #define ARM_MATH_MVE_FLOAT16
+  #endif
+#endif
+
+#endif /*!defined(ARM_MATH_AUTOVECTORIZE)*/
+
 
 #if defined (ARM_MATH_HELIUM)
-  #define ARM_MATH_MVEF
-  #define ARM_MATH_FLOAT16
+  #if !defined(ARM_MATH_MVEF)
+    #define ARM_MATH_MVEF
+  #endif
+
+  #if !defined(ARM_MATH_MVEI)
+    #define ARM_MATH_MVEI
+  #endif
+
+  #if !defined(ARM_MATH_MVE_FLOAT16)
+    #define ARM_MATH_MVE_FLOAT16
+  #endif
 #endif
 
-#if defined (ARM_MATH_MVEF)
-  #define ARM_MATH_MVEI
-  #define ARM_MATH_FLOAT16
+#ifdef   __cplusplus
+}
 #endif
 
-#if defined (ARM_MATH_HELIUM) || defined(ARM_MATH_MVEF) || defined(ARM_MATH_MVEI)
+#if __ARM_FEATURE_MVE
 #include <arm_mve.h>
 #endif
 
-
-  /**
-   * @brief Macros required for reciprocal calculation in Normalized LMS
-   */
-
-#define DELTA_Q31          ((q31_t)(0x100))
-#define DELTA_Q15          ((q15_t)0x5)
-#define INDEX_MASK         0x0000003F
-#ifndef PI
-  #define PI               3.14159265358979f
+#ifdef   __cplusplus
+extern "C"
+{
 #endif
-
-  /**
-   * @brief Macros required for SINE and COSINE Fast math approximations
-   */
-
-#define FAST_MATH_TABLE_SIZE  512
-#define FAST_MATH_Q31_SHIFT   (32 - 10)
-#define FAST_MATH_Q15_SHIFT   (16 - 10)
-#define CONTROLLER_Q31_SHIFT  (32 - 9)
-#define TABLE_SPACING_Q31     0x400000
-#define TABLE_SPACING_Q15     0x80
-
-  /**
-   * @brief Macros required for SINE and COSINE Controller functions
-   */
-  /* 1.31(q31) Fixed value of 2/360 */
-  /* -1 to +1 is divided into 360 values so total spacing is (2/360) */
-#define INPUT_SPACING         0xB60B61
-
-  /**
-   * @brief Macros for complex numbers
-   */
-
-  /* Dimension C vector space */
-  #define CMPLX_DIM 2
-
-  /**
-   * @brief Error status returned by some functions in the library.
-   */
-
-  typedef enum
-  {
-    ARM_MATH_SUCCESS        =  0,        /**< No error */
-    ARM_MATH_ARGUMENT_ERROR = -1,        /**< One or more arguments are incorrect */
-    ARM_MATH_LENGTH_ERROR   = -2,        /**< Length of data buffer is incorrect */
-    ARM_MATH_SIZE_MISMATCH  = -3,        /**< Size of matrices is not compatible with the operation */
-    ARM_MATH_NANINF         = -4,        /**< Not-a-number (NaN) or infinity is generated */
-    ARM_MATH_SINGULAR       = -5,        /**< Input matrix is singular and cannot be inverted */
-    ARM_MATH_TEST_FAILURE   = -6         /**< Test Failed */
-  } arm_status;
-
-  /**
+ /**
    * @brief 8-bit fractional data type in 1.7 format.
    */
   typedef int8_t q7_t;
@@ -638,13 +572,6 @@ extern "C"
    */
   typedef float32x4_t f32x4_t;
 
-#if defined(ARM_MATH_FLOAT16)
-  /**
-   * @brief 16-bit floating-point 128-bit vector data type
-   */
-  typedef __ALIGNED(2) float16x8_t f16x8_t;
-#endif
-
   /**
    * @brief 32-bit floating-point 128-bit vector pair data type
    */
@@ -655,18 +582,6 @@ extern "C"
    */
   typedef float32x4x4_t f32x4x4_t;
 
-#if defined(ARM_MATH_FLOAT16)
-  /**
-   * @brief 16-bit floating-point 128-bit vector pair data type
-   */
-  typedef float16x8x2_t f16x8x2_t;
-
-  /**
-   * @brief 16-bit floating-point 128-bit vector quadruplet data type
-   */
-  typedef float16x8x4_t f16x8x4_t;
-#endif
-
   /**
    * @brief 32-bit ubiquitous 128-bit vector data type
    */
@@ -675,17 +590,6 @@ extern "C"
       float32x4_t     f;
       int32x4_t       i;
   } any32x4_t;
-
-#if defined(ARM_MATH_FLOAT16)
-  /**
-   * @brief 16-bit ubiquitous 128-bit vector data type
-   */
-  typedef union _any16x8_t
-  {
-      float16x8_t     f;
-      int16x8_t       i;
-  } any16x8_t;
-#endif
 
 #endif
 
@@ -710,24 +614,11 @@ extern "C"
    */
   typedef float32x2_t  f32x2_t;
 
-#if defined(ARM_MATH_FLOAT16)
-  /**
-   * @brief 16-bit float 64-bit vector data type.
-   */
-  typedef  __ALIGNED(2) float16x4_t f16x4_t;
-#endif 
-
   /**
    * @brief 32-bit floating-point 128-bit vector triplet data type
    */
   typedef float32x4x3_t f32x4x3_t;
 
-#if defined(ARM_MATH_FLOAT16)
-  /**
-   * @brief 16-bit floating-point 128-bit vector triplet data type
-   */
-  typedef float16x8x3_t f16x8x3_t;
-#endif
 
   /**
    * @brief 32-bit fractional 128-bit vector triplet data type in 1.31 format
@@ -759,22 +650,6 @@ extern "C"
    */
   typedef float32x2x4_t f32x2x4_t;
 
-#if defined(ARM_MATH_FLOAT16)
-  /**
-   * @brief 16-bit floating-point 64-bit vector pair data type
-   */
-  typedef float16x4x2_t f16x4x2_t;
-
-  /**
-   * @brief 16-bit floating-point 64-bit vector triplet data type
-   */
-  typedef float16x4x3_t f16x4x3_t;
-
-  /**
-   * @brief 16-bit floating-point 64-bit vector quadruplet data type
-   */
-  typedef float16x4x4_t f16x4x4_t;
-#endif 
 
   /**
    * @brief 32-bit fractional 64-bit vector pair data type in 1.31 format
@@ -830,16 +705,6 @@ extern "C"
       int32x2_t       i;
   } any32x2_t;
 
-#if defined(ARM_MATH_FLOAT16)
-  /**
-   * @brief 16-bit ubiquitous 64-bit vector data type
-   */
-  typedef union _any16x4_t
-  {
-      float16x4_t     f;
-      int16x4_t       i;
-  } any16x4_t;
-#endif 
 
   /**
    * @brief 32-bit status 64-bit vector data type.
@@ -860,6 +725,95 @@ extern "C"
 
 
 
+
+
+#define F64_MAX   ((float64_t)DBL_MAX)
+#define F32_MAX   ((float32_t)FLT_MAX)
+
+
+
+#define F64_MIN   (-DBL_MAX)
+#define F32_MIN   (-FLT_MAX)
+
+
+
+#define F64_ABSMAX   ((float64_t)DBL_MAX)
+#define F32_ABSMAX   ((float32_t)FLT_MAX)
+
+
+
+#define F64_ABSMIN   ((float64_t)0.0)
+#define F32_ABSMIN   ((float32_t)0.0)
+
+
+#define Q31_MAX   ((q31_t)(0x7FFFFFFFL))
+#define Q15_MAX   ((q15_t)(0x7FFF))
+#define Q7_MAX    ((q7_t)(0x7F))
+#define Q31_MIN   ((q31_t)(0x80000000L))
+#define Q15_MIN   ((q15_t)(0x8000))
+#define Q7_MIN    ((q7_t)(0x80))
+
+#define Q31_ABSMAX   ((q31_t)(0x7FFFFFFFL))
+#define Q15_ABSMAX   ((q15_t)(0x7FFF))
+#define Q7_ABSMAX    ((q7_t)(0x7F))
+#define Q31_ABSMIN   ((q31_t)0)
+#define Q15_ABSMIN   ((q15_t)0)
+#define Q7_ABSMIN    ((q7_t)0)
+
+
+
+  /**
+   * @brief Macros required for reciprocal calculation in Normalized LMS
+   */
+
+#define DELTA_Q31          ((q31_t)(0x100))
+#define DELTA_Q15          ((q15_t)0x5)
+#define INDEX_MASK         0x0000003F
+#ifndef PI
+  #define PI               3.14159265358979f
+#endif
+
+  /**
+   * @brief Macros required for SINE and COSINE Fast math approximations
+   */
+
+#define FAST_MATH_TABLE_SIZE  512
+#define FAST_MATH_Q31_SHIFT   (32 - 10)
+#define FAST_MATH_Q15_SHIFT   (16 - 10)
+#define CONTROLLER_Q31_SHIFT  (32 - 9)
+#define TABLE_SPACING_Q31     0x400000
+#define TABLE_SPACING_Q15     0x80
+
+  /**
+   * @brief Macros required for SINE and COSINE Controller functions
+   */
+  /* 1.31(q31) Fixed value of 2/360 */
+  /* -1 to +1 is divided into 360 values so total spacing is (2/360) */
+#define INPUT_SPACING         0xB60B61
+
+  /**
+   * @brief Macros for complex numbers
+   */
+
+  /* Dimension C vector space */
+  #define CMPLX_DIM 2
+
+  /**
+   * @brief Error status returned by some functions in the library.
+   */
+
+  typedef enum
+  {
+    ARM_MATH_SUCCESS        =  0,        /**< No error */
+    ARM_MATH_ARGUMENT_ERROR = -1,        /**< One or more arguments are incorrect */
+    ARM_MATH_LENGTH_ERROR   = -2,        /**< Length of data buffer is incorrect */
+    ARM_MATH_SIZE_MISMATCH  = -3,        /**< Size of matrices is not compatible with the operation */
+    ARM_MATH_NANINF         = -4,        /**< Not-a-number (NaN) or infinity is generated */
+    ARM_MATH_SINGULAR       = -5,        /**< Input matrix is singular and cannot be inverted */
+    ARM_MATH_TEST_FAILURE   = -6         /**< Test Failed */
+  } arm_status;
+
+ 
 /**
   @brief definition to read/write two 16 bit values.
   @deprecated
@@ -3066,6 +3020,7 @@ void arm_mat_init_f32(
           float32_t onebyfftLen;             /**< value of 1/fftLen. */
   } arm_cfft_radix2_instance_f32;
 
+
 /* Deprecated */
   arm_status arm_cfft_radix2_init_f32(
         arm_cfft_radix2_instance_f32 * S,
@@ -3092,6 +3047,8 @@ void arm_mat_init_f32(
           uint16_t bitRevFactor;             /**< bit reversal modifier that supports different size FFTs with the same bit reversal table. */
           float32_t onebyfftLen;             /**< value of 1/fftLen. */
   } arm_cfft_radix4_instance_f32;
+
+
 
 /* Deprecated */
   arm_status arm_cfft_radix4_init_f32(
@@ -3183,6 +3140,7 @@ void arm_cfft_q31(
   } arm_cfft_instance_f32;
 
 
+
   arm_status arm_cfft_init_f32(
   arm_cfft_instance_f32 * S,
   uint16_t fftLen);
@@ -3205,6 +3163,10 @@ void arm_cfft_q31(
           uint16_t bitRevLength;             /**< bit reversal table length. */
   } arm_cfft_instance_f64;
 
+  arm_status arm_cfft_init_f64(
+  arm_cfft_instance_f64 * S,
+  uint16_t fftLen);
+  
   void arm_cfft_f64(
   const arm_cfft_instance_f64 * S,
         float64_t * p1,
@@ -3489,6 +3451,7 @@ arm_status arm_rfft_fast_init_f32 (
         uint32_t blockSize);
 
 
+
   /**
    * @brief Q7 vector addition.
    * @param[in]  pSrcA      points to the first input vector
@@ -3545,6 +3508,7 @@ arm_status arm_rfft_fast_init_f32 (
         uint32_t blockSize);
 
 
+
   /**
    * @brief Q7 vector subtraction.
    * @param[in]  pSrcA      points to the first input vector
@@ -3599,6 +3563,7 @@ arm_status arm_rfft_fast_init_f32 (
         float32_t scale,
         float32_t * pDst,
         uint32_t blockSize);
+
 
 
   /**
@@ -3673,6 +3638,8 @@ arm_status arm_rfft_fast_init_f32 (
         uint32_t blockSize);
 
 
+
+
   /**
    * @brief Q15 vector absolute value.
    * @param[in]  pSrc       points to the input buffer
@@ -3709,6 +3676,7 @@ arm_status arm_rfft_fast_init_f32 (
   const float32_t * pSrcB,
         uint32_t blockSize,
         float32_t * result);
+
 
 
   /**
@@ -3807,6 +3775,7 @@ arm_status arm_rfft_fast_init_f32 (
         float32_t offset,
         float32_t * pDst,
         uint32_t blockSize);
+
 
 
   /**

@@ -65,7 +65,7 @@
 
 #if defined(ARM_MATH_MVEI)
 
-#include "arm_common_tables.h"
+#include "edge-impulse-sdk/CMSIS/DSP/Include/arm_common_tables.h"
 
 void FUNC(EXT)(const uint32_t *pA
        , const uint32_t *pB

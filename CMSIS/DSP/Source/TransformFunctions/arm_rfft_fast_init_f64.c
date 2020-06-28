@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------
  * Project:      CMSIS DSP Library
- * Title:        arm_cfft_init_f64.c
+ * Title:        arm_rfft_fast_init_f64.c
  * Description:  Split Radix Decimation in Frequency CFFT Double Precision Floating point processing function
  *
  * $Date:        29. November 2019
@@ -26,8 +26,8 @@
  * limitations under the License.
  */
 
-#include "arm_math.h"
-#include "arm_common_tables.h"
+#include "edge-impulse-sdk/CMSIS/DSP/Include/arm_math.h"
+#include "edge-impulse-sdk/CMSIS/DSP/Include/arm_common_tables.h"
 
 /**
   @ingroup groupTransforms

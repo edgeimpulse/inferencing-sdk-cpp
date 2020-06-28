@@ -46,6 +46,7 @@ find $SCRIPTPATH/ -name '*.h' -exec bash -c "sed -i -e 's/#include \"flatbuffers
 # fix headers for flatbuffers
 find $SCRIPTPATH/third_party/flatbuffers -name '*.h' -exec bash -c "sed -i -e 's/#include \"flatbuffers\//#include \"edge-impulse-sdk\/third_party\/flatbuffers\/include\/flatbuffers\//' {}" {} \;
 find $SCRIPTPATH/third_party/flatbuffers -name '*.h' -exec bash -c "sed -i -e 's/#include <utility.h>/#include <utility>/' {}" {} \;
+find $SCRIPTPATH/ -name '*.c*' -exec bash -c "sed -i -e 's/#include \"flatbuffers\//#include \"edge-impulse-sdk\/third_party\/flatbuffers\/include\/flatbuffers\//' {}" {} \;
 
 # CMSIS-NN headers
 find $SCRIPTPATH/ -name '*.h' -exec bash -c "sed -i -e 's/#include \"arm_nnfunctions/#include \"edge-impulse-sdk\/CMSIS\/NN\/Include\/arm_nnfunctions/' {}" {} \;

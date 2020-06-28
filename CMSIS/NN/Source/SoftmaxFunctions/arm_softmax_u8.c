@@ -28,7 +28,7 @@
  *
  * -------------------------------------------------------------------- */
 
-#include "arm_nnfunctions.h"
+#include "edge-impulse-sdk/CMSIS/NN/Include/arm_nnfunctions.h"
 
 #define ACCUM_BITS 12
 

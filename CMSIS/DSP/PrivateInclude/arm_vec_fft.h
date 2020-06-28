@@ -25,7 +25,7 @@
 #ifndef _ARM_VEC_FFT_H_
 #define _ARM_VEC_FFT_H_
 
-#include "arm_math.h"
+#include "edge-impulse-sdk/CMSIS/DSP/Include/arm_math.h"
 #include "arm_helium_utils.h"
 
 #ifdef   __cplusplus

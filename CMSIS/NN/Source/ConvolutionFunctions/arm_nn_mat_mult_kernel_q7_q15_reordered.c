@@ -27,8 +27,8 @@
  * Target Processor:  Cortex-M cores
  * -------------------------------------------------------------------- */
 
-#include "arm_nnfunctions.h"
-#include "arm_math.h"
+#include "edge-impulse-sdk/CMSIS/NN/Include/arm_nnfunctions.h"
+#include "edge-impulse-sdk/CMSIS/DSP/Include/arm_math.h"
 
   /**
    * @brief Matrix-multiplication function for convolution with re-ordered input.

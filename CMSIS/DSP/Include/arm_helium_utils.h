@@ -29,6 +29,11 @@
 #ifndef _ARM_UTILS_HELIUM_H_
 #define _ARM_UTILS_HELIUM_H_
 
+
+#ifdef   __cplusplus
+extern "C"
+{
+#endif
 /***************************************
 
 Definitions available for MVEF and MVEI
@@ -58,6 +63,21 @@ __STATIC_FORCEINLINE float32_t vecAddAcrossF32Mve(float32x4_t in)
     return acc;
 }
 
+__STATIC_FORCEINLINE float16_t vecAddAcrossF16Mve(float16x8_t in)
+{
+    float16x8_t tmpVec;
+    float16_t acc;
+
+    tmpVec = (float16x8_t) vrev32q_s16((int16x8_t) in);
+    in = vaddq_f16(tmpVec, in);
+    tmpVec = (float16x8_t) vrev64q_s32((int32x4_t) in);
+    in = vaddq_f16(tmpVec, in);
+    acc = vgetq_lane_f16(in, 0) + vgetq_lane_f16(in, 4);
+
+    return acc;
+}
+
+
 /* newton initial guess */
 #define INVSQRT_MAGIC_F32           0x5f3759df
 
@@ -83,7 +103,7 @@ Definitions available for MVEI only
 #if defined (ARM_MATH_HELIUM) || defined(ARM_MATH_MVEI)
 
 
-#include "arm_common_tables.h"
+#include "edge-impulse-sdk/CMSIS/DSP/Include/arm_common_tables.h"
 
 /* Following functions are used to transpose matrix in f32 and q31 cases */
 __STATIC_INLINE arm_status arm_mat_trans_32bit_2x2_mve(
@@ -344,5 +364,9 @@ __STATIC_INLINE q15x8_t FAST_VSQRT_Q15(q15x8_t vecIn)
 #endif
 
 #endif /* defined (ARM_MATH_HELIUM) || defined(ARM_MATH_MVEI) */
+
+#ifdef   __cplusplus
+}
+#endif
 
 #endif

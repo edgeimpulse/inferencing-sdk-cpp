@@ -27,8 +27,8 @@
  * Target Processor:  Cortex-M cores
  * -------------------------------------------------------------------- */
 
-#include "arm_math.h"
-#include "arm_nnfunctions.h"
+#include "edge-impulse-sdk/CMSIS/DSP/Include/arm_math.h"
+#include "edge-impulse-sdk/CMSIS/NN/Include/arm_nnfunctions.h"
 
 /*
    * s8 General matrix multiplication function with per-channel requantization for upto 4 column batches.
