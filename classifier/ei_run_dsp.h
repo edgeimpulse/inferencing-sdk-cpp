@@ -69,7 +69,7 @@ __attribute__((unused)) int extract_spectral_analysis_features(signal_t *signal,
         true, config.spectral_peaks_count, edges_matrix_in.rows
     );
     // ei_printf("output_matrix_size %hux%zu\n", input_matrix.rows, output_matrix_cols);
-    if (output_matrix->cols * output_matrix->rows != output_matrix_cols * config.axes) {
+    if (output_matrix->cols * output_matrix->rows != static_cast<int16_t>(output_matrix_cols * config.axes)) {
         EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
     }
 
@@ -123,7 +123,7 @@ __attribute__((unused)) int extract_raw_features(signal_t *signal, matrix_t *out
 __attribute__((unused)) int extract_flatten_features(signal_t *signal, matrix_t *output_matrix, void *config_ptr) {
     ei_dsp_config_flatten_t config = *((ei_dsp_config_flatten_t*)config_ptr);
 
-    size_t expected_matrix_size = 0;
+    int16_t expected_matrix_size = 0;
     if (config.average) expected_matrix_size += config.axes;
     if (config.minimum) expected_matrix_size += config.axes;
     if (config.maximum) expected_matrix_size += config.axes;

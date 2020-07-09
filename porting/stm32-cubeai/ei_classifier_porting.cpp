@@ -23,6 +23,7 @@
 #include "main.h"
 #include "edge-impulse-sdk/porting/ei_classifier_porting.h"
 #include <stdarg.h>
+#include <stdio.h>
 
 __attribute__((weak)) EI_IMPULSE_ERROR ei_run_impulse_check_canceled() {
     return EI_IMPULSE_OK;

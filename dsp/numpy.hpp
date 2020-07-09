@@ -580,7 +580,7 @@ public:
      * @returns 0 if OK
      */
     static int add(matrix_t *matrix, float addition) {
-        for (size_t ix = 0; ix < matrix->rows * matrix->cols; ix++) {
+        for (int16_t ix = 0; ix < matrix->rows * matrix->cols; ix++) {
             matrix->buffer[ix] += addition;
         }
         return EIDSP_OK;
@@ -619,7 +619,7 @@ public:
      * @returns 0 if OK
      */
     static int subtract(matrix_t *matrix, float subtraction) {
-        for (size_t ix = 0; ix < matrix->rows * matrix->cols; ix++) {
+        for (int16_t ix = 0; ix < matrix->rows * matrix->cols; ix++) {
             matrix->buffer[ix] -= subtraction;
         }
         return EIDSP_OK;
@@ -1187,7 +1187,7 @@ public:
      */
     static int log(matrix_t *matrix)
     {
-        for (size_t ix = 0; ix < matrix->rows * matrix->cols; ix++) {
+        for (int16_t ix = 0; ix < matrix->rows * matrix->cols; ix++) {
             matrix->buffer[ix] = numpy::log(matrix->buffer[ix]);
         }
 

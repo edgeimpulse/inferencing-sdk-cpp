@@ -66,5 +66,9 @@ find $SCRIPTPATH/ -name '*.c*' -exec bash -c "sed -i -e 's/#include \"ruy\/profi
 find $SCRIPTPATH/ -name '*.h' -exec bash -c "sed -i -e 's/#include \"fixedpoint\/fixedpoint/#include \"edge-impulse-sdk\/third_party\/gemmlowp\/fixedpoint\/fixedpoint/' {}" {} \;
 find $SCRIPTPATH/ -name '*.c*' -exec bash -c "sed -i -e 's/#include \"fixedpoint\/fixedpoint/#include \"edge-impulse-sdk\/third_party\/gemmlowp\/fixedpoint\/fixedpoint/' {}" {} \;
 
+# make sure that abs is undefined on arduino
+find $SCRIPTPATH/ -name 'compatibility.h' -exec bash -c "sed -i -e 's/#include <cstdint>/#include <cstdint>\\
+#include \"edge-impulse-sdk\/tensorflow\/lite\/type_to_tflitetype.h\"/' {}" {} \;
+
 # remove all the -e files
 find $SCRIPTPATH/ -name "*-e" -exec rm -f {} \;
