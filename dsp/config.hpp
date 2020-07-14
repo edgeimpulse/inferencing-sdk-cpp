@@ -27,14 +27,22 @@
 #if defined(__MBED__) || defined(__TARGET_CPU_CORTEX_M0) || defined(__TARGET_CPU_CORTEX_M0PLUS) || defined(__TARGET_CPU_CORTEX_M3) || defined(__TARGET_CPU_CORTEX_M4) || defined(__TARGET_CPU_CORTEX_M7) || defined(USE_HAL_DRIVER)
     // Mbed OS versions before 5.7 are not based on CMSIS5, disable CMSIS-DSP and CMSIS-NN instructions
     #if defined(__MBED__)
-        #include "mbed.h"
+        #include "mbed_version.h"
         #if (MBED_VERSION < MBED_ENCODE_VERSION((5), (7), (0)))
             #define EIDSP_USE_CMSIS_DSP      0
         #else
             #define EIDSP_USE_CMSIS_DSP      1
         #endif // Mbed OS 5.7 version check
-	#else
-        #define EIDSP_USE_CMSIS_DSP		1
+
+        // Arduino on Mbed targets prior to Mbed OS 6.0.0 ship their own CMSIS-DSP sources
+        #if defined(ARDUINO) && (MBED_VERSION < MBED_ENCODE_VERSION((6), (0), (0)))
+            #define EIDSP_LOAD_CMSIS_DSP_SOURCES      0
+        #else
+            #define EIDSP_LOAD_CMSIS_DSP_SOURCES      1
+        #endif // Mbed OS 6.0 version check
+    #else
+        #define EIDSP_USE_CMSIS_DSP		        1
+        #define EIDSP_LOAD_CMSIS_DSP_SOURCES    1
     #endif
 #else
     #define EIDSP_USE_CMSIS_DSP     0
