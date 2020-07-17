@@ -406,7 +406,7 @@ TfLiteStatus FlatBufferVectorToTfLiteTypeArray(
   static_assert((std::is_same<kFlatBufferVectorType, int32_t>() &&
                  std::is_same<kTfLiteArrayType, TfLiteIntArray>()) ||
                 (std::is_same<kFlatBufferVectorType, float>() &&
-                 std::is_same<kTfLiteArrayType, TfLiteFloatArray>()));
+                 std::is_same<kTfLiteArrayType, TfLiteFloatArray>()), "Flatbuffer vector type must match TfLiteArray type!");
   if (FLATBUFFERS_LITTLEENDIAN) {
     // On little-endian machines, TfLite*Array happens to have the same memory
     // layout as flatbuffers:Vector<kFlatBufferVectorType>, so we can
