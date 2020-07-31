@@ -44,4 +44,10 @@ typedef struct {
     ei_impulse_result_timing_t timing;
 } ei_impulse_result_t;
 
+typedef struct {
+    uint32_t buf_idx;
+    float running_sum;
+    float maf_buffer[EI_CLASSIFIER_SLICES_PER_MODEL_WINDOW];    
+}ei_impulse_maf;
+
 #endif // _EDGE_IMPULSE_RUN_CLASSIFIER_TYPES_H_

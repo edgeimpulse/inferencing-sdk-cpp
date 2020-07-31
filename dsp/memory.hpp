@@ -93,10 +93,10 @@ namespace ei {
     #define ei_dsp_calloc(...) memory::ei_calloc(__func__, __FILE__, __LINE__, __VA_ARGS__)
     #define ei_dsp_realloc(...) memory::ei_realloc(__func__, __FILE__, __LINE__, __VA_ARGS__)
     #define ei_dsp_free(...) memory::ei_free(__func__, __FILE__, __LINE__, __VA_ARGS__)
-    #define EI_DSP_MATRIX(name, rows, cols) matrix_t name(rows, cols, NULL, __func__, __FILE__, __LINE__)
-    #define EI_DSP_MATRIX_B(name, rows, cols, buffer) matrix_t name(rows, cols, buffer, __func__, __FILE__, __LINE__)
-    #define EI_DSP_QUANTIZED_MATRIX(name, rows, cols, fn) quantized_matrix_t name(rows, cols, fn, NULL, __func__, __FILE__, __LINE__)
-    #define EI_DSP_QUANTIZED_MATRIX_B(name, rows, cols, fn, buffer) quantized_matrix_t name(rows, cols, fn, buffer, __func__, __FILE__, __LINE__)
+    #define EI_DSP_MATRIX(name, rows, cols) matrix_t name(rows, cols, NULL, __func__, __FILE__, __LINE__); if (!name.buffer) { EIDSP_ERR(EIDSP_OUT_OF_MEM); }
+    #define EI_DSP_MATRIX_B(name, rows, cols, buffer) matrix_t name(rows, cols, buffer, __func__, __FILE__, __LINE__); if (!name.buffer) { EIDSP_ERR(EIDSP_OUT_OF_MEM); }
+    #define EI_DSP_QUANTIZED_MATRIX(name, rows, cols, fn) quantized_matrix_t name(rows, cols, fn, NULL, __func__, __FILE__, __LINE__); if (!name.buffer) { EIDSP_ERR(EIDSP_OUT_OF_MEM); }
+    #define EI_DSP_QUANTIZED_MATRIX_B(name, rows, cols, fn, buffer) quantized_matrix_t name(rows, cols, fn, buffer, __func__, __FILE__, __LINE__); if (!name.buffer) { EIDSP_ERR(EIDSP_OUT_OF_MEM); }
 #else
     #define ei_dsp_register_alloc(...) (void)0
     #define ei_dsp_register_matrix_alloc(...) (void)0
@@ -106,10 +106,10 @@ namespace ei {
     #define ei_dsp_calloc calloc
     #define ei_dsp_realloc realloc
     #define ei_dsp_free(ptr, size) free(ptr)
-    #define EI_DSP_MATRIX(name, ...) matrix_t name(__VA_ARGS__)
-    #define EI_DSP_MATRIX_B(name, ...) matrix_t name(__VA_ARGS__)
-    #define EI_DSP_QUANTIZED_MATRIX(name, ...) quantized_matrix_t name(__VA_ARGS__)
-    #define EI_DSP_QUANTIZED_MATRIX_B(name, ...) quantized_matrix_t name(__VA_ARGS__)
+    #define EI_DSP_MATRIX(name, ...) matrix_t name(__VA_ARGS__); if (!name.buffer) { EIDSP_ERR(EIDSP_OUT_OF_MEM); }
+    #define EI_DSP_MATRIX_B(name, ...) matrix_t name(__VA_ARGS__); if (!name.buffer) { EIDSP_ERR(EIDSP_OUT_OF_MEM); }
+    #define EI_DSP_QUANTIZED_MATRIX(name, ...) quantized_matrix_t name(__VA_ARGS__); if (!name.buffer) { EIDSP_ERR(EIDSP_OUT_OF_MEM); }
+    #define EI_DSP_QUANTIZED_MATRIX_B(name, ...) quantized_matrix_t name(__VA_ARGS__); if (!name.buffer) { EIDSP_ERR(EIDSP_OUT_OF_MEM); }
 #endif
 
 #if EIDSP_TRACK_ALLOCATIONS

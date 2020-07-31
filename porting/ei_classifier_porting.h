@@ -26,6 +26,10 @@
 #include <stdint.h>
 #include "tensorflow/lite/micro/debug_log.h"
 
+#if defined(__cplusplus) && EI_C_LINKAGE == 1
+extern "C" {
+#endif // defined(__cplusplus)
+
 typedef enum {
     EI_IMPULSE_OK = 0,
     EI_IMPULSE_ERROR_SHAPES_DONT_MATCH = -1,
@@ -33,7 +37,8 @@ typedef enum {
     EI_IMPULSE_TFLITE_ERROR = -3,
     EI_IMPULSE_DSP_ERROR = -5,
     EI_IMPULSE_TFLITE_ARENA_ALLOC_FAILED = -6,
-    EI_IMPULSE_CUBEAI_ERROR = -7
+    EI_IMPULSE_CUBEAI_ERROR = -7,
+    EI_IMPULSE_ALLOC_FAILED = -8
 } EI_IMPULSE_ERROR;
 
 /**
@@ -68,5 +73,9 @@ void ei_printf(const char *format, ...);
  * If not overriden, this will be sent through `ei_printf()`.
  */
 void ei_printf_float(float f);
+
+#if defined(__cplusplus) && EI_C_LINKAGE == 1
+}
+#endif // defined(__cplusplus) && EI_C_LINKAGE == 1
 
 #endif // _EI_CLASSIFIER_PORTING_H_

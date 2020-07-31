@@ -27,7 +27,13 @@
 #include "edge-impulse-sdk/dsp/spectral/spectral.hpp"
 #include "edge-impulse-sdk/dsp/speechpy/speechpy.hpp"
 
+#if defined(__cplusplus) && EI_C_LINKAGE == 1
+extern "C" {
+    extern void ei_printf(const char *format, ...);
+}
+#else
 extern void ei_printf(const char *format, ...);
+#endif
 
 #ifdef __cplusplus
 namespace {
@@ -44,6 +50,9 @@ __attribute__((unused)) int extract_spectral_analysis_features(signal_t *signal,
 
     // input matrix from the raw signal
     matrix_t input_matrix(signal->total_length / config.axes, config.axes);
+    if (!input_matrix.buffer) {
+        EIDSP_ERR(EIDSP_OUT_OF_MEM);
+    }
     signal->get_data(0, signal->total_length, input_matrix.buffer);
 
     // scale the signal
@@ -107,6 +116,9 @@ __attribute__((unused)) int extract_raw_features(signal_t *signal, matrix_t *out
 
     // input matrix from the raw signal
     matrix_t input_matrix(signal->total_length / config.axes, config.axes);
+    if (!input_matrix.buffer) {
+        EIDSP_ERR(EIDSP_OUT_OF_MEM);
+    }
     signal->get_data(0, signal->total_length, input_matrix.buffer);
 
     // scale the signal
@@ -137,6 +149,9 @@ __attribute__((unused)) int extract_flatten_features(signal_t *signal, matrix_t 
 
     // input matrix from the raw signal
     matrix_t input_matrix(signal->total_length / config.axes, config.axes);
+    if (!input_matrix.buffer) {
+        EIDSP_ERR(EIDSP_OUT_OF_MEM);
+    }
     signal->get_data(0, signal->total_length, input_matrix.buffer);
 
     // scale the signal
@@ -160,24 +175,36 @@ __attribute__((unused)) int extract_flatten_features(signal_t *signal, matrix_t 
 
         if (config.average) {
             matrix_t out_matrix(1, 1);
+            if (!out_matrix.buffer) {
+                EIDSP_ERR(EIDSP_OUT_OF_MEM);
+            }
             numpy::mean(&row_matrix, &out_matrix);
             output_matrix->buffer[out_matrix_ix++] = out_matrix.buffer[0];
         }
 
         if (config.minimum) {
             matrix_t out_matrix(1, 1);
+            if (!out_matrix.buffer) {
+                EIDSP_ERR(EIDSP_OUT_OF_MEM);
+            }
             numpy::min(&row_matrix, &out_matrix);
             output_matrix->buffer[out_matrix_ix++] = out_matrix.buffer[0];
         }
 
         if (config.maximum) {
             matrix_t out_matrix(1, 1);
+            if (!out_matrix.buffer) {
+                EIDSP_ERR(EIDSP_OUT_OF_MEM);
+            }
             numpy::max(&row_matrix, &out_matrix);
             output_matrix->buffer[out_matrix_ix++] = out_matrix.buffer[0];
         }
 
         if (config.rms) {
             matrix_t out_matrix(1, 1);
+            if (!out_matrix.buffer) {
+                EIDSP_ERR(EIDSP_OUT_OF_MEM);
+            }
             numpy::rms(&row_matrix, &out_matrix);
             output_matrix->buffer[out_matrix_ix++] = out_matrix.buffer[0];
         }
@@ -217,7 +244,8 @@ __attribute__((unused)) int extract_mfcc_features(signal_t *signal, matrix_t *ou
     matrix_size_t out_matrix_size =
         speechpy::feature::calculate_mfcc_buffer_size(
             signal->total_length, frequency, config.frame_length, config.frame_stride, config.num_cepstral);
-    if (out_matrix_size.rows * out_matrix_size.cols != output_matrix->rows * output_matrix->cols) {
+    /* Only throw size mismatch error calculated buffer doesn't fit for continuous inferencing */
+    if (out_matrix_size.rows * out_matrix_size.cols > output_matrix->rows * output_matrix->cols) {
         ei_printf("out_matrix = %hux%hu\n", output_matrix->rows, output_matrix->cols);
         ei_printf("calculated size = %hux%hu\n", out_matrix_size.rows, out_matrix_size.cols);
         EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
@@ -268,6 +296,91 @@ __attribute__((unused)) int extract_mfcc_features(signal_t *signal, matrix_t *ou
     return EIDSP_OK;
 }
 
+__attribute__((unused)) int extract_mfcc_per_slice_features(signal_t *signal, matrix_t *output_matrix, void *config_ptr) {
+    ei_dsp_config_mfcc_t config = *((ei_dsp_config_mfcc_t*)config_ptr);
+
+    static bool first_run = false;
+
+    if (config.axes != 1) {
+        EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
+    }
+
+    /* Fake an extra frame_length for stack frames calculations. There, 1 frame_length is always
+    subtracted and there for never used. But skip the first slice to fit the feature_matrix
+    buffer */
+    if (first_run == true) {
+        signal->total_length += (size_t)(config.frame_length * (float)EI_CLASSIFIER_FREQUENCY);
+    }
+
+    first_run = true;
+
+    // @todo: move this to config
+    const uint32_t frequency = static_cast<uint32_t>(EI_CLASSIFIER_FREQUENCY);
+
+    // preemphasis class to preprocess the audio...
+    class speechpy::processing::preemphasis pre(signal, config.pre_shift, config.pre_cof);
+    preemphasis = &pre;
+
+    signal_t preemphasized_audio_signal;
+    preemphasized_audio_signal.total_length = signal->total_length;
+    preemphasized_audio_signal.get_data = &preemphasized_audio_signal_get_data;
+
+    // calculate the size of the MFCC matrix
+    matrix_size_t out_matrix_size =
+        speechpy::feature::calculate_mfcc_buffer_size(
+            signal->total_length, frequency, config.frame_length, config.frame_stride, config.num_cepstral);
+    /* Only throw size mismatch error calculated buffer doesn't fit for continuous inferencing */
+    if (out_matrix_size.rows * out_matrix_size.cols > output_matrix->rows * output_matrix->cols) {
+        ei_printf("out_matrix = %hux%hu\n", output_matrix->rows, output_matrix->cols);
+        ei_printf("calculated size = %hux%hu\n", out_matrix_size.rows, out_matrix_size.cols);
+        EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
+    }
+
+    output_matrix->rows = out_matrix_size.rows;
+    output_matrix->cols = out_matrix_size.cols;
+
+#ifdef __MBED__
+    Timer t;
+    t.start();
+#endif
+
+    // and run the MFCC extraction (using 32 rather than 40 filters here to optimize speed on embedded)
+    int ret = speechpy::feature::mfcc(output_matrix, &preemphasized_audio_signal,
+        frequency, config.frame_length, config.frame_stride, config.num_cepstral, config.num_filters, config.fft_length,
+        config.low_frequency, config.high_frequency);
+    if (ret != EIDSP_OK) {
+        ei_printf("ERR: MFCC failed (%d)\n", ret);
+        EIDSP_ERR(ret);
+    }
+
+#ifdef __MBED__
+    t.stop();
+
+    // ei_printf("mfcc done in %d ms.\n", t.read_ms());
+
+    t.reset();
+    t.start();
+#endif
+
+    // cepstral mean and variance normalization
+    // ret = speechpy::processing::cmvnw(output_matrix, config.win_size, true);
+    // if (ret != EIDSP_OK) {
+    //     ei_printf("ERR: cmvnw failed (%d)\n", ret);
+    //     EIDSP_ERR(ret);
+    // }
+
+#ifdef __MBED__
+    t.stop();
+
+    // ei_printf("cmvnw done in %d ms.\n", t.read_ms());
+#endif
+
+    output_matrix->cols = out_matrix_size.rows * out_matrix_size.cols;
+    output_matrix->rows = 1;
+
+    return EIDSP_OK;
+}
+
 __attribute__((unused)) int extract_image_features(signal_t *signal, matrix_t *output_matrix, void *config_ptr) {
     ei_dsp_config_image_t config = *((ei_dsp_config_image_t*)config_ptr);
 
@@ -287,6 +400,9 @@ __attribute__((unused)) int extract_image_features(signal_t *signal, matrix_t *o
         size_t bytes_to_read = bytes_left > 4096 ? 4096 : bytes_left;
 
         matrix_t input_matrix(bytes_to_read, config.axes);
+        if (!input_matrix.buffer) {
+            EIDSP_ERR(EIDSP_OUT_OF_MEM);
+        }
         signal->get_data(ix, bytes_to_read, input_matrix.buffer);
 
         for (size_t jx = 0; jx < bytes_to_read; jx++) {

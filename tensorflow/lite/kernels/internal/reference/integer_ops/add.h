@@ -28,7 +28,7 @@ namespace reference_integer_ops {
 inline void AddElementwise(int size, const ArithmeticParams& params,
                            const int8_t* input1_data, const int8_t* input2_data,
                            int8_t* output_data) {
-  const int32_t int8_max_value = std::numeric_limits<int8_t>::max();
+  const int32_t int8_max_value = std::numeric_limits<int8_t>::max() + 1;
   TFLITE_DCHECK_GE(params.input1_offset, -1 * int8_max_value);
   TFLITE_DCHECK_GE(params.input2_offset, -1 * int8_max_value);
   TFLITE_DCHECK_LE(params.input1_offset, int8_max_value);
@@ -66,7 +66,7 @@ inline void Add(const ArithmeticParams& params,
   const int flat_size =
       MatchingElementsSize(input1_shape, input2_shape, output_shape);
 
-  const int32_t int8_max_value = std::numeric_limits<int8_t>::max();
+  const int32_t int8_max_value = std::numeric_limits<int8_t>::max() + 1;
   TFLITE_DCHECK_GE(params.input1_offset, -1 * int8_max_value);
   TFLITE_DCHECK_GE(params.input2_offset, -1 * int8_max_value);
   TFLITE_DCHECK_LE(params.input1_offset, int8_max_value);

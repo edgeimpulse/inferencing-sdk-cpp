@@ -77,36 +77,94 @@ static ai_handle network = AI_HANDLE_NULL;
 #error "Unknown inferencing engine"
 #endif
 
+#if ECM3532
+void*   __dso_handle = (void*) &__dso_handle;
+#endif
+
 #ifdef __cplusplus
 namespace {
 #endif // __cplusplus
 
-/**
- * Run the classifier over a raw features array
- * @param raw_features Raw features array
- * @param raw_features_size Size of the features array
- * @param result Object to store the results in
- * @param debug Whether to show debug messages (default: false)
- */
-extern "C" EI_IMPULSE_ERROR run_classifier(
-    signal_t *signal,
-    ei_impulse_result_t *result,
-    bool debug = false)
-{
-    // if (debug) {
-    //     ei_printf("Input data: ");
-    //     for (size_t ix = 0; ix < raw_features_size; ix++) {
-    //         ei_printf_float(raw_features[ix]);
-    //         ei_printf(" ");
-    //     }
-    //     ei_printf("\n");
-    // }
+/* Function prototypes ----------------------------------------------------- */
+extern "C" EI_IMPULSE_ERROR run_inference(ei::matrix_t *fmatrix, ei_impulse_result_t *result, bool debug);
+static void calc_cepstral_mean_and_var_normalization(ei_matrix *matrix, void *config_ptr);
 
-    ei::matrix_t features_matrix(1, EI_CLASSIFIER_NN_INPUT_FRAME_SIZE);
+/* Private variables ------------------------------------------------------- */
+ei::matrix_t static_features_matrix(1, EI_CLASSIFIER_NN_INPUT_FRAME_SIZE);
+ei_impulse_maf classifier_maf[EI_CLASSIFIER_LABEL_COUNT] = {0};
+static size_t slice_offset = 0;
+static bool feature_buffer_full = false;
+
+/* Private functions ------------------------------------------------------- */
+
+/**
+ * @brief      Run a moving average filter over the classification result.
+ *             The size of the filter determines the response of the filter.
+ *             It is now set to the number of slices per window.
+ * @param      maf             Pointer to maf object
+ * @param[in]  classification  Classification output on current slice
+ *
+ * @return     Averaged classification value
+ */
+extern "C" float run_moving_average_filter(ei_impulse_maf *maf, float classification)
+{
+    maf->running_sum -= maf->maf_buffer[maf->buf_idx];
+    maf->running_sum += classification;
+    maf->maf_buffer[maf->buf_idx] = classification;
+
+    if (++maf->buf_idx >= EI_CLASSIFIER_SLICES_PER_MODEL_WINDOW) {
+        maf->buf_idx = 0;
+    }
+
+    return maf->running_sum / (float)(EI_CLASSIFIER_SLICES_PER_MODEL_WINDOW);
+}
+
+/**
+ * @brief      Reset all values in filter to 0
+ *
+ * @param      maf   Pointer to maf object
+ */
+static void clear_moving_average_filter(ei_impulse_maf *maf)
+{
+    maf->running_sum = 0;
+
+    for (int i = 0; i < EI_CLASSIFIER_SLICES_PER_MODEL_WINDOW; i++) {
+        maf->maf_buffer[i] = 0.f;
+    }
+}
+
+/**
+ * @brief      Init static vars
+ */
+extern "C" void run_classifier_init(void)
+{
+    slice_offset = 0;
+    feature_buffer_full = false;
+
+    for (size_t ix = 0; ix < EI_CLASSIFIER_LABEL_COUNT; ix++) {
+        clear_moving_average_filter(&classifier_maf[ix]);
+    }
+}
+
+/**
+ * @brief      Fill the complete matrix with sample slices. From there, run inference
+ *             on the matrix.
+ *
+ * @param      signal  Sample data
+ * @param      result  Classification output
+ * @param[in]  debug   Debug output enable boot
+ *
+ * @return     The ei impulse error.
+ */
+extern "C" EI_IMPULSE_ERROR run_classifier_continuous(signal_t *signal, ei_impulse_result_t *result,
+                                                      bool debug = false)
+{
+    EI_IMPULSE_ERROR ei_impulse_error = EI_IMPULSE_OK;
 
     uint64_t dsp_start_ms = ei_read_timer_ms();
 
     size_t out_features_index = 0;
+    size_t feature_size;
 
     for (size_t ix = 0; ix < ei_dsp_blocks_size; ix++) {
         ei_model_dsp_t block = ei_dsp_blocks[ix];
@@ -116,7 +174,13 @@ extern "C" EI_IMPULSE_ERROR run_classifier(
             return EI_IMPULSE_DSP_ERROR;
         }
 
-        ei::matrix_t fm(1, block.n_output_features, features_matrix.buffer + out_features_index);
+        ei::matrix_t fm(1, block.n_output_features,
+                        static_features_matrix.buffer + out_features_index + slice_offset);
+
+        /* Switch to the slice version of the mfcc feature extract function */
+        if (block.extract_fn == extract_mfcc_features) {
+            block.extract_fn = &extract_mfcc_per_slice_features;
+        }
 
         int ret = block.extract_fn(signal, &fm, block.config);
         if (ret != EIDSP_OK) {
@@ -129,14 +193,26 @@ extern "C" EI_IMPULSE_ERROR run_classifier(
         }
 
         out_features_index += block.n_output_features;
+
+        feature_size = (fm.rows * fm.cols);
+    }
+
+    /* For as long as the feature buffer isn't completely full, keep moving the slice offset */
+    if (feature_buffer_full == false) {
+        slice_offset += feature_size;
+
+        if (slice_offset > (EI_CLASSIFIER_NN_INPUT_FRAME_SIZE - feature_size)) {
+            feature_buffer_full = true;
+            slice_offset -= feature_size;
+        }
     }
 
     result->timing.dsp = ei_read_timer_ms() - dsp_start_ms;
 
     if (debug) {
-        ei_printf("Features (%d ms.): ", result->timing.dsp);
-        for (size_t ix = 0; ix < features_matrix.cols; ix++) {
-            ei_printf_float(features_matrix.buffer[ix]);
+        ei_printf("\r\nFeatures (%d ms.): ", result->timing.dsp);
+        for (size_t ix = 0; ix < static_features_matrix.cols; ix++) {
+            ei_printf_float(static_features_matrix.buffer[ix]);
             ei_printf(" ");
         }
         ei_printf("\n");
@@ -145,11 +221,54 @@ extern "C" EI_IMPULSE_ERROR run_classifier(
     if (debug) {
         ei_printf("Running neural network...\n");
     }
+
+    if (feature_buffer_full == true) {
+        dsp_start_ms = ei_read_timer_ms();
+        ei::matrix_t classify_matrix(1, EI_CLASSIFIER_NN_INPUT_FRAME_SIZE);
+
+        /* Create a copy of the matrix for normalization */
+        for (size_t m_ix = 0; m_ix < EI_CLASSIFIER_NN_INPUT_FRAME_SIZE; m_ix++) {
+            classify_matrix.buffer[m_ix] = static_features_matrix.buffer[m_ix];
+        }
+
+        calc_cepstral_mean_and_var_normalization(&classify_matrix, ei_dsp_blocks[0].config);
+        result->timing.dsp += ei_read_timer_ms() - dsp_start_ms;
+
+        ei_impulse_error = run_inference(&classify_matrix, result, debug);
+
+        for (size_t ix = 0; ix < EI_CLASSIFIER_LABEL_COUNT; ix++) {
+            result->classification[ix].value =
+                run_moving_average_filter(&classifier_maf[ix], result->classification[ix].value);
+        }
+
+        /* Shift the feature buffer for new data */
+        for (int i = 0; i < (EI_CLASSIFIER_NN_INPUT_FRAME_SIZE - feature_size); i++) {
+            static_features_matrix.buffer[i] = static_features_matrix.buffer[i + feature_size];
+        }
+    }
+    return ei_impulse_error;
+}
+
+/**
+ * @brief      Do inferencing over the processed feature matrix
+ *
+ * @param      fmatrix  Processed matrix
+ * @param      result   Output classifier results
+ * @param[in]  debug    Debug output enable
+ *
+ * @return     The ei impulse error.
+ */
+extern "C" EI_IMPULSE_ERROR run_inference(
+    ei::matrix_t *fmatrix,
+    ei_impulse_result_t *result,
+    bool debug = false)
+{
+
 #if EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_UTENSOR
     // now turn into floats...
-    RamTensor<float> *input_x = new RamTensor<float>({ 1, static_cast<unsigned int>(features_matrix.rows * features_matrix.cols) });
+    RamTensor<float> *input_x = new RamTensor<float>({ 1, static_cast<unsigned int>(fmatrix->rows * fmatrix->cols) });
     float *buff = (float*)input_x->write(0, 0);
-    memcpy(buff, features_matrix.buffer, features_matrix.rows * features_matrix.cols * sizeof(float));
+    memcpy(buff, fmatrix->buffer, fmatrix->rows * fmatrix->cols * sizeof(float));
 
     {
         uint64_t ctx_start_ms = ei_read_timer_ms();
@@ -248,8 +367,8 @@ extern "C" EI_IMPULSE_ERROR run_classifier(
         // =====
 
         // Place our calculated x value in the model's input tensor
-        for (size_t ix = 0; ix < features_matrix.cols; ix++) {
-            input->data.f[ix] = features_matrix.buffer[ix];
+        for (size_t ix = 0; ix < fmatrix->cols; ix++) {
+            input->data.f[ix] = fmatrix->buffer[ix];
         }
 
         // Run inference, and report any error
@@ -288,29 +407,29 @@ extern "C" EI_IMPULSE_ERROR run_classifier(
 
     if (!network) {
 #if defined(STM32H7)
-		/* By default the CRC IP clock is enabled */
-		__HAL_RCC_CRC_CLK_ENABLE();
+        /* By default the CRC IP clock is enabled */
+        __HAL_RCC_CRC_CLK_ENABLE();
 #else
-		if (!__HAL_RCC_CRC_IS_CLK_ENABLED()) {
-			ei_printf("W: CRC IP clock is NOT enabled\r\n");
-		}
-
-		/* By default the CRC IP clock is enabled */
-		__HAL_RCC_CRC_CLK_ENABLE();
-#endif
-
-    	ai_error err;
-
-        if (debug) {
-    	    ei_printf("Creating network...\n");
+        if (!__HAL_RCC_CRC_IS_CLK_ENABLED()) {
+            ei_printf("W: CRC IP clock is NOT enabled\r\n");
         }
 
-    	// create the network
-	    err = ai_network_create(&network, (const ai_buffer*)AI_NETWORK_DATA_CONFIG);
-	    if (err.type != AI_ERROR_NONE) {
-	    	ei_printf("CubeAI error - type=%d code=%d\r\n", err.type, err.code);
-	    	return EI_IMPULSE_CUBEAI_ERROR;
-	    }
+        /* By default the CRC IP clock is enabled */
+        __HAL_RCC_CRC_CLK_ENABLE();
+#endif
+
+        ai_error err;
+
+        if (debug) {
+            ei_printf("Creating network...\n");
+        }
+
+        // create the network
+        err = ai_network_create(&network, (const ai_buffer*)AI_NETWORK_DATA_CONFIG);
+        if (err.type != AI_ERROR_NONE) {
+            ei_printf("CubeAI error - type=%d code=%d\r\n", err.type, err.code);
+            return EI_IMPULSE_CUBEAI_ERROR;
+        }
 
         const ai_network_params params = {
            AI_NETWORK_DATA_WEIGHTS(ai_network_data_weights_get()),
@@ -322,15 +441,15 @@ extern "C" EI_IMPULSE_ERROR run_classifier(
 
         if (!ai_network_init(network, &params)) {
             err = ai_network_get_error(network);
-	    	ei_printf("CubeAI error - type=%d code=%d\r\n", err.type, err.code);
-	    	return EI_IMPULSE_CUBEAI_ERROR;
+            ei_printf("CubeAI error - type=%d code=%d\r\n", err.type, err.code);
+            return EI_IMPULSE_CUBEAI_ERROR;
         }
     }
 
     uint64_t ctx_start_ms = ei_read_timer_ms();
 
-    // features_matrix.buffer <-- input data
-    memcpy(in_data, features_matrix.buffer, AI_NETWORK_IN_1_SIZE * sizeof(float));
+    // fmatrix->buffer <-- input data
+    memcpy(in_data, fmatrix->buffer, AI_NETWORK_IN_1_SIZE * sizeof(float));
 
     ai_i32 n_batch;
     ai_error err;
@@ -349,8 +468,8 @@ extern "C" EI_IMPULSE_ERROR run_classifier(
     n_batch = ai_network_run(network, &ai_input[0], &ai_output[0]);
     if (n_batch != 1) {
         err = ai_network_get_error(network);
-    	ei_printf("CubeAI error - type=%d code=%d\r\n", err.type, err.code);
-    	return EI_IMPULSE_CUBEAI_ERROR;
+        ei_printf("CubeAI error - type=%d code=%d\r\n", err.type, err.code);
+        return EI_IMPULSE_CUBEAI_ERROR;
     }
 
     uint64_t ctx_end_ms = ei_read_timer_ms();
@@ -380,7 +499,7 @@ extern "C" EI_IMPULSE_ERROR run_classifier(
 
         float input[EI_CLASSIFIER_ANOM_AXIS_SIZE];
         for (size_t ix = 0; ix < EI_CLASSIFIER_ANOM_AXIS_SIZE; ix++) {
-            input[ix] = features_matrix.buffer[EI_CLASSIFIER_ANOM_AXIS[ix]];
+            input[ix] = fmatrix->buffer[EI_CLASSIFIER_ANOM_AXIS[ix]];
         }
         standard_scaler(input, ei_classifier_anom_scale, ei_classifier_anom_mean, EI_CLASSIFIER_ANOM_AXIS_SIZE);
         float anomaly = get_min_distance_to_cluster(
@@ -406,6 +525,101 @@ extern "C" EI_IMPULSE_ERROR run_classifier(
     }
 
     return EI_IMPULSE_OK;
+}
+
+
+/**
+ * Run the classifier over a raw features array
+ * @param raw_features Raw features array
+ * @param raw_features_size Size of the features array
+ * @param result Object to store the results in
+ * @param debug Whether to show debug messages (default: false)
+ */
+extern "C" EI_IMPULSE_ERROR run_classifier(
+    signal_t *signal,
+    ei_impulse_result_t *result,
+    bool debug = false)
+{
+    // if (debug) {
+    //     ei_printf("Input data: ");
+    //     for (size_t ix = 0; ix < raw_features_size; ix++) {
+    //         ei_printf_float(raw_features[ix]);
+    //         ei_printf(" ");
+    //     }
+    //     ei_printf("\n");
+    // }
+
+    ei::matrix_t features_matrix(1, EI_CLASSIFIER_NN_INPUT_FRAME_SIZE);
+
+    uint64_t dsp_start_ms = ei_read_timer_ms();
+
+    size_t out_features_index = 0;
+
+    for (size_t ix = 0; ix < ei_dsp_blocks_size; ix++) {
+        ei_model_dsp_t block = ei_dsp_blocks[ix];
+
+        if (out_features_index + block.n_output_features > EI_CLASSIFIER_NN_INPUT_FRAME_SIZE) {
+            ei_printf("ERR: Would write outside feature buffer\n");
+            return EI_IMPULSE_DSP_ERROR;
+        }
+
+        ei::matrix_t fm(1, block.n_output_features, features_matrix.buffer + out_features_index);
+
+        int ret = block.extract_fn(signal, &fm, block.config);
+        if (ret != EIDSP_OK) {
+            ei_printf("ERR: Failed to run DSP process (%d)\n", ret);
+            return EI_IMPULSE_DSP_ERROR;
+        }
+
+        if (ei_run_impulse_check_canceled() == EI_IMPULSE_CANCELED) {
+            return EI_IMPULSE_CANCELED;
+        }
+
+        out_features_index += block.n_output_features;
+    }
+
+    result->timing.dsp = ei_read_timer_ms() - dsp_start_ms;
+
+    if (debug) {
+        ei_printf("Features (%d ms.): ", result->timing.dsp);
+        for (size_t ix = 0; ix < features_matrix.cols; ix++) {
+            ei_printf_float(features_matrix.buffer[ix]);
+            ei_printf(" ");
+        }
+        ei_printf("\n");
+    }
+
+    if (debug) {
+        ei_printf("Running neural network...\n");
+    }
+
+    return run_inference(&features_matrix, result, debug);
+}
+
+/**
+ * @brief      Calculates the cepstral mean and variable normalization.
+ *
+ * @param      matrix      Source and destination matrix
+ * @param      config_ptr  ei_dsp_config_mfcc_t struct pointer
+ */
+static void calc_cepstral_mean_and_var_normalization(ei_matrix *matrix, void *config_ptr)
+{
+    ei_dsp_config_mfcc_t *config = (ei_dsp_config_mfcc_t *)config_ptr;
+
+    /* Modify rows and colums ration for matrix normalization */
+    matrix->rows = EI_CLASSIFIER_NN_INPUT_FRAME_SIZE / config->num_cepstral;
+    matrix->cols = config->num_cepstral;
+
+    // cepstral mean and variance normalization
+    int ret = speechpy::processing::cmvnw(matrix, config->win_size, true);
+    if (ret != EIDSP_OK) {
+        ei_printf("ERR: cmvnw failed (%d)\n", ret);
+        EIDSP_ERR(ret);
+    }
+
+    /* Reset rows and columns ratio */
+    matrix->rows = 1;
+    matrix->cols = EI_CLASSIFIER_NN_INPUT_FRAME_SIZE;
 }
 
 #if EIDSP_SIGNAL_C_FN_POINTER == 0

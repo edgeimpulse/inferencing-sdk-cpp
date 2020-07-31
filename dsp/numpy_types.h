@@ -252,4 +252,12 @@ typedef struct ei_signal_t {
 } // namespace ei {
 #endif // __cplusplus
 
+// required on Adafruit nRF52, it seems not to matter too much on other targets...
+#ifdef __cplusplus
+namespace std {
+    __attribute__((weak)) void __throw_bad_function_call() { while(1); };
+    __attribute__((weak)) void __throw_length_error(char const*) { while(1); };
+}
+#endif // __cplusplus
+
 #endif // _EIDSP_NUMPY_TYPES_H_

@@ -87,7 +87,10 @@ __attribute__((weak)) void ei_printf_float(float f) {
     ei_printf("%f", f);
 }
 
-extern "C" __attribute__((weak)) void DebugLog(const char* s) {
+#if defined(__cplusplus) && EI_C_LINKAGE == 1
+extern "C"
+#endif
+__attribute__((weak)) void DebugLog(const char* s) {
     ei_printf("%s", s);
 }
 

@@ -26,6 +26,9 @@
 #include <stdarg.h>
 
 // On mbed platforms, we set up a serial port and write to it for debug logging.
-extern "C" void DebugLog(const char* s) {
+#if defined(__cplusplus) && EI_C_LINKAGE == 1
+extern "C"
+#endif // defined(__cplusplus) && EI_C_LINKAGE == 1
+void DebugLog(const char* s) {
     ei_printf("%s", s);
 }
