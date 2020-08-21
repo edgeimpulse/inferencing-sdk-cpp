@@ -31,7 +31,6 @@
 #include <functional>
 #ifdef __MBED__
 #include "mbed.h"
-using namespace mbed;
 #endif // __MBED__
 #endif // __cplusplus
 
@@ -133,7 +132,7 @@ typedef struct ei_quantized_matrix {
     uint16_t cols;
     bool buffer_managed_by_me;
 #ifdef __MBED__
-    Callback<float(uint8_t)> dequantization_fn;
+    mbed::Callback<float(uint8_t)> dequantization_fn;
 #else
     float (*dequantization_fn)(uint8_t);
 #endif
@@ -155,7 +154,7 @@ typedef struct ei_quantized_matrix {
     ei_quantized_matrix(uint16_t n_rows,
                         uint16_t n_cols,
 #ifdef __MBED__
-                        Callback<float(uint8_t)> a_dequantization_fn,
+                        mbed::Callback<float(uint8_t)> a_dequantization_fn,
 #else
                         float (*a_dequantization_fn)(uint8_t),
 #endif
@@ -239,7 +238,7 @@ typedef struct ei_signal_t {
     int (*get_data)(size_t, size_t, float *);
 #else
 #ifdef __MBED__
-    Callback<int(size_t offset, size_t length, float *out_ptr)> get_data;
+    mbed::Callback<int(size_t offset, size_t length, float *out_ptr)> get_data;
 #else
     std::function<int(size_t offset, size_t length, float *out_ptr)> get_data;
 #endif // __MBED__

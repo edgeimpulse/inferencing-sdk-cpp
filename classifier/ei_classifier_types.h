@@ -47,7 +47,7 @@ typedef struct {
 typedef struct {
     uint32_t buf_idx;
     float running_sum;
-    float maf_buffer[EI_CLASSIFIER_SLICES_PER_MODEL_WINDOW];    
+    float maf_buffer[EI_CLASSIFIER_SLICES_PER_MODEL_WINDOW >> 1];    
 }ei_impulse_maf;
 
 #endif // _EDGE_IMPULSE_RUN_CLASSIFIER_TYPES_H_

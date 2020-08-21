@@ -769,6 +769,10 @@ public:
      * @returns 0 if OK
      */
     static int std_axis0(matrix_t *input_matrix, matrix_t *output_matrix) {
+#if EIDSP_USE_CMSIS_DSP
+        return std_axis0_CMSIS(input_matrix, output_matrix);
+#else
+
         if (input_matrix->cols != output_matrix->rows) {
             EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
         }
@@ -782,13 +786,7 @@ public:
             EIDSP_ERR(ret);
         }
 
-
         for (size_t row = 0; row < input_matrix->rows; row++) {
-#if EIDSP_USE_CMSIS_DSP
-            float std;
-            arm_std_f32(input_matrix->buffer + (row * input_matrix->cols), input_matrix->cols, &std);
-            output_matrix->buffer[row] = std;
-#else
             float sum = 0.0f;
 
             for (size_t col = 0; col < input_matrix->cols; col++) {
@@ -804,7 +802,6 @@ public:
             }
 
             output_matrix->buffer[row] = sqrt(std / input_matrix->cols);
-#endif
         }
 
         // retranspose
@@ -814,6 +811,7 @@ public:
         }
 
         return EIDSP_OK;
+#endif
     }
 
     /**
@@ -872,7 +870,7 @@ public:
             arm_max_f32(input_matrix->buffer + (row * input_matrix->cols), input_matrix->cols, &max, &ix);
             output_matrix->buffer[row] = max;
 #else
-            float max = FLT_MIN;
+            float max = -FLT_MAX;
 
             for (size_t col = 0; col < input_matrix->cols; col++) {
                 float v = input_matrix->buffer[( row * input_matrix->cols ) + col];
@@ -882,6 +880,177 @@ public:
             }
 
             output_matrix->buffer[row] = max;
+#endif
+        }
+
+        return EIDSP_OK;
+    }
+
+    /**
+     * Get the stdev value in a matrix per row
+     * @param input_matrix Input matrix (MxN)
+     * @param output_matrix Output matrix (Mx1)
+     */
+    static int stdev(matrix_t *input_matrix, matrix_t *output_matrix) {
+        if (input_matrix->rows != output_matrix->rows) {
+            EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
+        }
+        if (output_matrix->cols != 1) {
+            EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
+        }
+
+        for (size_t row = 0; row < input_matrix->rows; row++) {
+#if EIDSP_USE_CMSIS_DSP
+            float std;
+            float var;
+            cmsis_arm_variance(&input_matrix->buffer[(row * input_matrix->cols)], input_matrix->cols, &var);
+            arm_sqrt_f32(var, &std);
+            output_matrix->buffer[row] = std;
+#else
+            float sum = 0.0f;
+
+            for (size_t col = 0; col < input_matrix->cols; col++) {
+                sum += input_matrix->buffer[(row * input_matrix->cols) + col];
+            }
+
+            float mean = sum / input_matrix->cols;
+
+            float std = 0.0f;
+
+            for (size_t col = 0; col < input_matrix->cols; col++) {
+                float diff;
+                diff = input_matrix->buffer[(row * input_matrix->cols) + col] - mean;
+                std += diff * diff;
+            }
+
+            output_matrix->buffer[row] = sqrt(std / input_matrix->cols);
+#endif
+        }
+
+        return EIDSP_OK;
+    }
+
+    /**
+     * Get the skewness value in a matrix per row
+     * @param input_matrix Input matrix (MxN)
+     * @param output_matrix Output matrix (Mx1)
+     */
+    static int skew(matrix_t *input_matrix, matrix_t *output_matrix) {
+        if (input_matrix->rows != output_matrix->rows) {
+            EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
+        }
+        if (output_matrix->cols != 1) {
+            EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
+        }
+
+        for (size_t row = 0; row < input_matrix->rows; row++) {
+#if EIDSP_USE_CMSIS_DSP
+            float mean;
+            float var;
+
+            // Calculate the mean & variance
+            arm_mean_f32(input_matrix->buffer + (row * input_matrix->cols), input_matrix->cols, &mean);
+            cmsis_arm_variance(&input_matrix->buffer[(row * input_matrix->cols)], input_matrix->cols, &var);
+
+            // Calculate m_3
+            float m_3;
+            cmsis_arm_third_moment(&input_matrix->buffer[(row * input_matrix->cols)], input_matrix->cols, mean, &m_3);
+
+            // Calculate (variance)^(3/2)
+            arm_sqrt_f32(var * var * var, &var);
+
+            // Calculate skew = (m_3) / (variance)^(3/2)
+            output_matrix->buffer[row] = m_3 / var;
+#else
+            float sum = 0.0f;
+            float mean;
+
+            // Calculate the mean
+            for (size_t col = 0; col < input_matrix->cols; col++) {
+                sum += input_matrix->buffer[( row * input_matrix->cols ) + col];
+            }
+            mean = sum / input_matrix->cols;
+
+            // Calculate the m values
+            float m_3 = 0.0f;
+            float m_2 = 0.0f;
+
+            for (size_t col = 0; col < input_matrix->cols; col++) {
+                float diff;
+                diff = input_matrix->buffer[( row * input_matrix->cols ) + col] - mean;
+                m_3 += diff * diff * diff;
+                m_2 += diff * diff;
+            }
+            m_3 = m_3 / input_matrix->cols;
+            m_2 = m_2 / input_matrix->cols;
+
+            // Calculate (m_2)^(3/2)
+            m_2 = sqrt(m_2 * m_2 * m_2);
+
+            // Calculate skew = (m_3) / (m_2)^(3/2)
+            output_matrix->buffer[row] = m_3 / m_2;
+#endif
+        }
+
+        return EIDSP_OK;
+    }
+
+    /**
+     * Get the kurtosis value in a matrix per row
+     * @param input_matrix Input matrix (MxN)
+     * @param output_matrix Output matrix (Mx1)
+     */
+    static int kurtosis(matrix_t *input_matrix, matrix_t *output_matrix) {
+        if (input_matrix->rows != output_matrix->rows) {
+            EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
+        }
+        if (output_matrix->cols != 1) {
+            EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
+        }
+
+        for (size_t row = 0; row < input_matrix->rows; row++) {
+#if EIDSP_USE_CMSIS_DSP
+            float mean;
+            float var;
+
+            // Calculate mean & variance
+            arm_mean_f32(input_matrix->buffer + (row * input_matrix->cols), input_matrix->cols, &mean);
+            cmsis_arm_variance(&input_matrix->buffer[(row * input_matrix->cols)], input_matrix->cols, &var);
+
+            // Calculate m_4
+            float m_4;
+            cmsis_arm_fourth_moment(&input_matrix->buffer[(row * input_matrix->cols)], input_matrix->cols, mean, &m_4);
+
+            // Calculate Fisher kurtosis = (m_4 / variance^2) - 3
+            output_matrix->buffer[row] = (m_4 / (var * var)) - 3;
+#else
+            // Calculate the mean
+            float mean = 0.0f;
+            float sum = 0.0f;
+
+            for (size_t col = 0; col < input_matrix->cols; col++) {
+                sum += input_matrix->buffer[( row * input_matrix->cols ) + col];
+            }
+            mean = sum / input_matrix->cols;
+
+            // Calculate m_4 & variance
+            float m_4 = 0.0f;
+            float variance = 0.0f;
+
+            for (size_t col = 0; col < input_matrix->cols; col++) {
+                float diff;
+                diff = input_matrix->buffer[(row * input_matrix->cols) + col] - mean;
+                float square_diff = diff * diff;
+                variance += square_diff;
+                m_4 += square_diff * square_diff;
+            }
+            m_4 = m_4 / input_matrix->cols;
+            variance = variance / input_matrix->cols;
+
+            // Square the variance
+            variance = variance * variance;
+            // Calculate Fisher kurtosis = (m_4 / variance^2) - 3
+            output_matrix->buffer[row] = (m_4 / variance) - 3;
 #endif
         }
 
@@ -1090,7 +1259,7 @@ public:
     }
 
     /**
-     * Convert an int16_t buffer into a float buffer
+     * Convert an int16_t buffer into a float buffer, maps to -1..1
      * @param input
      * @param output
      * @param length
@@ -1101,14 +1270,14 @@ public:
         arm_q15_to_float(input, output, length);
 #else
         for (size_t ix = 0; ix < length; ix++) {
-            output[ix] = (float)(input[ix]);
+            output[ix] = (float)(input[ix]) / 32768;
         }
 #endif
         return EIDSP_OK;
     }
 
     /**
-     * Convert an int8_t buffer into a float buffer
+     * Convert an int8_t buffer into a float buffer, maps to -1..1
      * @param input
      * @param output
      * @param length
@@ -1119,7 +1288,7 @@ public:
         arm_q7_to_float(input, output, length);
 #else
         for (size_t ix = 0; ix < length; ix++) {
-            output[ix] = (float)(input[ix]);
+            output[ix] = (float)(input[ix]) / 128;
         }
 #endif
         return EIDSP_OK;
@@ -1139,7 +1308,7 @@ public:
     {
         signal->total_length = data_size;
 #ifdef __MBED__
-        signal->get_data = callback(&numpy::signal_get_data, data);
+        signal->get_data = mbed::callback(&numpy::signal_get_data, data);
 #else
         signal->get_data = [data](size_t offset, size_t length, float *out_ptr) {
             return numpy::signal_get_data(data, offset, length, out_ptr);
@@ -1251,6 +1420,255 @@ private:
         memcpy(out_ptr, in_buffer + offset, length * sizeof(float));
         return 0;
     }
+
+#if EIDSP_USE_CMSIS_DSP
+    /**
+     * @brief      The CMSIS std variance function with the same behaviour as the NumPy
+     * implementation
+     * @details    Variance in CMSIS version is calculated using fSum / (float32_t)(blockSize - 1)
+     * @param[in]  pSrc       Pointer to float block
+     * @param[in]  blockSize  Number of floats in block
+     * @param      pResult    The variance
+     */
+    static void cmsis_arm_variance(const float32_t *pSrc, uint32_t blockSize, float32_t *pResult)
+    {
+        uint32_t blkCnt;
+        float32_t sum = 0.0f;
+        float32_t fSum = 0.0f;
+        float32_t fMean, fValue;
+        const float32_t *pInput = pSrc;
+
+        if (blockSize <= 1U) {
+            *pResult = 0;
+            return;
+        }
+        blkCnt = blockSize >> 2U;
+
+        while (blkCnt > 0U) {
+            sum += *pInput++;
+            sum += *pInput++;
+            sum += *pInput++;
+            sum += *pInput++;
+            blkCnt--;
+        }
+
+        /* Loop unrolling: Compute remaining outputs */
+        blkCnt = blockSize % 0x4U;
+
+        while (blkCnt > 0U) {
+            sum += *pInput++;
+            blkCnt--;
+        }
+
+        fMean = sum / (float32_t)blockSize;
+
+        pInput = pSrc;
+
+        /* Loop unrolling: Compute 4 outputs at a time */
+        blkCnt = blockSize >> 2U;
+
+        while (blkCnt > 0U) {
+            fValue = *pInput++ - fMean;
+            fSum += fValue * fValue;
+            fValue = *pInput++ - fMean;
+            fSum += fValue * fValue;
+            fValue = *pInput++ - fMean;
+            fSum += fValue * fValue;
+            fValue = *pInput++ - fMean;
+            fSum += fValue * fValue;
+            blkCnt--;
+        }
+
+        /* Loop unrolling: Compute remaining outputs */
+        blkCnt = blockSize % 0x4U;
+
+        while (blkCnt > 0U) {
+            fValue = *pInput++ - fMean;
+            fSum += fValue * fValue;
+            blkCnt--;
+        }
+
+        /* Variance */
+        *pResult = fSum / (float32_t)(blockSize);
+    }
+
+    /**
+     * @brief      Copy of the numpy version explicitely using the CMSIS lib
+     *             for STD and Matrix transpose
+     * @param      input_matrix   The input matrix
+     * @param      output_matrix  The output matrix
+     *
+     * @return     EIDSP error
+     */
+    static int std_axis0_CMSIS(matrix_t *input_matrix, matrix_t *output_matrix)
+    {
+        arm_matrix_instance_f32 arm_in_matrix, arm_transposed_matrix;
+
+        if (input_matrix->cols != output_matrix->rows) {
+            EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
+        }
+
+        if (output_matrix->cols != 1) {
+            EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
+        }
+
+        /* Copy input matrix to arm matrix */
+        arm_in_matrix.numRows = input_matrix->rows;
+        arm_in_matrix.numCols = input_matrix->cols;
+        arm_in_matrix.pData = &input_matrix->buffer[0];
+        /* Create transposed matrix */
+        arm_transposed_matrix.numRows = input_matrix->cols;
+        arm_transposed_matrix.numCols = input_matrix->rows;
+        arm_transposed_matrix.pData = (float *)calloc(input_matrix->cols * input_matrix->rows * sizeof(float), 1);
+
+        if (arm_transposed_matrix.pData == NULL) {
+            EIDSP_ERR(EIDSP_OUT_OF_MEM);
+        }
+
+        int ret = arm_mat_trans_f32(&arm_in_matrix, &arm_transposed_matrix);
+        if (ret != EIDSP_OK) {
+            EIDSP_ERR(ret);
+        }
+
+        for (size_t row = 0; row < arm_transposed_matrix.numRows; row++) {
+            float std;
+            float var;
+
+            cmsis_arm_variance(arm_transposed_matrix.pData + (row * arm_transposed_matrix.numCols),
+                               arm_transposed_matrix.numCols, &var);
+            arm_sqrt_f32(var, &std);
+
+            output_matrix->buffer[row] = std;
+        }
+
+        free(arm_transposed_matrix.pData);
+
+        return EIDSP_OK;
+    }
+
+    /**
+     * @brief      A copy of the CMSIS power function, adapted to calculate the third central moment
+     * @details    Calculates the sum of cubes of a block with the mean value subtracted.
+     * @param[in]  pSrc       Pointer to float block
+     * @param[in]  blockSize  Number of floats in block
+     * @param[in]  mean       The mean to subtract from each value before cubing
+     * @param      pResult    The third central moment of the input
+     */
+    static void cmsis_arm_third_moment(const float32_t * pSrc, uint32_t blockSize, float32_t mean, float32_t * pResult)
+    {
+        uint32_t blkCnt;
+        float32_t sum = 0.0f;
+        float32_t in;
+
+        /* Loop unrolling: Compute 4 outputs at a time */
+        blkCnt = blockSize >> 2U;
+
+        while (blkCnt > 0U) {
+
+            /* Compute Power and store result in a temporary variable, sum. */
+            in = *pSrc++;
+            in = in - mean;
+            sum += in * in * in;
+
+            in = *pSrc++;
+            in = in - mean;
+            sum += in * in * in;
+
+            in = *pSrc++;
+            in = in - mean;
+            sum += in * in * in;
+
+            in = *pSrc++;
+            in = in - mean;
+            sum += in * in * in;
+
+            /* Decrement loop counter */
+            blkCnt--;
+        }
+
+        /* Loop unrolling: Compute remaining outputs */
+        blkCnt = blockSize % 0x4U;
+
+        while (blkCnt > 0U) {
+            /* Compute Power and store result in a temporary variable, sum. */
+            in = *pSrc++;
+            in = in - mean;
+            sum += in * in * in;
+
+            /* Decrement loop counter */
+            blkCnt--;
+        }
+
+        sum = sum / blockSize;
+        /* Store result to destination */
+        *pResult = sum;
+    }
+
+    /**
+     * @brief      A copy of the CMSIS power function, adapted to calculate the fourth central moment
+     * @details    Calculates the sum of fourth powers of a block with the mean value subtracted.
+     * @param[in]  pSrc       Pointer to float block
+     * @param[in]  blockSize  Number of floats in block
+     * @param[in]  mean       The mean to subtract from each value before calculating fourth power
+     * @param      pResult    The fourth central moment of the input
+     */
+    static void cmsis_arm_fourth_moment(const float32_t * pSrc, uint32_t blockSize, float32_t mean, float32_t * pResult)
+    {
+        uint32_t blkCnt;
+        float32_t sum = 0.0f;
+        float32_t in;
+
+        /* Loop unrolling: Compute 4 outputs at a time */
+        blkCnt = blockSize >> 2U;
+
+        while (blkCnt > 0U) {
+
+            /* Compute Power and store result in a temporary variable, sum. */
+            in = *pSrc++;
+            in = in - mean;
+            float square;
+            square = in * in;
+            sum += square * square;
+
+            in = *pSrc++;
+            in = in - mean;
+            square = in * in;
+            sum += square * square;
+
+            in = *pSrc++;
+            in = in - mean;
+            square = in * in;
+            sum += square * square;
+
+            in = *pSrc++;
+            in = in - mean;
+            square = in * in;
+            sum += square * square;
+
+            /* Decrement loop counter */
+            blkCnt--;
+        }
+
+        /* Loop unrolling: Compute remaining outputs */
+        blkCnt = blockSize % 0x4U;
+
+        while (blkCnt > 0U) {
+            /* Compute Power and store result in a temporary variable, sum. */
+            in = *pSrc++;
+            in = in - mean;
+            float square;
+            square = in * in;
+            sum += square * square;
+
+            /* Decrement loop counter */
+            blkCnt--;
+        }
+
+        sum = sum / blockSize;
+        /* Store result to destination */
+        *pResult = sum;
+    }
+#endif
 };
 
 } // namespace ei

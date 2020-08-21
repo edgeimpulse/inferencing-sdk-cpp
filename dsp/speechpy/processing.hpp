@@ -371,15 +371,17 @@ namespace processing {
 
                 features_buffer_ptr = &features_matrix->buffer[ix * vec_pad.cols];
                 for (size_t col = 0; col < vec_pad.cols; col++) {
-                    *(features_buffer_ptr++) = (*(features_buffer_ptr)-mean_matrix.buffer[col]) /
-                                               (window_variance.buffer[col] + FLT_EPSILON);
+                    *(features_buffer_ptr) = (*(features_buffer_ptr)-mean_matrix.buffer[col]) /
+                                             (window_variance.buffer[col] + FLT_EPSILON);
+                    features_buffer_ptr++;
                 }
             }
 
             else {
                 features_buffer_ptr = &features_matrix->buffer[ix * vec_pad.cols];
                 for (size_t col = 0; col < vec_pad.cols; col++) {
-                    *(features_buffer_ptr++) = *(features_buffer_ptr)-mean_matrix.buffer[col];
+                    *(features_buffer_ptr) = *(features_buffer_ptr)-mean_matrix.buffer[col];
+                    features_buffer_ptr++;
                 }
             }
         }

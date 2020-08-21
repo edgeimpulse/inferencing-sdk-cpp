@@ -127,7 +127,7 @@ __attribute__((unused)) int extract_raw_features(signal_t *signal, matrix_t *out
         EIDSP_ERR(ret);
     }
 
-    memcpy(output_matrix->buffer, input_matrix.buffer, signal->total_length);
+    memcpy(output_matrix->buffer, input_matrix.buffer, signal->total_length * sizeof(float));
 
     return EIDSP_OK;
 }
@@ -140,6 +140,9 @@ __attribute__((unused)) int extract_flatten_features(signal_t *signal, matrix_t 
     if (config.minimum) expected_matrix_size += config.axes;
     if (config.maximum) expected_matrix_size += config.axes;
     if (config.rms) expected_matrix_size += config.axes;
+    if (config.stdev) expected_matrix_size += config.axes;
+    if (config.skewness) expected_matrix_size += config.axes;
+    if (config.kurtosis) expected_matrix_size += config.axes;
 
     if (output_matrix->rows * output_matrix->cols != expected_matrix_size) {
         EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
@@ -174,38 +177,51 @@ __attribute__((unused)) int extract_flatten_features(signal_t *signal, matrix_t 
         matrix_t row_matrix(1, input_matrix.cols, input_matrix.buffer + (row * input_matrix.cols));
 
         if (config.average) {
-            matrix_t out_matrix(1, 1);
-            if (!out_matrix.buffer) {
-                EIDSP_ERR(EIDSP_OUT_OF_MEM);
-            }
+            float fbuffer;
+            matrix_t out_matrix(1, 1, &fbuffer);
             numpy::mean(&row_matrix, &out_matrix);
             output_matrix->buffer[out_matrix_ix++] = out_matrix.buffer[0];
         }
 
         if (config.minimum) {
-            matrix_t out_matrix(1, 1);
-            if (!out_matrix.buffer) {
-                EIDSP_ERR(EIDSP_OUT_OF_MEM);
-            }
+            float fbuffer;
+            matrix_t out_matrix(1, 1, &fbuffer);
             numpy::min(&row_matrix, &out_matrix);
             output_matrix->buffer[out_matrix_ix++] = out_matrix.buffer[0];
         }
 
         if (config.maximum) {
-            matrix_t out_matrix(1, 1);
-            if (!out_matrix.buffer) {
-                EIDSP_ERR(EIDSP_OUT_OF_MEM);
-            }
+            float fbuffer;
+            matrix_t out_matrix(1, 1, &fbuffer);
             numpy::max(&row_matrix, &out_matrix);
             output_matrix->buffer[out_matrix_ix++] = out_matrix.buffer[0];
         }
 
         if (config.rms) {
-            matrix_t out_matrix(1, 1);
-            if (!out_matrix.buffer) {
-                EIDSP_ERR(EIDSP_OUT_OF_MEM);
-            }
+            float fbuffer;
+            matrix_t out_matrix(1, 1, &fbuffer);
             numpy::rms(&row_matrix, &out_matrix);
+            output_matrix->buffer[out_matrix_ix++] = out_matrix.buffer[0];
+        }
+
+        if (config.stdev) {
+            float fbuffer;
+            matrix_t out_matrix(1, 1, &fbuffer);
+            numpy::stdev(&row_matrix, &out_matrix);
+            output_matrix->buffer[out_matrix_ix++] = out_matrix.buffer[0];
+        }
+
+        if (config.skewness) {
+            float fbuffer;
+            matrix_t out_matrix(1, 1, &fbuffer);
+            numpy::skew(&row_matrix, &out_matrix);
+            output_matrix->buffer[out_matrix_ix++] = out_matrix.buffer[0];
+        }
+
+        if (config.kurtosis) {
+            float fbuffer;
+            matrix_t out_matrix(1, 1, &fbuffer);
+            numpy::kurtosis(&row_matrix, &out_matrix);
             output_matrix->buffer[out_matrix_ix++] = out_matrix.buffer[0];
         }
     }
@@ -254,11 +270,6 @@ __attribute__((unused)) int extract_mfcc_features(signal_t *signal, matrix_t *ou
     output_matrix->rows = out_matrix_size.rows;
     output_matrix->cols = out_matrix_size.cols;
 
-#ifdef __MBED__
-    Timer t;
-    t.start();
-#endif
-
     // and run the MFCC extraction (using 32 rather than 40 filters here to optimize speed on embedded)
     int ret = speechpy::feature::mfcc(output_matrix, &preemphasized_audio_signal,
         frequency, config.frame_length, config.frame_stride, config.num_cepstral, config.num_filters, config.fft_length,
@@ -268,27 +279,12 @@ __attribute__((unused)) int extract_mfcc_features(signal_t *signal, matrix_t *ou
         EIDSP_ERR(ret);
     }
 
-#ifdef __MBED__
-    t.stop();
-
-    // ei_printf("mfcc done in %d ms.\n", t.read_ms());
-
-    t.reset();
-    t.start();
-#endif
-
     // cepstral mean and variance normalization
     ret = speechpy::processing::cmvnw(output_matrix, config.win_size, true);
     if (ret != EIDSP_OK) {
         ei_printf("ERR: cmvnw failed (%d)\n", ret);
         EIDSP_ERR(ret);
     }
-
-#ifdef __MBED__
-    t.stop();
-
-    // ei_printf("cmvnw done in %d ms.\n", t.read_ms());
-#endif
 
     output_matrix->cols = out_matrix_size.rows * out_matrix_size.cols;
     output_matrix->rows = 1;
@@ -339,11 +335,6 @@ __attribute__((unused)) int extract_mfcc_per_slice_features(signal_t *signal, ma
     output_matrix->rows = out_matrix_size.rows;
     output_matrix->cols = out_matrix_size.cols;
 
-#ifdef __MBED__
-    Timer t;
-    t.start();
-#endif
-
     // and run the MFCC extraction (using 32 rather than 40 filters here to optimize speed on embedded)
     int ret = speechpy::feature::mfcc(output_matrix, &preemphasized_audio_signal,
         frequency, config.frame_length, config.frame_stride, config.num_cepstral, config.num_filters, config.fft_length,
@@ -352,28 +343,6 @@ __attribute__((unused)) int extract_mfcc_per_slice_features(signal_t *signal, ma
         ei_printf("ERR: MFCC failed (%d)\n", ret);
         EIDSP_ERR(ret);
     }
-
-#ifdef __MBED__
-    t.stop();
-
-    // ei_printf("mfcc done in %d ms.\n", t.read_ms());
-
-    t.reset();
-    t.start();
-#endif
-
-    // cepstral mean and variance normalization
-    // ret = speechpy::processing::cmvnw(output_matrix, config.win_size, true);
-    // if (ret != EIDSP_OK) {
-    //     ei_printf("ERR: cmvnw failed (%d)\n", ret);
-    //     EIDSP_ERR(ret);
-    // }
-
-#ifdef __MBED__
-    t.stop();
-
-    // ei_printf("cmvnw done in %d ms.\n", t.read_ms());
-#endif
 
     output_matrix->cols = out_matrix_size.rows * out_matrix_size.cols;
     output_matrix->rows = 1;

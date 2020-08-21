@@ -27,8 +27,6 @@
 #include "us_ticker_api.h"
 #include "../ei_classifier_porting.h"
 
-using namespace rtos;
-
 #define EI_WEAK_FN __weak
 
 EI_WEAK_FN EI_IMPULSE_ERROR ei_run_impulse_check_canceled() {
@@ -40,7 +38,7 @@ EI_WEAK_FN EI_IMPULSE_ERROR ei_run_impulse_check_canceled() {
  */
 EI_WEAK_FN EI_IMPULSE_ERROR ei_sleep(int32_t time_ms) {
 #if MBED_VERSION >= MBED_ENCODE_VERSION((5), (11), (0))
-    ThisThread::sleep_for(time_ms);
+    rtos::ThisThread::sleep_for(time_ms);
 #else
     wait_ms(time_ms);
 #endif // MBED_VERSION >= MBED_ENCODE_VERSION((5), (11), (0))
