@@ -43,6 +43,8 @@
 #include <functional>
 #endif // __MBED__
 
+#define EI_MAX_UINT16 65535
+
 namespace ei {
 
 // lookup table for quantized values between 0.0f and 1.0f
@@ -108,9 +110,14 @@ public:
         }
 
 #if EIDSP_USE_CMSIS_DSP
-        const arm_matrix_instance_f32 m1 = { matrix1->rows, matrix1->cols, matrix1->buffer };
-        const arm_matrix_instance_f32 m2 = { matrix2->rows, matrix2->cols, matrix2->buffer };
-        arm_matrix_instance_f32 mo = { out_matrix->rows, out_matrix->cols, out_matrix->buffer };
+        if (matrix1->rows > EI_MAX_UINT16 || matrix1->cols > EI_MAX_UINT16 || matrix2->rows > EI_MAX_UINT16 ||
+            matrix2->cols > EI_MAX_UINT16 || out_matrix->rows > EI_MAX_UINT16 || out_matrix->cols > EI_MAX_UINT16) {
+            return EIDSP_NARROWING;
+        }
+
+        const arm_matrix_instance_f32 m1 = { static_cast<uint16_t>(matrix1->rows), static_cast<uint16_t>(matrix1->cols), matrix1->buffer };
+        const arm_matrix_instance_f32 m2 = { static_cast<uint16_t>(matrix2->rows), static_cast<uint16_t>(matrix2->cols), matrix2->buffer };
+        arm_matrix_instance_f32 mo = { static_cast<uint16_t>(out_matrix->rows), static_cast<uint16_t>(out_matrix->cols), out_matrix->buffer };
         int status = arm_mat_mult_f32(&m1, &m2, &mo);
         if (status != ARM_MATH_SUCCESS) {
             EIDSP_ERR(status);
@@ -172,15 +179,20 @@ public:
      * @param out_matrix Pointer to out matrix (MxK)
      * @returns EIDSP_OK if OK
      */
-    static inline int dot_by_row(int i, float *row, size_t matrix1_cols, matrix_t *matrix2, matrix_t *out_matrix) {
+    static inline int dot_by_row(int i, float *row, uint32_t matrix1_cols, matrix_t *matrix2, matrix_t *out_matrix) {
         if (matrix1_cols != matrix2->rows) {
             EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
         }
 
 #if EIDSP_USE_CMSIS_DSP
+        if (matrix1_cols > EI_MAX_UINT16 || matrix2->rows > EI_MAX_UINT16 || matrix2->cols > EI_MAX_UINT16 ||
+            out_matrix->cols > EI_MAX_UINT16) {
+            return EIDSP_NARROWING;
+        }
+
         const arm_matrix_instance_f32 m1 = { 1, static_cast<uint16_t>(matrix1_cols), row };
-        const arm_matrix_instance_f32 m2 = { matrix2->rows, matrix2->cols, matrix2->buffer };
-        arm_matrix_instance_f32 mo = { 1, out_matrix->cols, out_matrix->buffer + (i * out_matrix->cols) };
+        const arm_matrix_instance_f32 m2 = { static_cast<uint16_t>(matrix2->rows), static_cast<uint16_t>(matrix2->cols), matrix2->buffer };
+        arm_matrix_instance_f32 mo = { 1, static_cast<uint16_t>(out_matrix->cols), out_matrix->buffer + (i * out_matrix->cols) };
         int status = arm_mat_mult_f32(&m1, &m2, &mo);
         if (status != ARM_MATH_SUCCESS) {
             EIDSP_ERR(status);
@@ -277,6 +289,10 @@ public:
         }
 
 #if EIDSP_USE_CMSIS_DSP
+        if (rows > EI_MAX_UINT16 || columns > EI_MAX_UINT16) {
+            return EIDSP_NARROWING;
+        }
+
         const arm_matrix_instance_f32 i_m = {
             static_cast<uint16_t>(columns),
             static_cast<uint16_t>(rows),
@@ -472,7 +488,7 @@ public:
             EIDSP_ERR(EIDSP_INPUT_MATRIX_EMPTY);
         }
 
-        int32_t pad_before_index = 0;
+        uint32_t pad_before_index = 0;
         bool pad_before_direction_up = true;
 
         for (int32_t ix = pad_before - 1; ix >= 0; ix--) {
@@ -509,7 +525,7 @@ public:
             if (pad_after_index == 0 && !pad_after_direction_up) {
                 pad_after_direction_up = true;
             }
-            else if (pad_after_index == input->rows - 1 && pad_after_direction_up) {
+            else if (pad_after_index == static_cast<int32_t>(input->rows) - 1 && pad_after_direction_up) {
                 pad_after_direction_up = false;
             }
             else if (pad_after_direction_up) {
@@ -533,8 +549,12 @@ public:
         if (scale == 1.0f) return EIDSP_OK;
 
 #if EIDSP_USE_CMSIS_DSP
-        const arm_matrix_instance_f32 mi = { matrix->rows, matrix->cols, matrix->buffer };
-        arm_matrix_instance_f32 mo = { matrix->rows, matrix->cols, matrix->buffer };
+        if (matrix->rows > EI_MAX_UINT16 || matrix->cols > EI_MAX_UINT16) {
+            return EIDSP_NARROWING;
+        }
+
+        const arm_matrix_instance_f32 mi = { static_cast<uint16_t>(matrix->rows), static_cast<uint16_t>(matrix->cols), matrix->buffer };
+        arm_matrix_instance_f32 mo = { static_cast<uint16_t>(matrix->rows), static_cast<uint16_t>(matrix->cols), matrix->buffer };
         int status = arm_mat_scale_f32(&mi, scale, &mo);
         if (status != ARM_MATH_SUCCESS) {
             return status;
@@ -580,7 +600,7 @@ public:
      * @returns 0 if OK
      */
     static int add(matrix_t *matrix, float addition) {
-        for (int16_t ix = 0; ix < matrix->rows * matrix->cols; ix++) {
+        for (uint32_t ix = 0; ix < matrix->rows * matrix->cols; ix++) {
             matrix->buffer[ix] += addition;
         }
         return EIDSP_OK;
@@ -619,7 +639,7 @@ public:
      * @returns 0 if OK
      */
     static int subtract(matrix_t *matrix, float subtraction) {
-        for (int16_t ix = 0; ix < matrix->rows * matrix->cols; ix++) {
+        for (uint32_t ix = 0; ix < matrix->rows * matrix->cols; ix++) {
             matrix->buffer[ix] -= subtraction;
         }
         return EIDSP_OK;
@@ -1356,7 +1376,7 @@ public:
      */
     static int log(matrix_t *matrix)
     {
-        for (int16_t ix = 0; ix < matrix->rows * matrix->cols; ix++) {
+        for (uint32_t ix = 0; ix < matrix->rows * matrix->cols; ix++) {
             matrix->buffer[ix] = numpy::log(matrix->buffer[ix]);
         }
 

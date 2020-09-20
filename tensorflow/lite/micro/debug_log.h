@@ -25,3 +25,4 @@ void DebugLog(const char* s);
 #endif // defined(__cplusplus) && EI_C_LINKAGE == 1
 
 #endif  // TENSORFLOW_LITE_MICRO_DEBUG_LOG_H_
+

@@ -134,11 +134,12 @@ public:
             }
 
             // multiply by 2/N
-            numpy::scale(&fft_matrix, (2.0f / static_cast<float>(fft_matrix.cols)));
+            numpy::scale(&fft_matrix, (2.0f / static_cast<float>(fft_length)));
 
             // we're now using the FFT matrix to calculate peaks etc.
             EI_DSP_MATRIX(peaks_matrix, fft_peaks, 2);
-            ret = spectral::processing::find_fft_peaks(&fft_matrix, &peaks_matrix, sampling_freq, fft_peaks_threshold);
+            ret = spectral::processing::find_fft_peaks(&fft_matrix, &peaks_matrix,
+                sampling_freq, fft_peaks_threshold, fft_length);
             if (ret != EIDSP_OK) {
                 EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
             }

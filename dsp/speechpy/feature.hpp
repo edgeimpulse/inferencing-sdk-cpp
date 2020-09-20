@@ -70,7 +70,7 @@ public:
             EIDSP_ERR(EIDSP_OUT_OF_MEM);
         }
 
-        if (filterbanks->rows != num_filter || filterbanks->cols != coefficients) {
+        if (filterbanks->rows != num_filter || filterbanks->cols != static_cast<uint32_t>(coefficients)) {
             EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
         }
 
@@ -228,7 +228,7 @@ public:
             EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
         }
 
-        for(int i = 0; i < out_features->rows * out_features->cols; i++) {
+        for (uint32_t i = 0; i < out_features->rows * out_features->cols; i++) {
             *(out_features->buffer + i) = 0;
         }
 

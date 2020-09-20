@@ -45,6 +45,7 @@ struct OpData {
   int32_t output_activation_max;
   // The index of the temporary tensor where the quantized inputs are cached.
   int input_quantized_index;
+  void* scratch_buffer;
 };
 
 constexpr int kInputTensor = 0;
@@ -77,11 +78,13 @@ TfLiteStatus CalculateOpData(TfLiteContext* context,
 
 void* Init(TfLiteContext* context, const char* buffer, size_t length) {
   void* raw;
-  context->AllocatePersistentBuffer(context, sizeof(int), &raw);
+  context->AllocatePersistentBuffer(context, sizeof(OpData), &raw);
   return raw;
 }
 
 TfLiteStatus Prepare(TfLiteContext* context, TfLiteNode* node) {
+  OpData* data = static_cast<OpData*>(node->user_data);
+
   const TfLiteTensor* input = GetInput(context, node, kInputTensor);
   const TfLiteTensor* filter = GetInput(context, node, kWeightsTensor);
   TfLiteTensor* output = GetOutput(context, node, kOutputTensor);
@@ -95,14 +98,11 @@ TfLiteStatus Prepare(TfLiteContext* context, TfLiteNode* node) {
   const int accum_depth = filter_shape.Dims(filter_dim_count - 1);
   const int32_t buf_size = arm_fully_connected_s8_get_buffer_size(accum_depth);
 
-  int* buffer_idx = reinterpret_cast<int*>(node->user_data);
-
-  node->user_data = buffer_idx;
   if (buf_size > 0) {
-    TF_LITE_ENSURE_STATUS(
-        context->RequestScratchBufferInArena(context, buf_size, buffer_idx));
+    context->AllocatePersistentBuffer(
+      context, buf_size, &data->scratch_buffer);
   } else {
-    *buffer_idx = -1;
+    data->scratch_buffer = nullptr;
   }
 #endif
 
@@ -122,13 +122,7 @@ TfLiteStatus EvalQuantizedInt8(TfLiteContext* context, TfLiteNode* node,
   const int accum_depth = filter_shape.Dims(filter_dim_count - 1);
 
 #if defined(__ARM_FEATURE_DSP) || defined(__ARM_FEATURE_MVE)
-  int16_t* buf = nullptr;
-
-  auto* buffer_idx = reinterpret_cast<int*>(node->user_data);
-  if (*buffer_idx > -1) {
-    void* raw = context->GetScratchBuffer(context, *buffer_idx);
-    buf = reinterpret_cast<int16_t*>(raw);
-  }
+  int16_t* buf = reinterpret_cast<int16_t*>(data->scratch_buffer);
 
   TF_LITE_ENSURE_EQ(
       context,
@@ -223,6 +217,7 @@ TfLiteStatus EvalFloat(TfLiteContext* context, TfLiteNode* node,
 }
 
 TfLiteStatus Eval(TfLiteContext* context, TfLiteNode* node) {
+  OpData* data = static_cast<OpData*>(node->user_data);
   auto* params =
       reinterpret_cast<TfLiteFullyConnectedParams*>(node->builtin_data);
 
@@ -232,8 +227,6 @@ TfLiteStatus Eval(TfLiteContext* context, TfLiteNode* node) {
   TfLiteTensor* output = GetOutput(context, node, kOutputTensor);
 
   TfLiteType data_type = input->type;
-  OpData local_data_object;
-  OpData* data = &local_data_object;
   TF_LITE_ENSURE_STATUS(CalculateOpData(context, params, data_type, input,
                                         filter, bias, output, data));
 

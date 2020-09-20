@@ -39,7 +39,6 @@ constexpr int kInputTensor = 0;
 constexpr int kFilterTensor = 1;
 constexpr int kBiasTensor = 2;
 constexpr int kOutputTensor = 0;
-constexpr int kMaxChannels = 256;
 
 // Conv is quantized along dimension 0:
 // https://www.tensorflow.org/lite/performance/quantization_spec
@@ -53,14 +52,16 @@ struct OpData {
   int output_shift;
 
   // Per channel output multiplier and shift.
-  // TODO(b/141139247): Allocate these dynamically when possible.
-  int32_t per_channel_output_multiplier[kMaxChannels];
-  int32_t per_channel_output_shift[kMaxChannels];
+  int32_t* per_channel_output_multiplier;
+  int32_t* per_channel_output_shift;
 
   // The range of the fused activation layer. For example for kNone and
   // uint8_t these would be 0 and 255.
   int32_t output_activation_min;
   int32_t output_activation_max;
+
+  // Scratch buffer for the arm_convolve_wrapper_s8 buffer
+  void* scratch_buffer;
 };
 
 inline PaddingType RuntimePaddingType(TfLitePadding padding) {
@@ -114,15 +115,15 @@ TfLiteStatus CalculateOpData(TfLiteContext* context, TfLiteNode* node,
 
 void* Init(TfLiteContext* context, const char* buffer, size_t length) {
   void* raw;
-  context->AllocatePersistentBuffer(context, sizeof(int), &raw);
+  context->AllocatePersistentBuffer(context, sizeof(OpData), &raw);
   return raw;
 }
 
 TfLiteStatus Prepare(TfLiteContext* context, TfLiteNode* node) {
 #if defined(__ARM_FEATURE_DSP) || defined(__ARM_FEATURE_MVE)
-  OpData data;
   int32_t buf_size = 0;
 
+  OpData* data = static_cast<OpData*>(node->user_data);
   auto* params = reinterpret_cast<TfLiteConvParams*>(node->builtin_data);
 
   const TfLiteTensor* input = GetInput(context, node, kInputTensor);
@@ -153,11 +154,24 @@ TfLiteStatus Prepare(TfLiteContext* context, TfLiteNode* node) {
   output_dims.w = output->dims->data[2];
   output_dims.c = output_shape.Dims(3);
 
-  int* buffer_idx = reinterpret_cast<int*>(node->user_data);
+  // Dynamically allocate per-channel quantization parameters.
+  const int num_channels = filter->dims->data[kConvQuantizedDimension];
+
+  void *per_channel_output_multiplier;
+  context->AllocatePersistentBuffer(
+      context, num_channels * sizeof(int32_t), &per_channel_output_multiplier);
+  data->per_channel_output_multiplier =
+      reinterpret_cast<int32_t*>(per_channel_output_multiplier);
+
+  void *per_channel_output_shift;
+  context->AllocatePersistentBuffer(
+      context, num_channels * sizeof(int32_t), &per_channel_output_shift);
+  data->per_channel_output_shift =
+      reinterpret_cast<int32_t*>(per_channel_output_shift);
 
   TF_LITE_ENSURE_STATUS(CalculateOpData(
       context, node, params, input_dims.w, input_dims.h, filter_dims.w,
-      filter_dims.h, output_dims.w, output_dims.h, input->type, &data));
+      filter_dims.h, output_dims.w, output_dims.h, input->type, data));
 
   if (input->type == kTfLiteInt8) {
     // Initialize cmsis-nn convolution parameters
@@ -168,21 +182,20 @@ TfLiteStatus Prepare(TfLiteContext* context, TfLiteNode* node) {
     conv_params.stride.w = params->stride_width;
     conv_params.dilation.h = params->dilation_height_factor;
     conv_params.dilation.w = params->dilation_width_factor;
-    conv_params.padding.h = data.padding.height;
-    conv_params.padding.w = data.padding.width;
-    conv_params.activation.min = data.output_activation_min;
-    conv_params.activation.max = data.output_activation_max;
+    conv_params.padding.h = data->padding.height;
+    conv_params.padding.w = data->padding.width;
+    conv_params.activation.min = data->output_activation_min;
+    conv_params.activation.max = data->output_activation_max;
 
     buf_size = arm_convolve_wrapper_s8_get_buffer_size(
         &conv_params, &input_dims, &filter_dims, &output_dims);
   }
 
-  node->user_data = buffer_idx;
   if (buf_size > 0) {
-    TF_LITE_ENSURE_STATUS(
-        context->RequestScratchBufferInArena(context, buf_size, buffer_idx));
+    context->AllocatePersistentBuffer(
+      context, buf_size, &data->scratch_buffer);
   } else {
-    *buffer_idx = -1;
+    data->scratch_buffer = nullptr;
   }
 #endif
   return kTfLiteOk;
@@ -296,9 +309,8 @@ TfLiteStatus EvalQuantizedPerChannel(
   ctx.buf = nullptr;
   ctx.size = 0;
 
-  auto* buffer_idx = reinterpret_cast<int*>(node->user_data);
-  if (*buffer_idx > -1) {
-    ctx.buf = context->GetScratchBuffer(context, *buffer_idx);
+  if (data->scratch_buffer) {
+    ctx.buf = data->scratch_buffer;
     // Note: ctx.size is currently not used in cmsis-nn.
     // The buffer should be allocated in the Prepare function through
     // arm_convolve_wrapper_s8_get_buffer_size
@@ -376,6 +388,7 @@ TfLiteStatus EvalFloat(TfLiteContext* context, TfLiteNode* node,
 }
 
 TfLiteStatus Eval(TfLiteContext* context, TfLiteNode* node) {
+  OpData* data = static_cast<OpData*>(node->user_data);
   auto* params = reinterpret_cast<TfLiteConvParams*>(node->builtin_data);
 
   TfLiteTensor* output = GetOutput(context, node, kOutputTensor);
@@ -389,8 +402,6 @@ TfLiteStatus Eval(TfLiteContext* context, TfLiteNode* node) {
   int filter_height = filter->dims->data[1];
   int output_width = output->dims->data[2];
   int output_height = output->dims->data[1];
-
-  OpData data;
 
   // All per-channel quantized tensors need valid zero point and scale arrays.
   if (input->type == kTfLiteInt8) {
@@ -413,19 +424,19 @@ TfLiteStatus Eval(TfLiteContext* context, TfLiteNode* node) {
 
   TF_LITE_ENSURE_STATUS(CalculateOpData(
       context, node, params, input_width, input_height, filter_width,
-      filter_height, output_width, output_height, input->type, &data));
+      filter_height, output_width, output_height, input->type, data));
 
   switch (input->type) {  // Already know in/out types are same.
     case kTfLiteFloat32:
-      return EvalFloat(context, node, params, &data, input, filter, bias,
+      return EvalFloat(context, node, params, data, input, filter, bias,
                        nullptr, nullptr, output);
       break;
     case kTfLiteInt8:
-      return EvalQuantizedPerChannel(context, node, params, &data, input,
+      return EvalQuantizedPerChannel(context, node, params, data, input,
                                      filter, bias, output, nullptr);
       break;
     case kTfLiteUInt8:
-      return EvalQuantized(context, node, params, &data, input, filter, bias,
+      return EvalQuantized(context, node, params, data, input, filter, bias,
                            nullptr, nullptr, output);
       break;
     default:

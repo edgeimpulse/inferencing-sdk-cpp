@@ -40,7 +40,6 @@ constexpr int kInputTensor = 0;
 constexpr int kFilterTensor = 1;
 constexpr int kBiasTensor = 2;
 constexpr int kOutputTensor = 0;
-constexpr int kMaxChannels = 256;
 
 // Depthwise conv is quantized along dimension 3:
 // https://www.tensorflow.org/lite/performance/quantization_spec
@@ -54,14 +53,16 @@ struct OpData {
   int output_shift;
 
   // Per channel output multiplier and shift.
-  // TODO(b/141139247): Allocate these dynamically when possible.
-  int32_t per_channel_output_multiplier[kMaxChannels];
-  int32_t per_channel_output_shift[kMaxChannels];
+  int32_t* per_channel_output_multiplier;
+  int32_t* per_channel_output_shift;
 
   // The range of the fused activation layer. For example for kNone and
   // uint8_t these would be 0 and 255.
   int32_t output_activation_min;
   int32_t output_activation_max;
+
+  // Scratch buffer for the arm_convolve_wrapper_s8 buffer
+  void* scratch_buffer;
 };
 
 TfLiteStatus CalculateOpData(TfLiteContext* context, TfLiteNode* node,
@@ -103,12 +104,13 @@ TfLiteStatus CalculateOpData(TfLiteContext* context, TfLiteNode* node,
 
 void* Init(TfLiteContext* context, const char* buffer, size_t length) {
   void* raw;
-  context->AllocatePersistentBuffer(context, sizeof(int), &raw);
+  context->AllocatePersistentBuffer(context, sizeof(OpData), &raw);
   return raw;
 }
 
 TfLiteStatus Prepare(TfLiteContext* context, TfLiteNode* node) {
 #if defined(__ARM_FEATURE_DSP) || defined(__ARM_FEATURE_MVE)
+  OpData* data = static_cast<OpData*>(node->user_data);
   auto* params =
       reinterpret_cast<TfLiteDepthwiseConvParams*>(node->builtin_data);
 
@@ -121,18 +123,30 @@ TfLiteStatus Prepare(TfLiteContext* context, TfLiteNode* node) {
   RuntimeShape input_shape = GetTensorShape(input);
   const int input_depth = input_shape.Dims(3);
 
-  int* buffer_idx = reinterpret_cast<int*>(node->user_data);
+  // Dynamically allocate per-channel quantization parameters.
+  const int num_channels = filter->dims->data[kDepthwiseConvQuantizedDimension];
 
-  *buffer_idx = -1;
-  node->user_data = buffer_idx;
+  void *per_channel_output_multiplier;
+  context->AllocatePersistentBuffer(
+      context, num_channels * sizeof(int32_t), &per_channel_output_multiplier);
+  data->per_channel_output_multiplier =
+      reinterpret_cast<int32_t*>(per_channel_output_multiplier);
+
+  void *per_channel_output_shift;
+  context->AllocatePersistentBuffer(
+      context, num_channels * sizeof(int32_t), &per_channel_output_shift);
+  data->per_channel_output_shift =
+      reinterpret_cast<int32_t*>(per_channel_output_shift);
+
+  data->scratch_buffer = nullptr;
 
   if (params->depth_multiplier == 1) {
     const int32_t buf_size = arm_depthwise_conv_s8_opt_get_buffer_size(
         input_depth, filter_width, filter_height);
 
     if (buf_size > 0) {
-      TF_LITE_ENSURE_STATUS(
-          context->RequestScratchBufferInArena(context, buf_size, buffer_idx));
+      context->AllocatePersistentBuffer(
+          context, buf_size, &data->scratch_buffer);
     }
   }
 #endif
@@ -204,12 +218,7 @@ TfLiteStatus EvalQuantizedPerChannel(TfLiteContext* context, TfLiteNode* node,
   RuntimeShape bias_shape = GetTensorShape(bias);
 
   if (op_params.depth_multiplier == 1) {
-    int16_t* buf = nullptr;
-    auto* buffer_idx = reinterpret_cast<int*>(node->user_data);
-    if (*buffer_idx > -1) {
-      void* raw = context->GetScratchBuffer(context, *buffer_idx);
-      buf = reinterpret_cast<int16_t*>(raw);
-    }
+    int16_t* buf = reinterpret_cast<int16_t*>(data->scratch_buffer);
 
     TF_LITE_ENSURE_EQ(
         context,
@@ -328,6 +337,7 @@ TfLiteStatus EvalQuantized(TfLiteContext* context, TfLiteNode* node,
 }
 
 TfLiteStatus Eval(TfLiteContext* context, TfLiteNode* node) {
+  OpData* data = static_cast<OpData*>(node->user_data);
   auto* params =
       reinterpret_cast<TfLiteDepthwiseConvParams*>(node->builtin_data);
 
@@ -342,8 +352,6 @@ TfLiteStatus Eval(TfLiteContext* context, TfLiteNode* node) {
   int height = SizeOfDimension(input, 1);
   int filter_width = SizeOfDimension(filter, 2);
   int filter_height = SizeOfDimension(filter, 1);
-
-  OpData data;
 
   // All per-channel quantized tensors need valid zero point and scale arrays.
   if (input->type == kTfLiteInt8) {
@@ -366,21 +374,21 @@ TfLiteStatus Eval(TfLiteContext* context, TfLiteNode* node) {
 
   TF_LITE_ENSURE_STATUS(CalculateOpData(context, node, params, width, height,
                                         filter_width, filter_height, data_type,
-                                        &data));
+                                        data));
 
   // TODO(aselle): Consider whether float conv and quantized conv should be
   // separate ops to avoid dispatch overhead here.
   switch (input->type) {  // Already know in/out types are same.
     case kTfLiteFloat32:
-      return EvalFloat(context, node, params, &data, input, filter, bias,
+      return EvalFloat(context, node, params, data, input, filter, bias,
                        output);
       break;
     case kTfLiteInt8:
-      return EvalQuantizedPerChannel(context, node, params, &data, input,
+      return EvalQuantizedPerChannel(context, node, params, data, input,
                                      filter, bias, output);
       break;
     case kTfLiteUInt8:
-      return EvalQuantized(context, node, params, &data, input, filter, bias,
+      return EvalQuantized(context, node, params, data, input, filter, bias,
                            output);
       break;
     default:

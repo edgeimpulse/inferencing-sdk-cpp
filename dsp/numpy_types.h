@@ -29,10 +29,15 @@
 #include <stddef.h>
 #ifdef __cplusplus
 #include <functional>
+#include "config.hpp"
 #ifdef __MBED__
 #include "mbed.h"
 #endif // __MBED__
 #endif // __cplusplus
+
+#if EIDSP_TRACK_ALLOCATIONS
+#include "memory.hpp"
+#endif
 
 #ifdef __cplusplus
 namespace ei {
@@ -49,8 +54,8 @@ typedef struct {
  */
 typedef struct ei_matrix {
     float *buffer;
-    uint16_t rows;
-    uint16_t cols;
+    uint32_t rows;
+    uint32_t cols;
     bool buffer_managed_by_me;
 
 #if EIDSP_TRACK_ALLOCATIONS
@@ -67,8 +72,8 @@ typedef struct ei_matrix {
      * @param a_buffer Buffer, if not provided we'll alloc on the heap
      */
     ei_matrix(
-        uint16_t n_rows,
-        uint16_t n_cols,
+        uint32_t n_rows,
+        uint32_t n_cols,
         float *a_buffer = NULL
 #if EIDSP_TRACK_ALLOCATIONS
         ,
@@ -128,8 +133,8 @@ typedef struct ei_matrix {
  */
 typedef struct ei_quantized_matrix {
     uint8_t *buffer;
-    uint16_t rows;
-    uint16_t cols;
+    uint32_t rows;
+    uint32_t cols;
     bool buffer_managed_by_me;
 #ifdef __MBED__
     mbed::Callback<float(uint8_t)> dequantization_fn;
@@ -151,8 +156,8 @@ typedef struct ei_quantized_matrix {
      * @param a_dequantization_fn How to dequantize the values in this matrix
      * @param a_buffer Optional: a buffer, if set we won't allocate memory ourselves
      */
-    ei_quantized_matrix(uint16_t n_rows,
-                        uint16_t n_cols,
+    ei_quantized_matrix(uint32_t n_rows,
+                        uint32_t n_cols,
 #ifdef __MBED__
                         mbed::Callback<float(uint8_t)> a_dequantization_fn,
 #else
@@ -214,8 +219,8 @@ typedef struct ei_quantized_matrix {
  * Size of a matrix
  */
 typedef struct {
-    uint16_t rows;
-    uint16_t cols;
+    uint32_t rows;
+    uint32_t cols;
 } matrix_size_t;
 
 typedef enum {

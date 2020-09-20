@@ -38,6 +38,7 @@ constexpr int kOutputTensor = 0;
 
 struct OpData {
   TfLitePaddingValues padding;
+  void* scratch_buffer;
 };
 
 TfLiteStatus CalculateOpData(const TfLiteContext* context,
@@ -130,14 +131,7 @@ TfLiteStatus AverageEvalInt8(TfLiteContext* context, const TfLiteNode* node,
   const int padding_height = data->padding.height;
   const int padding_width = data->padding.width;
 
-  int16_t* scratch_buffer = nullptr;
-
-  auto* buffer_idx = reinterpret_cast<int*>(node->user_data);
-
-  if (*buffer_idx > -1) {
-    void* raw = context->GetScratchBuffer(context, *buffer_idx);
-    scratch_buffer = reinterpret_cast<int16_t*>(raw);
-  }
+  int16_t* scratch_buffer = static_cast<int16_t*>(data->scratch_buffer);
 
   TF_LITE_ENSURE_EQ(
       context,
@@ -239,14 +233,7 @@ TfLiteStatus MaxEvalInt8(TfLiteContext* context, const TfLiteNode* node,
   const int padding_height = data->padding.height;
   const int padding_width = data->padding.width;
 
-  int16_t* scratch_buffer = nullptr;
-
-  auto* buffer_idx = reinterpret_cast<int*>(node->user_data);
-
-  if (*buffer_idx > -1) {
-    void* raw = context->GetScratchBuffer(context, *buffer_idx);
-    scratch_buffer = reinterpret_cast<int16_t*>(raw);
-  }
+  int16_t* scratch_buffer = reinterpret_cast<int16_t*>(data->scratch_buffer);
 
   TF_LITE_ENSURE_EQ(
       context,
@@ -282,11 +269,13 @@ TfLiteStatus MaxEvalInt8(TfLiteContext* context, const TfLiteNode* node,
 
 void* Init(TfLiteContext* context, const char* buffer, size_t length) {
   void* raw;
-  context->AllocatePersistentBuffer(context, sizeof(int), &raw);
+  context->AllocatePersistentBuffer(context, sizeof(OpData), &raw);
   return raw;
 }
 
 TfLiteStatus Prepare(TfLiteContext* context, TfLiteNode* node) {
+  OpData* data = static_cast<OpData*>(node->user_data);
+
 #if defined(__ARM_FEATURE_DSP) || defined(__ARM_FEATURE_MVE)
   const TfLiteTensor* input = GetInput(context, node, kInputTensor);
   const TfLiteTensor* output = GetOutput(context, node, kOutputTensor);
@@ -300,43 +289,40 @@ TfLiteStatus Prepare(TfLiteContext* context, TfLiteNode* node) {
   const int depth = MatchingDim(input_shape, 3, output_shape, 3);
   const int output_width = output_shape.Dims(2);
 
-  const int32_t buffer_size =
+  const int32_t buf_size =
       arm_avgpool_s8_get_buffer_size(output_width, depth);
 
-  int* buffer_idx = reinterpret_cast<int*>(node->user_data);
-
-  node->user_data = buffer_idx;
-  if (buffer_size > 0) {
-    TF_LITE_ENSURE_STATUS(
-        context->RequestScratchBufferInArena(context, buffer_size, buffer_idx));
+  if (buf_size > 0) {
+    context->AllocatePersistentBuffer(
+      context, buf_size, &data->scratch_buffer);
   } else {
-    *buffer_idx = -1;
+    data->scratch_buffer = nullptr;
   }
 #endif
   return kTfLiteOk;
 }
 
 TfLiteStatus AverageEval(TfLiteContext* context, TfLiteNode* node) {
+  OpData* data = static_cast<OpData*>(node->user_data);
   auto* params = reinterpret_cast<TfLitePoolParams*>(node->builtin_data);
-  OpData data;
 
   // Todo: make 'input' const once CMSIS-reuse is fixed
   TfLiteTensor* input = &context->tensors[flatbuffers::EndianScalar(
       node->inputs->data[kInputTensor])];
   TfLiteTensor* output = GetOutput(context, node, kOutputTensor);
 
-  TF_LITE_ENSURE_STATUS(CalculateOpData(context, params, input, output, &data));
+  TF_LITE_ENSURE_STATUS(CalculateOpData(context, params, input, output, data));
 
   // Inputs and outputs share the same type, guaranteed by the converter.
   switch (input->type) {
     case kTfLiteFloat32:
-      AverageEvalFloat(context, node, params, &data, input, output);
+      AverageEvalFloat(context, node, params, data, input, output);
       break;
     case kTfLiteUInt8:
-      AverageEvalUint8(context, node, params, &data, input, output);
+      AverageEvalUint8(context, node, params, data, input, output);
       break;
     case kTfLiteInt8:
-      return AverageEvalInt8(context, node, params, &data, input, output);
+      return AverageEvalInt8(context, node, params, data, input, output);
       break;
     default:
       TF_LITE_KERNEL_LOG(context, "Input type %s is not currently supported",
@@ -347,24 +333,24 @@ TfLiteStatus AverageEval(TfLiteContext* context, TfLiteNode* node) {
 }
 
 TfLiteStatus MaxEval(TfLiteContext* context, TfLiteNode* node) {
+  OpData* data = static_cast<OpData*>(node->user_data);
   auto* params = reinterpret_cast<TfLitePoolParams*>(node->builtin_data);
-  OpData data;
 
   TfLiteTensor* input = &context->tensors[flatbuffers::EndianScalar(
       node->inputs->data[kInputTensor])];
   TfLiteTensor* output = GetOutput(context, node, kOutputTensor);
 
-  TF_LITE_ENSURE_STATUS(CalculateOpData(context, params, input, output, &data));
+  TF_LITE_ENSURE_STATUS(CalculateOpData(context, params, input, output, data));
 
   switch (input->type) {
     case kTfLiteFloat32:
-      MaxEvalFloat(context, node, params, &data, input, output);
+      MaxEvalFloat(context, node, params, data, input, output);
       break;
     case kTfLiteUInt8:
-      MaxEvalQuantizedUInt8(context, node, params, &data, input, output);
+      MaxEvalQuantizedUInt8(context, node, params, data, input, output);
       break;
     case kTfLiteInt8:
-      MaxEvalInt8(context, node, params, &data, input, output);
+      MaxEvalInt8(context, node, params, data, input, output);
       break;
     default:
       TF_LITE_KERNEL_LOG(context, "Type %s not currently supported.",

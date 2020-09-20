@@ -38,7 +38,7 @@
 #if EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_UTENSOR
 #include "utensor-model/trained.hpp"
 #include "utensor-model/trained_weight.hpp"            // keep the weights in ROM for now, we have plenty of internal flash
-#elif (EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_TFLITE)
+#elif (EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_TFLITE) && (EI_CLASSIFIER_COMPILED != 1)
 #include <cmath>
 #include "edge-impulse-sdk/tensorflow/lite/micro/all_ops_resolver.h"
 #include "edge-impulse-sdk/tensorflow/lite/micro/micro_error_reporter.h"
@@ -85,7 +85,16 @@ AI_ALIGNED(4)
 static ai_u8 activations[AI_NETWORK_DATA_ACTIVATIONS_SIZE];
 
 static ai_handle network = AI_HANDLE_NULL;
+#elif EI_CLASSIFIER_COMPILED == 1
+#include "tensorflow/lite/c/common.h"
+#include "tensorflow/lite/kernels/internal/tensor_ctypes.h"
+#include "tflite-model/trained_model_compiled.h"
+#include "edge-impulse-sdk/classifier/ei_aligned_malloc.h"
 
+
+
+#elif EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_NONE
+// noop
 #else
 #error "Unknown inferencing engine"
 #endif
@@ -103,8 +112,11 @@ extern "C" EI_IMPULSE_ERROR run_inference(ei::matrix_t *fmatrix, ei_impulse_resu
 static void calc_cepstral_mean_and_var_normalization(ei_matrix *matrix, void *config_ptr);
 
 /* Private variables ------------------------------------------------------- */
-ei::matrix_t static_features_matrix(1, EI_CLASSIFIER_NN_INPUT_FRAME_SIZE);
+#if EI_CLASSIFIER_LABEL_COUNT > 0
 ei_impulse_maf classifier_maf[EI_CLASSIFIER_LABEL_COUNT] = {0};
+#else
+ei_impulse_maf classifier_maf[0];
+#endif
 static size_t slice_offset = 0;
 static bool feature_buffer_full = false;
 
@@ -172,6 +184,11 @@ extern "C" void run_classifier_init(void)
 extern "C" EI_IMPULSE_ERROR run_classifier_continuous(signal_t *signal, ei_impulse_result_t *result,
                                                       bool debug = false)
 {
+    static ei::matrix_t static_features_matrix(1, EI_CLASSIFIER_NN_INPUT_FRAME_SIZE);
+    if (!static_features_matrix.buffer) {
+        return EI_IMPULSE_ALLOC_FAILED;
+    }
+
     EI_IMPULSE_ERROR ei_impulse_error = EI_IMPULSE_OK;
 
     uint64_t dsp_start_ms = ei_read_timer_ms();
@@ -231,9 +248,11 @@ extern "C" EI_IMPULSE_ERROR run_classifier_continuous(signal_t *signal, ei_impul
         ei_printf("\n");
     }
 
+#if EI_CLASSIFIER_INFERENCING_ENGINE != EI_CLASSIFIER_NONE
     if (debug) {
         ei_printf("Running neural network...\n");
     }
+#endif
 
     if (feature_buffer_full == true) {
         dsp_start_ms = ei_read_timer_ms();
@@ -321,18 +340,30 @@ extern "C" EI_IMPULSE_ERROR run_inference(
     }
 #elif (EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_TFLITE)
     {
+
+#if (EI_CLASSIFIER_COMPILED != 1)
         // Create an area of memory to use for input, output, and intermediate arrays.
         uint8_t *tensor_arena = (uint8_t*)ei_aligned_malloc(16, EI_CLASSIFIER_TFLITE_ARENA_SIZE);
         if (tensor_arena == NULL) {
             ei_printf("Failed to allocate TFLite arena (%d bytes)\n", EI_CLASSIFIER_TFLITE_ARENA_SIZE);
             return EI_IMPULSE_TFLITE_ARENA_ALLOC_FAILED;
         }
-
+#else
+        TfLiteStatus init_status = trained_model_init(ei_aligned_malloc);
+        if (init_status != kTfLiteOk) {
+            ei_printf("Failed to allocate TFLite arena (error code %d)\n", init_status);
+            return EI_IMPULSE_TFLITE_ARENA_ALLOC_FAILED;
+        }
+#endif
         uint64_t ctx_start_ms = ei_read_timer_ms();
 
         static bool tflite_first_run = true;
-        static const tflite::Model* model = nullptr;
 
+#if (EI_CLASSIFIER_COMPILED != 1)
+        static const tflite::Model* model = nullptr;
+#endif
+
+#if (EI_CLASSIFIER_COMPILED != 1)
         // ======
         // Initialization code start
         // This part can be run once, but that would require the TFLite arena
@@ -351,13 +382,17 @@ extern "C" EI_IMPULSE_ERROR run_inference(
                 return EI_IMPULSE_TFLITE_ERROR;
             }
         }
+#endif
 
+#if (EI_CLASSIFIER_COMPILED != 1)
 #ifdef EI_TFLITE_RESOLVER
         EI_TFLITE_RESOLVER
 #else
         tflite::AllOpsResolver resolver;
 #endif
+#endif
 
+#if (EI_CLASSIFIER_COMPILED != 1)
         // Build an interpreter to run the model with.
         tflite::MicroInterpreter interpreter(
             model, resolver, tensor_arena, EI_CLASSIFIER_TFLITE_ARENA_SIZE, error_reporter);
@@ -374,6 +409,10 @@ extern "C" EI_IMPULSE_ERROR run_inference(
         TfLiteTensor* input = interpreter.input(0);
         TfLiteTensor* output = interpreter.output(0);
 
+#else
+        TfLiteTensor* input = trained_model_input(0);
+        TfLiteTensor* output = trained_model_output(0);
+#endif
         // Assert that our quantization parameters match the model
         if (tflite_first_run) {
             assert(input->type == EI_CLASSIFIER_TFLITE_INPUT_DATATYPE);
@@ -404,6 +443,7 @@ extern "C" EI_IMPULSE_ERROR run_inference(
             }
         }
 
+#if (EI_CLASSIFIER_COMPILED != 1)
         // Run inference, and report any error
         TfLiteStatus invoke_status = interpreter.Invoke();
         if (invoke_status != kTfLiteOk) {
@@ -411,6 +451,9 @@ extern "C" EI_IMPULSE_ERROR run_inference(
             ei_aligned_free(tensor_arena);
             return EI_IMPULSE_TFLITE_ERROR;
         }
+#else
+        trained_model_invoke();
+#endif
 
         uint64_t ctx_end_ms = ei_read_timer_ms();
 
@@ -438,12 +481,17 @@ extern "C" EI_IMPULSE_ERROR run_inference(
             result->classification[ix].value = value;
         }
 
+#if (EI_CLASSIFIER_COMPILED != 1)
         ei_aligned_free(tensor_arena);
+#else
+        trained_model_reset(ei_aligned_free);
+#endif
 
         if (ei_run_impulse_check_canceled() == EI_IMPULSE_CANCELED) {
             return EI_IMPULSE_CANCELED;
         }
     }
+
 #elif EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_CUBEAI
 
     if (!network) {
@@ -553,6 +601,7 @@ extern "C" EI_IMPULSE_ERROR run_inference(
         result->classification[ix].value = v;
     }
 
+
 #endif
 
 #if EI_CLASSIFIER_HAS_ANOMALY == 1
@@ -590,7 +639,6 @@ extern "C" EI_IMPULSE_ERROR run_inference(
 
     return EI_IMPULSE_OK;
 }
-
 
 /**
  * Run the classifier over a raw features array
@@ -656,9 +704,11 @@ extern "C" EI_IMPULSE_ERROR run_classifier(
         ei_printf("\n");
     }
 
+#if EI_CLASSIFIER_INFERENCING_ENGINE != EI_CLASSIFIER_NONE
     if (debug) {
         ei_printf("Running neural network...\n");
     }
+#endif
 
     return run_inference(&features_matrix, result, debug);
 }

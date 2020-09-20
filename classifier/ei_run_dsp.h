@@ -69,16 +69,31 @@ __attribute__((unused)) int extract_spectral_analysis_features(signal_t *signal,
         EIDSP_ERR(ret);
     }
 
-    // the spectral edges that we want to calculate (@todo, take this from the config)
-    float edges[] = { 0.1, 0.5, 1.0, 2.0, 5.0 };
-    matrix_t edges_matrix_in(sizeof(edges) / sizeof(edges[0]), 1, edges);
+    // the spectral edges that we want to calculate
+    matrix_t edges_matrix_in(64, 1);
+    size_t edge_matrix_ix = 0;
+
+    char spectral_str[128] = { 0 };
+    if (strlen(config.spectral_power_edges) > sizeof(spectral_str) - 1) {
+        EIDSP_ERR(EIDSP_PARAMETER_INVALID);
+    }
+    memcpy(spectral_str, config.spectral_power_edges, strlen(config.spectral_power_edges));
+
+	char spectral_delim[] = ",";
+	char *spectral_ptr = strtok(spectral_str, spectral_delim);
+	while (spectral_ptr != NULL) {
+        edges_matrix_in.buffer[edge_matrix_ix] = atof(spectral_ptr);
+        edge_matrix_ix++;
+		spectral_ptr = strtok(NULL, spectral_delim);
+	}
+    edges_matrix_in.rows = edge_matrix_ix;
 
     // calculate how much room we need for the output matrix
     size_t output_matrix_cols = spectral::feature::calculate_spectral_buffer_size(
         true, config.spectral_peaks_count, edges_matrix_in.rows
     );
     // ei_printf("output_matrix_size %hux%zu\n", input_matrix.rows, output_matrix_cols);
-    if (output_matrix->cols * output_matrix->rows != static_cast<int16_t>(output_matrix_cols * config.axes)) {
+    if (output_matrix->cols * output_matrix->rows != static_cast<uint32_t>(output_matrix_cols * config.axes)) {
         EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
     }
 
@@ -135,7 +150,7 @@ __attribute__((unused)) int extract_raw_features(signal_t *signal, matrix_t *out
 __attribute__((unused)) int extract_flatten_features(signal_t *signal, matrix_t *output_matrix, void *config_ptr) {
     ei_dsp_config_flatten_t config = *((ei_dsp_config_flatten_t*)config_ptr);
 
-    int16_t expected_matrix_size = 0;
+    uint32_t expected_matrix_size = 0;
     if (config.average) expected_matrix_size += config.axes;
     if (config.minimum) expected_matrix_size += config.axes;
     if (config.maximum) expected_matrix_size += config.axes;
