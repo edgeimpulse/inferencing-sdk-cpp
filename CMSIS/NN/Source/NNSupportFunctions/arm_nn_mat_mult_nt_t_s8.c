@@ -33,9 +33,14 @@
 #include "edge-impulse-sdk/CMSIS/NN/Include/arm_nnsupportfunctions.h"
 
 // Work around for https://github.com/ARMmbed/mbed-os/issues/12568
+// Patched by Edge Impulse (https://github.com/ARM-software/CMSIS_5/issues/1008)
 __STATIC_FORCEINLINE uint32_t __patched_SXTB16_RORn(uint32_t op1, uint32_t rotate) {
 uint32_t result;
-__ASM ("sxtb16 %0, %1, ROR %2" : "=r" (result) : "r" (op1), "i" (rotate) );
+if (__builtin_constant_p (rotate) && ((rotate == 8U) || (rotate == 16U) || (rotate == 24U))) {
+  asm volatile ("sxtb16 %0, %1, ROR %2" : "=r" (result) : "r" (op1), "i" (rotate) );
+} else {
+  result = __SXTB16(__ROR(op1, rotate)) ;
+}
 return result;
 }
 /**

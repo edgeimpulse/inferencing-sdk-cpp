@@ -109,11 +109,12 @@ namespace {
 
 /* Function prototypes ----------------------------------------------------- */
 extern "C" EI_IMPULSE_ERROR run_inference(ei::matrix_t *fmatrix, ei_impulse_result_t *result, bool debug);
-static void calc_cepstral_mean_and_var_normalization(ei_matrix *matrix, void *config_ptr);
+static void calc_cepstral_mean_and_var_normalization_mfcc(ei_matrix *matrix, void *config_ptr);
+static void calc_cepstral_mean_and_var_normalization_mfe(ei_matrix *matrix, void *config_ptr);
 
 /* Private variables ------------------------------------------------------- */
 #if EI_CLASSIFIER_LABEL_COUNT > 0
-ei_impulse_maf classifier_maf[EI_CLASSIFIER_LABEL_COUNT] = {0};
+ei_impulse_maf classifier_maf[EI_CLASSIFIER_LABEL_COUNT] = {{0}};
 #else
 ei_impulse_maf classifier_maf[0];
 #endif
@@ -195,6 +196,7 @@ extern "C" EI_IMPULSE_ERROR run_classifier_continuous(signal_t *signal, ei_impul
 
     size_t out_features_index = 0;
     size_t feature_size;
+    bool is_mfe = false;
 
     for (size_t ix = 0; ix < ei_dsp_blocks_size; ix++) {
         ei_model_dsp_t block = ei_dsp_blocks[ix];
@@ -210,6 +212,10 @@ extern "C" EI_IMPULSE_ERROR run_classifier_continuous(signal_t *signal, ei_impul
         /* Switch to the slice version of the mfcc feature extract function */
         if (block.extract_fn == extract_mfcc_features) {
             block.extract_fn = &extract_mfcc_per_slice_features;
+        }
+        else if (block.extract_fn == extract_mfe_features) {
+            block.extract_fn = &extract_mfe_per_slice_features;
+            is_mfe = true;
         }
 
         int ret = block.extract_fn(signal, &fm, block.config);
@@ -263,7 +269,12 @@ extern "C" EI_IMPULSE_ERROR run_classifier_continuous(signal_t *signal, ei_impul
             classify_matrix.buffer[m_ix] = static_features_matrix.buffer[m_ix];
         }
 
-        calc_cepstral_mean_and_var_normalization(&classify_matrix, ei_dsp_blocks[0].config);
+        if (is_mfe) {
+            calc_cepstral_mean_and_var_normalization_mfe(&classify_matrix, ei_dsp_blocks[0].config);
+        }
+        else {
+            calc_cepstral_mean_and_var_normalization_mfcc(&classify_matrix, ei_dsp_blocks[0].config);
+        }
         result->timing.dsp += ei_read_timer_ms() - dsp_start_ms;
 
         ei_impulse_error = run_inference(&classify_matrix, result, debug);
@@ -719,7 +730,7 @@ extern "C" EI_IMPULSE_ERROR run_classifier(
  * @param      matrix      Source and destination matrix
  * @param      config_ptr  ei_dsp_config_mfcc_t struct pointer
  */
-static void calc_cepstral_mean_and_var_normalization(ei_matrix *matrix, void *config_ptr)
+static void calc_cepstral_mean_and_var_normalization_mfcc(ei_matrix *matrix, void *config_ptr)
 {
     ei_dsp_config_mfcc_t *config = (ei_dsp_config_mfcc_t *)config_ptr;
 
@@ -728,7 +739,33 @@ static void calc_cepstral_mean_and_var_normalization(ei_matrix *matrix, void *co
     matrix->cols = config->num_cepstral;
 
     // cepstral mean and variance normalization
-    int ret = speechpy::processing::cmvnw(matrix, config->win_size, true);
+    int ret = speechpy::processing::cmvnw(matrix, config->win_size, true, false);
+    if (ret != EIDSP_OK) {
+        ei_printf("ERR: cmvnw failed (%d)\n", ret);
+        EIDSP_ERR(ret);
+    }
+
+    /* Reset rows and columns ratio */
+    matrix->rows = 1;
+    matrix->cols = EI_CLASSIFIER_NN_INPUT_FRAME_SIZE;
+}
+
+/**
+ * @brief      Calculates the cepstral mean and variable normalization.
+ *
+ * @param      matrix      Source and destination matrix
+ * @param      config_ptr  ei_dsp_config_mfe_t struct pointer
+ */
+static void calc_cepstral_mean_and_var_normalization_mfe(ei_matrix *matrix, void *config_ptr)
+{
+    ei_dsp_config_mfe_t *config = (ei_dsp_config_mfe_t *)config_ptr;
+
+    /* Modify rows and colums ration for matrix normalization */
+    matrix->rows = EI_CLASSIFIER_NN_INPUT_FRAME_SIZE / config->num_filters;
+    matrix->cols = config->num_filters;
+
+    // cepstral mean and variance normalization
+    int ret = speechpy::processing::cmvnw(matrix, config->win_size, false, true);
     if (ret != EIDSP_OK) {
         ei_printf("ERR: cmvnw failed (%d)\n", ret);
         EIDSP_ERR(ret);

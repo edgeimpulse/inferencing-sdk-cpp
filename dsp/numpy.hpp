@@ -1383,6 +1383,51 @@ public:
         return EIDSP_OK;
     }
 
+    /**
+     * Normalize a matrix to 0..1. Does an in-place replacement.
+     * Normalization done per row.
+     * @param matrix
+     */
+    static int normalize(matrix_t *matrix) {
+        // Python implementation:
+        //  matrix = (matrix - np.min(matrix)) / (np.max(matrix) - np.min(matrix))
+        int r;
+
+        matrix_t temp_matrix(1, matrix->rows * matrix->cols, matrix->buffer);
+
+        matrix_t min_matrix(1, 1);
+        if (!min_matrix.buffer) {
+            EIDSP_ERR(EIDSP_OUT_OF_MEM);
+        }
+        r = min(&temp_matrix, &min_matrix);
+        if (r != EIDSP_OK) {
+            EIDSP_ERR(r);
+        }
+
+        matrix_t max_matrix(1, 1);
+        if (!max_matrix.buffer) {
+            EIDSP_ERR(EIDSP_OUT_OF_MEM);
+        }
+        r = max(&temp_matrix, &max_matrix);
+        if (r != EIDSP_OK) {
+            EIDSP_ERR(r);
+        }
+
+        float row_scale = 1.0f / (max_matrix.buffer[0] - min_matrix.buffer[0]);
+
+        r = subtract(&temp_matrix, min_matrix.buffer[0]);
+        if (r != EIDSP_OK) {
+            EIDSP_ERR(r);
+        }
+
+        r = scale(&temp_matrix, row_scale);
+        if (r != EIDSP_OK) {
+            EIDSP_ERR(r);
+        }
+
+        return EIDSP_OK;
+    }
+
 private:
     static int software_rfft(float *fft_input, float *output, size_t n_fft, size_t n_fft_out_features) {
         kiss_fft_cpx *fft_output = (kiss_fft_cpx*)ei_dsp_malloc(n_fft_out_features * sizeof(kiss_fft_cpx));

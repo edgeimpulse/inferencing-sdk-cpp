@@ -321,9 +321,11 @@ namespace processing {
      *   considered(== 10ms frame stide)
      * @param variance_normalization If the variance normilization should
      *   be performed or not.
+     * @param scale Scale output to 0..1
      * @returns 0 if OK
      */
-    static int cmvnw(matrix_t *features_matrix, uint16_t win_size = 301, bool variance_normalization = false)
+    static int cmvnw(matrix_t *features_matrix, uint16_t win_size = 301, bool variance_normalization = false,
+        bool scale = false)
     {
         uint16_t pad_size = (win_size - 1) / 2;
 
@@ -376,7 +378,6 @@ namespace processing {
                     features_buffer_ptr++;
                 }
             }
-
             else {
                 features_buffer_ptr = &features_matrix->buffer[ix * vec_pad.cols];
                 for (size_t col = 0; col < vec_pad.cols; col++) {
@@ -385,6 +386,14 @@ namespace processing {
                 }
             }
         }
+
+        if (scale) {
+            ret = numpy::normalize(features_matrix);
+            if (ret != EIDSP_OK) {
+                EIDSP_ERR(ret);
+            }
+        }
+
         return EIDSP_OK;
     }
 };

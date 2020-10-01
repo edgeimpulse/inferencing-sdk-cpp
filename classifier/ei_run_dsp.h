@@ -365,6 +365,113 @@ __attribute__((unused)) int extract_mfcc_per_slice_features(signal_t *signal, ma
     return EIDSP_OK;
 }
 
+
+__attribute__((unused)) int extract_mfe_features(signal_t *signal, matrix_t *output_matrix, void *config_ptr) {
+    ei_dsp_config_mfe_t config = *((ei_dsp_config_mfe_t*)config_ptr);
+
+    if (config.axes != 1) {
+        EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
+    }
+
+    // @todo: move this to config
+    const uint32_t frequency = static_cast<uint32_t>(EI_CLASSIFIER_FREQUENCY);
+
+    // calculate the size of the MFE matrix
+    matrix_size_t out_matrix_size =
+        speechpy::feature::calculate_mfe_buffer_size(
+            signal->total_length, frequency, config.frame_length, config.frame_stride, config.num_filters);
+    /* Only throw size mismatch error calculated buffer doesn't fit for continuous inferencing */
+    if (out_matrix_size.rows * out_matrix_size.cols > output_matrix->rows * output_matrix->cols) {
+        ei_printf("out_matrix = %hux%hu\n", output_matrix->rows, output_matrix->cols);
+        ei_printf("calculated size = %hux%hu\n", out_matrix_size.rows, out_matrix_size.cols);
+        EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
+    }
+
+    output_matrix->rows = out_matrix_size.rows;
+    output_matrix->cols = out_matrix_size.cols;
+
+    // and run the MFE extraction
+    EI_DSP_MATRIX(energy_matrix, output_matrix->rows, 1);
+    if (!energy_matrix.buffer) {
+        EIDSP_ERR(EIDSP_OUT_OF_MEM);
+    }
+
+    int ret = speechpy::feature::mfe(output_matrix, &energy_matrix, signal,
+        frequency, config.frame_length, config.frame_stride, config.num_filters, config.fft_length,
+        config.low_frequency, config.high_frequency);
+    if (ret != EIDSP_OK) {
+        ei_printf("ERR: MFE failed (%d)\n", ret);
+        EIDSP_ERR(ret);
+    }
+
+    // cepstral mean and variance normalization
+    ret = speechpy::processing::cmvnw(output_matrix, config.win_size, false, true);
+    if (ret != EIDSP_OK) {
+        ei_printf("ERR: cmvnw failed (%d)\n", ret);
+        EIDSP_ERR(ret);
+    }
+
+    output_matrix->cols = out_matrix_size.rows * out_matrix_size.cols;
+    output_matrix->rows = 1;
+
+    return EIDSP_OK;
+}
+
+__attribute__((unused)) int extract_mfe_per_slice_features(signal_t *signal, matrix_t *output_matrix, void *config_ptr) {
+    ei_dsp_config_mfe_t config = *((ei_dsp_config_mfe_t*)config_ptr);
+
+    static bool first_run = false;
+
+    if (config.axes != 1) {
+        EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
+    }
+
+    /* Fake an extra frame_length for stack frames calculations. There, 1 frame_length is always
+    subtracted and there for never used. But skip the first slice to fit the feature_matrix
+    buffer */
+    if (first_run == true) {
+        signal->total_length += (size_t)(config.frame_length * (float)EI_CLASSIFIER_FREQUENCY);
+    }
+
+    first_run = true;
+
+    // @todo: move this to config
+    const uint32_t frequency = static_cast<uint32_t>(EI_CLASSIFIER_FREQUENCY);
+
+    // calculate the size of the MFE matrix
+    matrix_size_t out_matrix_size =
+        speechpy::feature::calculate_mfe_buffer_size(
+            signal->total_length, frequency, config.frame_length, config.frame_stride, config.num_filters);
+    /* Only throw size mismatch error calculated buffer doesn't fit for continuous inferencing */
+    if (out_matrix_size.rows * out_matrix_size.cols > output_matrix->rows * output_matrix->cols) {
+        ei_printf("out_matrix = %hux%hu\n", output_matrix->rows, output_matrix->cols);
+        ei_printf("calculated size = %hux%hu\n", out_matrix_size.rows, out_matrix_size.cols);
+        EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
+    }
+
+    output_matrix->rows = out_matrix_size.rows;
+    output_matrix->cols = out_matrix_size.cols;
+
+    EI_DSP_MATRIX(energy_matrix, output_matrix->rows, 1);
+    if (!energy_matrix.buffer) {
+        EIDSP_ERR(EIDSP_OUT_OF_MEM);
+    }
+
+    // and run the MFE extraction
+    int ret = speechpy::feature::mfe(output_matrix, &energy_matrix, signal,
+        frequency, config.frame_length, config.frame_stride, config.num_filters, config.fft_length,
+        config.low_frequency, config.high_frequency);
+    if (ret != EIDSP_OK) {
+        ei_printf("ERR: MFCC failed (%d)\n", ret);
+        EIDSP_ERR(ret);
+    }
+
+    output_matrix->cols = out_matrix_size.rows * out_matrix_size.cols;
+    output_matrix->rows = 1;
+
+    return EIDSP_OK;
+}
+
 __attribute__((unused)) int extract_image_features(signal_t *signal, matrix_t *output_matrix, void *config_ptr) {
     ei_dsp_config_image_t config = *((ei_dsp_config_image_t*)config_ptr);
 
