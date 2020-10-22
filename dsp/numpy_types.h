@@ -127,6 +127,84 @@ typedef struct ei_matrix {
 } matrix_t;
 
 /**
+ * A matrix structure that allocates a matrix on the **heap**.
+ * Freeing happens by calling `delete` on the object or letting the object go out of scope.
+ */
+typedef struct ei_matrix_i8 {
+    int8_t *buffer;
+    uint32_t rows;
+    uint32_t cols;
+    bool buffer_managed_by_me;
+
+#if EIDSP_TRACK_ALLOCATIONS
+    const char *_fn;
+    const char *_file;
+    int _line;
+#endif
+
+#ifdef __cplusplus
+    /**
+     * Create a new matrix
+     * @param n_rows Number of rows
+     * @param n_cols Number of columns
+     * @param a_buffer Buffer, if not provided we'll alloc on the heap
+     */
+    ei_matrix_i8(
+        uint32_t n_rows,
+        uint32_t n_cols,
+        int8_t *a_buffer = NULL
+#if EIDSP_TRACK_ALLOCATIONS
+        ,
+        const char *fn = NULL,
+        const char *file = NULL,
+        int line = 0
+#endif
+        )
+    {
+        if (a_buffer) {
+            buffer = a_buffer;
+            buffer_managed_by_me = false;
+        }
+        else {
+            buffer = (int8_t*)calloc(n_rows * n_cols * sizeof(int8_t), 1);
+            buffer_managed_by_me = true;
+        }
+        rows = n_rows;
+        cols = n_cols;
+
+        if (!a_buffer) {
+#if EIDSP_TRACK_ALLOCATIONS
+            _fn = fn;
+            _file = file;
+            _line = line;
+            if (_fn) {
+                ei_dsp_register_matrix_alloc_internal(fn, file, line, rows, cols, sizeof(int8_t));
+            }
+            else {
+                ei_dsp_register_matrix_alloc(rows, cols, sizeof(int8_t));
+            }
+#endif
+        }
+    }
+
+    ~ei_matrix_i8() {
+        if (buffer && buffer_managed_by_me) {
+            free(buffer);
+
+#if EIDSP_TRACK_ALLOCATIONS
+            if (_fn) {
+                ei_dsp_register_matrix_free_internal(_fn, _file, _line, rows, cols, sizeof(int8_t));
+            }
+            else {
+                ei_dsp_register_matrix_free(rows, cols, sizeof(int8_t));
+            }
+#endif
+        }
+    }
+#endif // #ifdef __cplusplus
+} matrix_i8_t;
+
+/**
  * Another matrix structure that allocates a matrix on the **heap**.
  * Freeing happens by calling `delete` on the object or letting the object go out of scope.
  * We use this for the filterbanks, as we quantize these operations to save memory.

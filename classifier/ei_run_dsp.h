@@ -477,9 +477,9 @@ __attribute__((unused)) int extract_image_features(signal_t *signal, matrix_t *o
 
     int16_t channel_count = strcmp(config.channels, "Grayscale") == 0 ? 1 : 3;
 
-    if (output_matrix->rows * output_matrix->cols != EI_CLASSIFIER_INPUT_WIDTH * EI_CLASSIFIER_INPUT_HEIGHT * channel_count) {
+    if (output_matrix->rows * output_matrix->cols != static_cast<uint32_t>(EI_CLASSIFIER_INPUT_WIDTH * EI_CLASSIFIER_INPUT_HEIGHT * channel_count)) {
         ei_printf("out_matrix = %hu items\n", output_matrix->rows, output_matrix->cols);
-        ei_printf("calculated size = %hu items\n", EI_CLASSIFIER_INPUT_WIDTH * EI_CLASSIFIER_INPUT_HEIGHT * channel_count);
+        ei_printf("calculated size = %hu items\n", static_cast<uint32_t>(EI_CLASSIFIER_INPUT_WIDTH * EI_CLASSIFIER_INPUT_HEIGHT * channel_count));
         EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
     }
 
@@ -487,39 +487,94 @@ __attribute__((unused)) int extract_image_features(signal_t *signal, matrix_t *o
 
     // buffered read from the signal
     size_t bytes_left = signal->total_length;
-    for (size_t ix = 0; ix < signal->total_length; ix += 4096) {
-        size_t bytes_to_read = bytes_left > 4096 ? 4096 : bytes_left;
+    for (size_t ix = 0; ix < signal->total_length; ix += 1024) {
+        size_t elements_to_read = bytes_left > 1024 ? 1024 : bytes_left;
 
-        matrix_t input_matrix(bytes_to_read, config.axes);
+        matrix_t input_matrix(elements_to_read, config.axes);
         if (!input_matrix.buffer) {
             EIDSP_ERR(EIDSP_OUT_OF_MEM);
         }
-        signal->get_data(ix, bytes_to_read, input_matrix.buffer);
+        signal->get_data(ix, elements_to_read, input_matrix.buffer);
 
-        for (size_t jx = 0; jx < bytes_to_read; jx++) {
+        for (size_t jx = 0; jx < elements_to_read; jx++) {
             uint32_t pixel = static_cast<uint32_t>(input_matrix.buffer[jx]);
+
+            // rgb to 0..1
+            float r = static_cast<float>(pixel >> 16 & 0xff) / 255.0f;
+            float g = static_cast<float>(pixel >> 8 & 0xff) / 255.0f;
+            float b = static_cast<float>(pixel & 0xff) / 255.0f;
+
             if (channel_count == 3) {
-                // rgb to 0..1
-                output_matrix->buffer[output_ix++] = static_cast<float>(pixel >> 16 & 0xff) / 255.0f;
-                output_matrix->buffer[output_ix++] = static_cast<float>(pixel >> 8 & 0xff) / 255.0f;
-                output_matrix->buffer[output_ix++] = static_cast<float>(pixel & 0xff) / 255.0f;
+                output_matrix->buffer[output_ix++] = r;
+                output_matrix->buffer[output_ix++] = g;
+                output_matrix->buffer[output_ix++] = b;
             }
             else {
-                // grayscale conversion (also to 0..1)
-                float r = static_cast<float>(pixel >> 16 & 0xff) / 255.0f;
-                float g = static_cast<float>(pixel >> 8 & 0xff) / 255.0f;
-                float b = static_cast<float>(pixel & 0xff) / 255.0f;
                 // ITU-R 601-2 luma transform
                 // see: https://pillow.readthedocs.io/en/stable/reference/Image.html#PIL.Image.Image.convert
-                output_matrix->buffer[output_ix++] = (0.299f * r) + (0.587f * g) + (0.114f * b);
+                float v = (0.299f * r) + (0.587f * g) + (0.114f * b);
+                output_matrix->buffer[output_ix++] = v;
             }
         }
 
-        bytes_left -= bytes_to_read;
+        bytes_left -= elements_to_read;
     }
 
     return EIDSP_OK;
 }
+
+#if EI_CLASSIFIER_TFLITE_INPUT_QUANTIZED == 1
+__attribute__((unused)) int extract_image_features_quantized(signal_t *signal, matrix_i8_t *output_matrix, void *config_ptr) {
+    ei_dsp_config_image_t config = *((ei_dsp_config_image_t*)config_ptr);
+
+    int16_t channel_count = strcmp(config.channels, "Grayscale") == 0 ? 1 : 3;
+
+    if (output_matrix->rows * output_matrix->cols != static_cast<uint32_t>(EI_CLASSIFIER_INPUT_WIDTH * EI_CLASSIFIER_INPUT_HEIGHT * channel_count)) {
+        ei_printf("out_matrix = %hu items\n", output_matrix->rows, output_matrix->cols);
+        ei_printf("calculated size = %hu items\n", static_cast<uint32_t>(EI_CLASSIFIER_INPUT_WIDTH * EI_CLASSIFIER_INPUT_HEIGHT * channel_count));
+        EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
+    }
+
+    size_t output_ix = 0;
+
+    // buffered read from the signal
+    size_t bytes_left = signal->total_length;
+    for (size_t ix = 0; ix < signal->total_length; ix += 1024) {
+        size_t elements_to_read = bytes_left > 1024 ? 1024 : bytes_left;
+
+        matrix_t input_matrix(elements_to_read, config.axes);
+        if (!input_matrix.buffer) {
+            EIDSP_ERR(EIDSP_OUT_OF_MEM);
+        }
+        signal->get_data(ix, elements_to_read, input_matrix.buffer);
+
+        for (size_t jx = 0; jx < elements_to_read; jx++) {
+            uint32_t pixel = static_cast<uint32_t>(input_matrix.buffer[jx]);
+
+            // rgb to 0..1
+            float r = static_cast<float>(pixel >> 16 & 0xff) / 255.0f;
+            float g = static_cast<float>(pixel >> 8 & 0xff) / 255.0f;
+            float b = static_cast<float>(pixel & 0xff) / 255.0f;
+
+            if (channel_count == 3) {
+                output_matrix->buffer[output_ix++] = static_cast<int8_t>(round(r / EI_CLASSIFIER_TFLITE_INPUT_SCALE) + EI_CLASSIFIER_TFLITE_INPUT_ZEROPOINT);
+                output_matrix->buffer[output_ix++] = static_cast<int8_t>(round(g / EI_CLASSIFIER_TFLITE_INPUT_SCALE) + EI_CLASSIFIER_TFLITE_INPUT_ZEROPOINT);
+                output_matrix->buffer[output_ix++] = static_cast<int8_t>(round(b / EI_CLASSIFIER_TFLITE_INPUT_SCALE) + EI_CLASSIFIER_TFLITE_INPUT_ZEROPOINT);
+            }
+            else {
+                // ITU-R 601-2 luma transform
+                // see: https://pillow.readthedocs.io/en/stable/reference/Image.html#PIL.Image.Image.convert
+                float v = (0.299f * r) + (0.587f * g) + (0.114f * b);
+                output_matrix->buffer[output_ix++] = static_cast<int8_t>(round(v / EI_CLASSIFIER_TFLITE_INPUT_SCALE) + EI_CLASSIFIER_TFLITE_INPUT_ZEROPOINT);
+            }
+        }
+
+        bytes_left -= elements_to_read;
+    }
+
+    return EIDSP_OK;
+}
+#endif // EI_CLASSIFIER_TFLITE_INPUT_QUANTIZED == 1
 
 #ifdef __cplusplus
 }

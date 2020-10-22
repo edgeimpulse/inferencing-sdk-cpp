@@ -35,10 +35,7 @@
 #include "edge-impulse-sdk/porting/ei_classifier_porting.h"
 #include "model-parameters/dsp_blocks.h"
 
-#if EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_UTENSOR
-#include "utensor-model/trained.hpp"
-#include "utensor-model/trained_weight.hpp"            // keep the weights in ROM for now, we have plenty of internal flash
-#elif (EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_TFLITE) && (EI_CLASSIFIER_COMPILED != 1)
+#if (EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_TFLITE) && (EI_CLASSIFIER_COMPILED != 1)
 #include <cmath>
 #include "edge-impulse-sdk/tensorflow/lite/micro/all_ops_resolver.h"
 #include "edge-impulse-sdk/tensorflow/lite/micro/micro_error_reporter.h"
@@ -109,6 +106,8 @@ namespace {
 
 /* Function prototypes ----------------------------------------------------- */
 extern "C" EI_IMPULSE_ERROR run_inference(ei::matrix_t *fmatrix, ei_impulse_result_t *result, bool debug);
+extern "C" EI_IMPULSE_ERROR run_classifier_image_quantized(signal_t *signal, ei_impulse_result_t *result, bool debug);
+static EI_IMPULSE_ERROR can_run_classifier_image_quantized();
 static void calc_cepstral_mean_and_var_normalization_mfcc(ei_matrix *matrix, void *config_ptr);
 static void calc_cepstral_mean_and_var_normalization_mfe(ei_matrix *matrix, void *config_ptr);
 
@@ -292,6 +291,191 @@ extern "C" EI_IMPULSE_ERROR run_classifier_continuous(signal_t *signal, ei_impul
     return ei_impulse_error;
 }
 
+#if (EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_TFLITE)
+/**
+ * Setup the TFLite runtime
+ *
+ * @param      ctx_start_ms       Pointer to the start time
+ * @param      input              Pointer to input tensor
+ * @param      output             Pointer to output tensor
+ * @param      micro_interpreter  Pointer to interpreter (for non-compiled models)
+ * @param      micro_tensor_arena Pointer to the arena that will be allocated
+ *
+ * @return  EI_IMPULSE_OK if successful
+ */
+static EI_IMPULSE_ERROR inference_tflite_setup(uint64_t *ctx_start_ms, TfLiteTensor** input, TfLiteTensor** output,
+#if (EI_CLASSIFIER_COMPILED != 1)
+    tflite::MicroInterpreter** micro_interpreter,
+#endif
+    uint8_t** micro_tensor_arena) {
+#if (EI_CLASSIFIER_COMPILED == 1)
+    TfLiteStatus init_status = trained_model_init(ei_aligned_malloc);
+    if (init_status != kTfLiteOk) {
+        ei_printf("Failed to allocate TFLite arena (error code %d)\n", init_status);
+        return EI_IMPULSE_TFLITE_ARENA_ALLOC_FAILED;
+    }
+#else
+    // Create an area of memory to use for input, output, and intermediate arrays.
+    uint8_t *tensor_arena = (uint8_t*)ei_aligned_malloc(16, EI_CLASSIFIER_TFLITE_ARENA_SIZE);
+    if (tensor_arena == NULL) {
+        ei_printf("Failed to allocate TFLite arena (%d bytes)\n", EI_CLASSIFIER_TFLITE_ARENA_SIZE);
+        return EI_IMPULSE_TFLITE_ARENA_ALLOC_FAILED;
+    }
+    *micro_tensor_arena = tensor_arena;
+#endif
+
+    *ctx_start_ms = ei_read_timer_ms();
+
+    static bool tflite_first_run = true;
+
+#if (EI_CLASSIFIER_COMPILED != 1)
+        static const tflite::Model* model = nullptr;
+#endif
+
+#if (EI_CLASSIFIER_COMPILED != 1)
+    // ======
+    // Initialization code start
+    // This part can be run once, but that would require the TFLite arena
+    // to be allocated at all times, which is not ideal (e.g. when doing MFCC)
+    // ======
+    if (tflite_first_run) {
+        // Map the model into a usable data structure. This doesn't involve any
+        // copying or parsing, it's a very lightweight operation.
+        model = tflite::GetModel(trained_tflite);
+        if (model->version() != TFLITE_SCHEMA_VERSION) {
+            error_reporter->Report(
+                "Model provided is schema version %d not equal "
+                "to supported version %d.",
+                model->version(), TFLITE_SCHEMA_VERSION);
+            ei_aligned_free(tensor_arena);
+            return EI_IMPULSE_TFLITE_ERROR;
+        }
+    }
+#endif
+
+#if (EI_CLASSIFIER_COMPILED != 1)
+#ifdef EI_TFLITE_RESOLVER
+    EI_TFLITE_RESOLVER
+#else
+    tflite::AllOpsResolver resolver;
+#endif
+#endif
+
+#if (EI_CLASSIFIER_COMPILED == 1)
+    *input = trained_model_input(0);
+    *output = trained_model_output(0);
+#else
+    // Build an interpreter to run the model with.
+    tflite::MicroInterpreter *interpreter = new tflite::MicroInterpreter(
+        model, resolver, tensor_arena, EI_CLASSIFIER_TFLITE_ARENA_SIZE, error_reporter);
+
+    *micro_interpreter = interpreter;
+
+    // Allocate memory from the tensor_arena for the model's tensors.
+    TfLiteStatus allocate_status = interpreter->AllocateTensors();
+    if (allocate_status != kTfLiteOk) {
+        error_reporter->Report("AllocateTensors() failed");
+        ei_aligned_free(tensor_arena);
+        return EI_IMPULSE_TFLITE_ERROR;
+    }
+
+    // Obtain pointers to the model's input and output tensors.
+    *input = interpreter->input(0);
+    *output = interpreter->output(0);
+#endif
+
+    // Assert that our quantization parameters match the model
+    if (tflite_first_run) {
+        assert((*input)->type == EI_CLASSIFIER_TFLITE_INPUT_DATATYPE);
+        assert((*output)->type == EI_CLASSIFIER_TFLITE_OUTPUT_DATATYPE);
+#if defined(EI_CLASSIFIER_TFLITE_INPUT_QUANTIZED)
+        if (EI_CLASSIFIER_TFLITE_INPUT_QUANTIZED) {
+            assert((*input)->params.scale == EI_CLASSIFIER_TFLITE_INPUT_SCALE);
+            assert((*input)->params.zero_point == EI_CLASSIFIER_TFLITE_INPUT_ZEROPOINT);
+        }
+        if (EI_CLASSIFIER_TFLITE_INPUT_QUANTIZED) {
+            assert((*output)->params.scale == EI_CLASSIFIER_TFLITE_OUTPUT_SCALE);
+            assert((*output)->params.zero_point == EI_CLASSIFIER_TFLITE_OUTPUT_ZEROPOINT);
+        }
+#endif
+        tflite_first_run = false;
+    }
+    return EI_IMPULSE_OK;
+}
+
+/**
+ * Run TFLite model
+ *
+ * @param   ctx_start_ms    Start time of the setup function (see above)
+ * @param   output          Output tensor
+ * @param   interpreter     TFLite interpreter (non-compiled models)
+ * @param   tensor_arena    Allocated arena (will be freed)
+ * @param   result          Struct for results
+ * @param   debug           Whether to print debug info
+ *
+ * @return  EI_IMPULSE_OK if successful
+ */
+static EI_IMPULSE_ERROR inference_tflite_run(uint64_t ctx_start_ms,
+    TfLiteTensor* output,
+#if (EI_CLASSIFIER_COMPILED != 1)
+    tflite::MicroInterpreter* interpreter,
+#endif
+    uint8_t* tensor_arena,
+    ei_impulse_result_t *result,
+    bool debug) {
+#if (EI_CLASSIFIER_COMPILED == 1)
+    trained_model_invoke();
+#else
+    // Run inference, and report any error
+    TfLiteStatus invoke_status = interpreter->Invoke();
+    if (invoke_status != kTfLiteOk) {
+        error_reporter->Report("Invoke failed (%d)\n", invoke_status);
+        ei_aligned_free(tensor_arena);
+        return EI_IMPULSE_TFLITE_ERROR;
+    }
+    free(interpreter);
+#endif
+
+    uint64_t ctx_end_ms = ei_read_timer_ms();
+
+    result->timing.classification = ctx_end_ms - ctx_start_ms;
+
+    // Read the predicted y value from the model's output tensor
+    if (debug) {
+        ei_printf("Predictions (time: %d ms.):\n", result->timing.classification);
+    }
+    bool int8_output = output->type == TfLiteType::kTfLiteInt8;
+    for (uint32_t ix = 0; ix < EI_CLASSIFIER_LABEL_COUNT; ix++) {
+        float value;
+        // Dequantize the output if it is int8
+        if (int8_output) {
+            value = static_cast<float>(output->data.int8[ix] - output->params.zero_point) * output->params.scale;
+        } else {
+            value = output->data.f[ix];
+        }
+        if (debug) {
+            ei_printf("%s:\t", ei_classifier_inferencing_categories[ix]);
+            ei_printf_float(value);
+            ei_printf("\n");
+        }
+        result->classification[ix].label = ei_classifier_inferencing_categories[ix];
+        result->classification[ix].value = value;
+    }
+
+#if (EI_CLASSIFIER_COMPILED == 1)
+    trained_model_reset(ei_aligned_free);
+#else
+    ei_aligned_free(tensor_arena);
+#endif
+
+    if (ei_run_impulse_check_canceled() == EI_IMPULSE_CANCELED) {
+        return EI_IMPULSE_CANCELED;
+    }
+
+    return EI_IMPULSE_OK;
+}
+#endif // (EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_TFLITE)
+
 /**
  * @brief      Do inferencing over the processed feature matrix
  *
@@ -306,142 +490,22 @@ extern "C" EI_IMPULSE_ERROR run_inference(
     ei_impulse_result_t *result,
     bool debug = false)
 {
-
-#if EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_UTENSOR
-    // now turn into floats...
-    RamTensor<float> *input_x = new RamTensor<float>({ 1, static_cast<unsigned int>(fmatrix->rows * fmatrix->cols) });
-    float *buff = (float*)input_x->write(0, 0);
-    memcpy(buff, fmatrix->buffer, fmatrix->rows * fmatrix->cols * sizeof(float));
-
+#if (EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_TFLITE)
     {
-        uint64_t ctx_start_ms = ei_read_timer_ms();
-        Context ctx;
-        get_trained_ctx(ctx, input_x);
-        ctx.eval();
-        uint64_t ctx_end_ms = ei_read_timer_ms();
+        uint64_t ctx_start_ms;
+        TfLiteTensor* input;
+        TfLiteTensor* output;
+        uint8_t* tensor_arena;
 
-        if (ei_run_impulse_check_canceled() == EI_IMPULSE_CANCELED) {
-            return EI_IMPULSE_CANCELED;
-        }
-
-        result->timing.classification = ctx_end_ms - ctx_start_ms;
-
-        S_TENSOR pred_tensor = ctx.get(EI_CLASSIFIER_OUT_TENSOR_NAME);  // getting a reference to the output tensor
-
-        uint32_t output_neurons = pred_tensor->getShape()[1];
-
-        if (output_neurons != EI_CLASSIFIER_LABEL_COUNT) {
-            return EI_IMPULSE_ERROR_SHAPES_DONT_MATCH;
-        }
-
-        if (debug) {
-            ei_printf("Predictions (time: %d ms.):\n", result->timing.classification);
-        }
-        const float* ptr_pred = pred_tensor->read<float>(0, 0);
-
-        for (uint32_t ix = 0; ix < output_neurons; ix++) {
-            if (debug) {
-                ei_printf("%s:\t", ei_classifier_inferencing_categories[ix]);
-                ei_printf_float(*(ptr_pred + ix));
-                ei_printf("\n");
-            }
-            result->classification[ix].label = ei_classifier_inferencing_categories[ix];
-            result->classification[ix].value = *(ptr_pred + ix);
-        }
-    }
-#elif (EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_TFLITE)
-    {
-
-#if (EI_CLASSIFIER_COMPILED != 1)
-        // Create an area of memory to use for input, output, and intermediate arrays.
-        uint8_t *tensor_arena = (uint8_t*)ei_aligned_malloc(16, EI_CLASSIFIER_TFLITE_ARENA_SIZE);
-        if (tensor_arena == NULL) {
-            ei_printf("Failed to allocate TFLite arena (%d bytes)\n", EI_CLASSIFIER_TFLITE_ARENA_SIZE);
-            return EI_IMPULSE_TFLITE_ARENA_ALLOC_FAILED;
-        }
+#if (EI_CLASSIFIER_COMPILED == 1)
+        EI_IMPULSE_ERROR init_res = inference_tflite_setup(&ctx_start_ms, &input, &output, &tensor_arena);
 #else
-        TfLiteStatus init_status = trained_model_init(ei_aligned_malloc);
-        if (init_status != kTfLiteOk) {
-            ei_printf("Failed to allocate TFLite arena (error code %d)\n", init_status);
-            return EI_IMPULSE_TFLITE_ARENA_ALLOC_FAILED;
+        tflite::MicroInterpreter* interpreter;
+        EI_IMPULSE_ERROR init_res = inference_tflite_setup(&ctx_start_ms, &input, &output, &interpreter, &tensor_arena);
+#endif
+        if (init_res != EI_IMPULSE_OK) {
+            return init_res;
         }
-#endif
-        uint64_t ctx_start_ms = ei_read_timer_ms();
-
-        static bool tflite_first_run = true;
-
-#if (EI_CLASSIFIER_COMPILED != 1)
-        static const tflite::Model* model = nullptr;
-#endif
-
-#if (EI_CLASSIFIER_COMPILED != 1)
-        // ======
-        // Initialization code start
-        // This part can be run once, but that would require the TFLite arena
-        // to be allocated at all times, which is not ideal (e.g. when doing MFCC)
-        // ======
-        if (tflite_first_run) {
-            // Map the model into a usable data structure. This doesn't involve any
-            // copying or parsing, it's a very lightweight operation.
-            model = tflite::GetModel(trained_tflite);
-            if (model->version() != TFLITE_SCHEMA_VERSION) {
-                error_reporter->Report(
-                    "Model provided is schema version %d not equal "
-                    "to supported version %d.",
-                    model->version(), TFLITE_SCHEMA_VERSION);
-                ei_aligned_free(tensor_arena);
-                return EI_IMPULSE_TFLITE_ERROR;
-            }
-        }
-#endif
-
-#if (EI_CLASSIFIER_COMPILED != 1)
-#ifdef EI_TFLITE_RESOLVER
-        EI_TFLITE_RESOLVER
-#else
-        tflite::AllOpsResolver resolver;
-#endif
-#endif
-
-#if (EI_CLASSIFIER_COMPILED != 1)
-        // Build an interpreter to run the model with.
-        tflite::MicroInterpreter interpreter(
-            model, resolver, tensor_arena, EI_CLASSIFIER_TFLITE_ARENA_SIZE, error_reporter);
-
-        // Allocate memory from the tensor_arena for the model's tensors.
-        TfLiteStatus allocate_status = interpreter.AllocateTensors();
-        if (allocate_status != kTfLiteOk) {
-            error_reporter->Report("AllocateTensors() failed");
-            ei_aligned_free(tensor_arena);
-            return EI_IMPULSE_TFLITE_ERROR;
-        }
-
-        // Obtain pointers to the model's input and output tensors.
-        TfLiteTensor* input = interpreter.input(0);
-        TfLiteTensor* output = interpreter.output(0);
-
-#else
-        TfLiteTensor* input = trained_model_input(0);
-        TfLiteTensor* output = trained_model_output(0);
-#endif
-        // Assert that our quantization parameters match the model
-        if (tflite_first_run) {
-            assert(input->type == EI_CLASSIFIER_TFLITE_INPUT_DATATYPE);
-            if (EI_CLASSIFIER_TFLITE_INPUT_QUANTIZED) {
-                assert(input->params.scale == EI_CLASSIFIER_TFLITE_INPUT_SCALE);
-                assert(input->params.zero_point == EI_CLASSIFIER_TFLITE_INPUT_ZEROPOINT);
-            }
-            assert(output->type == EI_CLASSIFIER_TFLITE_OUTPUT_DATATYPE);
-            if (EI_CLASSIFIER_TFLITE_INPUT_QUANTIZED) {
-                assert(output->params.scale == EI_CLASSIFIER_TFLITE_OUTPUT_SCALE);
-                assert(output->params.zero_point == EI_CLASSIFIER_TFLITE_OUTPUT_ZEROPOINT);
-            }
-            tflite_first_run = false;
-        }
-
-        // =====
-        // Initialization code done
-        // =====
 
         // Place our calculated x value in the model's input tensor
         bool int8_input = input->type == TfLiteType::kTfLiteInt8;
@@ -454,52 +518,14 @@ extern "C" EI_IMPULSE_ERROR run_inference(
             }
         }
 
-#if (EI_CLASSIFIER_COMPILED != 1)
-        // Run inference, and report any error
-        TfLiteStatus invoke_status = interpreter.Invoke();
-        if (invoke_status != kTfLiteOk) {
-            error_reporter->Report("Invoke failed (%d)\n", invoke_status);
-            ei_aligned_free(tensor_arena);
-            return EI_IMPULSE_TFLITE_ERROR;
-        }
+#if (EI_CLASSIFIER_COMPILED == 1)
+        EI_IMPULSE_ERROR run_res = inference_tflite_run(ctx_start_ms, output, tensor_arena, result, debug);
 #else
-        trained_model_invoke();
+        EI_IMPULSE_ERROR run_res = inference_tflite_run(ctx_start_ms, output, interpreter, tensor_arena, result, debug);
 #endif
 
-        uint64_t ctx_end_ms = ei_read_timer_ms();
-
-        result->timing.classification = ctx_end_ms - ctx_start_ms;
-
-        // Read the predicted y value from the model's output tensor
-        if (debug) {
-            ei_printf("Predictions (time: %d ms.):\n", result->timing.classification);
-        }
-        bool int8_output = output->type == TfLiteType::kTfLiteInt8;
-        for (uint32_t ix = 0; ix < EI_CLASSIFIER_LABEL_COUNT; ix++) {
-            float value;
-            // Dequantize the output if it is int8
-            if (int8_output) {
-                value = static_cast<float>(output->data.int8[ix] - output->params.zero_point) * output->params.scale;
-            } else {
-                value = output->data.f[ix];
-            }
-            if (debug) {
-                ei_printf("%s:\t", ei_classifier_inferencing_categories[ix]);
-                ei_printf_float(value);
-                ei_printf("\n");
-            }
-            result->classification[ix].label = ei_classifier_inferencing_categories[ix];
-            result->classification[ix].value = value;
-        }
-
-#if (EI_CLASSIFIER_COMPILED != 1)
-        ei_aligned_free(tensor_arena);
-#else
-        trained_model_reset(ei_aligned_free);
-#endif
-
-        if (ei_run_impulse_check_canceled() == EI_IMPULSE_CANCELED) {
-            return EI_IMPULSE_CANCELED;
+        if (run_res != EI_IMPULSE_OK) {
+            return run_res;
         }
     }
 
@@ -611,8 +637,6 @@ extern "C" EI_IMPULSE_ERROR run_inference(
         result->classification[ix].label = ei_classifier_inferencing_categories[ix];
         result->classification[ix].value = v;
     }
-
-
 #endif
 
 #if EI_CLASSIFIER_HAS_ANOMALY == 1
@@ -663,6 +687,13 @@ extern "C" EI_IMPULSE_ERROR run_classifier(
     ei_impulse_result_t *result,
     bool debug = false)
 {
+#if EI_CLASSIFIER_TFLITE_INPUT_QUANTIZED == 1
+    // Shortcut for quantized image models
+    if (can_run_classifier_image_quantized() == EI_IMPULSE_OK) {
+        return run_classifier_image_quantized(signal, result, debug);
+    }
+#endif
+
     // if (debug) {
     // static float buf[1000];
     // printf("Raw data: ");
@@ -834,6 +865,112 @@ __attribute__((unused)) EI_IMPULSE_ERROR run_impulse(
 
     return run_classifier(&signal, result, debug);
 }
+
+/**
+ * Check if the current impulse could be used by 'run_classifier_image_quantized'
+ */
+static EI_IMPULSE_ERROR can_run_classifier_image_quantized() {
+#if (EI_CLASSIFIER_INFERENCING_ENGINE != EI_CLASSIFIER_TFLITE)
+    return EI_IMPULSE_UNSUPPORTED_INFERENCING_ENGINE;
+#endif
+
+#if EI_CLASSIFIER_HAS_ANOMALY == 1
+    return EI_IMPULSE_ONLY_SUPPORTED_FOR_IMAGES;
+#endif
+
+    // Check if we have a quantized NN, and one DSP block which operates on images...
+    if (!EI_CLASSIFIER_TFLITE_INPUT_QUANTIZED) {
+        return EI_IMPULSE_ONLY_SUPPORTED_FOR_IMAGES;
+    }
+
+    if (ei_dsp_blocks_size != 1 || ei_dsp_blocks[0].extract_fn != extract_image_features) {
+        return EI_IMPULSE_ONLY_SUPPORTED_FOR_IMAGES;
+    }
+
+    return EI_IMPULSE_OK;
+}
+
+#if EI_CLASSIFIER_TFLITE_INPUT_QUANTIZED == 1
+/**
+ * Special function to run the classifier on images, only works on TFLite models (either interpreter or EON)
+ * that allocates a lot less memory by quantizing in place. This only works if 'can_run_classifier_image_quantized'
+ * returns EI_IMPULSE_OK.
+ */
+extern "C" EI_IMPULSE_ERROR run_classifier_image_quantized(
+    signal_t *signal,
+    ei_impulse_result_t *result,
+    bool debug = false)
+{
+    EI_IMPULSE_ERROR verify_res = can_run_classifier_image_quantized();
+    if (verify_res != EI_IMPULSE_OK) {
+        return verify_res;
+    }
+
+#if (EI_CLASSIFIER_INFERENCING_ENGINE != EI_CLASSIFIER_TFLITE)
+    return EI_IMPULSE_UNSUPPORTED_INFERENCING_ENGINE;
+#else
+    uint64_t ctx_start_ms;
+    TfLiteTensor* input;
+    TfLiteTensor* output;
+    uint8_t* tensor_arena;
+
+#if (EI_CLASSIFIER_COMPILED == 1)
+    EI_IMPULSE_ERROR init_res = inference_tflite_setup(&ctx_start_ms, &input, &output, &tensor_arena);
+#else
+    tflite::MicroInterpreter* interpreter;
+    EI_IMPULSE_ERROR init_res = inference_tflite_setup(&ctx_start_ms, &input, &output, &interpreter, &tensor_arena);
+#endif
+    if (init_res != EI_IMPULSE_OK) {
+        return init_res;
+    }
+
+    if (input->type != TfLiteType::kTfLiteInt8) {
+        return EI_IMPULSE_ONLY_SUPPORTED_FOR_IMAGES;
+    }
+
+    uint64_t dsp_start_ms = ei_read_timer_ms();
+
+    // features matrix maps around the input tensor to not allocate any memory
+    ei::matrix_i8_t features_matrix(1, EI_CLASSIFIER_NN_INPUT_FRAME_SIZE, input->data.int8);
+
+    // run DSP process and quantize automatically
+    int ret = extract_image_features_quantized(signal, &features_matrix, ei_dsp_blocks[0].config);
+    if (ret != EIDSP_OK) {
+        ei_printf("ERR: Failed to run DSP process (%d)\n", ret);
+        return EI_IMPULSE_DSP_ERROR;
+    }
+
+    if (ei_run_impulse_check_canceled() == EI_IMPULSE_CANCELED) {
+        return EI_IMPULSE_CANCELED;
+    }
+
+    result->timing.dsp = ei_read_timer_ms() - dsp_start_ms;
+
+    if (debug) {
+        ei_printf("Features (%d ms.): ", result->timing.dsp);
+        for (size_t ix = 0; ix < features_matrix.cols; ix++) {
+            ei_printf_float((features_matrix.buffer[ix] - EI_CLASSIFIER_TFLITE_INPUT_ZEROPOINT) * EI_CLASSIFIER_TFLITE_INPUT_SCALE);
+            ei_printf(" ");
+        }
+        ei_printf("\n");
+    }
+
+    ctx_start_ms = ei_read_timer_ms();
+
+#if (EI_CLASSIFIER_COMPILED == 1)
+    EI_IMPULSE_ERROR run_res = inference_tflite_run(ctx_start_ms, output, tensor_arena, result, debug);
+#else
+    EI_IMPULSE_ERROR run_res = inference_tflite_run(ctx_start_ms, output, interpreter, tensor_arena, result, debug);
+#endif
+
+    if (run_res != EI_IMPULSE_OK) {
+        return run_res;
+    }
+
+    return EI_IMPULSE_OK;
+#endif // EI_CLASSIFIER_INFERENCING_ENGINE != EI_CLASSIFIER_TFLITE
+}
+#endif // #if EI_CLASSIFIER_TFLITE_INPUT_QUANTIZED == 1
 
 #if defined(EI_CLASSIFIER_HAS_SAMPLER) && EI_CLASSIFIER_HAS_SAMPLER == 1
 /**

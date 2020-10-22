@@ -24,6 +24,7 @@ rm -rf $SCRIPTPATH/tensorflow/lite/micro/mbed/
 rm -rf $SCRIPTPATH/porting/ecm3532/
 rm -rf $SCRIPTPATH/porting/mbed/
 rm -rf $SCRIPTPATH/porting/posix/
+rm -rf $SCRIPTPATH/porting/silabs/
 rm -rf $SCRIPTPATH/porting/stm32-cubeai/
 rm -rf $SCRIPTPATH/classifier/ei_run_classifier_c*
 rm -rf $SCRIPTPATH/CMSIS/DSP/Source/TransformFunctions/arm_bitreversal2.S
