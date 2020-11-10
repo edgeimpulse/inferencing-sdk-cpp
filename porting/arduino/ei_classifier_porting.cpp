@@ -20,11 +20,11 @@
  * SOFTWARE.
  */
 
-#if defined(ARDUINO)
+#include "../ei_classifier_porting.h"
+#if EI_PORTING_ARDUINO == 1
 
 #include <Arduino.h>
 #include <stdarg.h>
-#include "../ei_classifier_porting.h"
 
 #define EI_WEAK_FN __attribute__((weak))
 
@@ -72,4 +72,4 @@ __attribute__((weak)) void DebugLog(const char* s) {
     ei_printf("%s", s);
 }
 
-#endif // defined(ARDUINO)
+#endif // EI_PORTING_ARDUINO == 1

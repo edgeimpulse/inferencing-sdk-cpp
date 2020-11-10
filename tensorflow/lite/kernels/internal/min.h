@@ -19,7 +19,9 @@ limitations under the License.
 
 namespace tflite {
 
-#if defined(TF_LITE_USE_GLOBAL_MIN) || defined(__ZEPHYR__)
+// Patched by Edge Impulse, Arduino ESP32 targets have no std::fmin (at least on some targets)
+// see https://forum.edgeimpulse.com/t/esp32-cam-support/797/21
+#if defined(TF_LITE_USE_GLOBAL_MIN) || defined(__ZEPHYR__) || defined(ARDUINO_ARCH_ESP32)
 inline float TfLiteMin(const float& x, const float& y) {
   return std::min(x, y);
 }

@@ -21,18 +21,55 @@
  */
 
 #include "../ei_classifier_porting.h"
-#if EI_PORTING_ARDUINO == 1
+#if EI_PORTING_ZEPHYR == 1
 
-#include "tensorflow/lite/micro/debug_log.h"
+#include <zephyr.h>
 #include <stdio.h>
-#include <stdarg.h>
 
-// On mbed platforms, we set up a serial port and write to it for debug logging.
-#if defined(__cplusplus) && EI_C_LINKAGE == 1
-extern "C"
-#endif // defined(__cplusplus) && EI_C_LINKAGE == 1
-void DebugLog(const char* s) {
-    ei_printf("%s", s);
+#define EI_WEAK_FN __attribute__((weak))
+
+EI_WEAK_FN EI_IMPULSE_ERROR ei_run_impulse_check_canceled() {
+    return EI_IMPULSE_OK;
 }
 
-#endif // EI_PORTING_ARDUINO
+EI_WEAK_FN EI_IMPULSE_ERROR ei_sleep(int32_t time_ms) {
+    k_msleep(time_ms);
+    return EI_IMPULSE_OK;
+}
+
+uint64_t ei_read_timer_ms() {
+    return k_uptime_get();
+}
+
+uint64_t ei_read_timer_us() {
+    return k_uptime_get()*1000;
+}
+
+/**
+ *  Printf function uses vsnprintf and output using Arduino Serial
+ */
+__attribute__((weak)) void ei_printf(const char *format, ...) {
+    static char print_buf[1024] = { 0 };
+
+    va_list args;
+    va_start(args, format);
+    int r = vsnprintf(print_buf, sizeof(print_buf), format, args);
+    va_end(args);
+
+    if (r > 0) {
+        printf("%s", print_buf);
+    }
+}
+
+__attribute__((weak)) void ei_printf_float(float f) {
+    printf("%f", f);
+}
+
+#if defined(__cplusplus) && EI_C_LINKAGE == 1
+extern "C"
+#endif
+__attribute__((weak)) void DebugLog(const char* s) {
+    printf("%s", s);
+}
+
+#endif // #if EI_PORTING_ZEPHYR == 1

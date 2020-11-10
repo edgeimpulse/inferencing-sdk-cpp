@@ -23,6 +23,8 @@
 #ifndef _EDGE_IMPULSE_RUN_CLASSIFIER_C_H_
 #define _EDGE_IMPULSE_RUN_CLASSIFIER_C_H_
 
+#if defined(__cplusplus) && EI_C_LINKAGE == 1
+
 #include "ei_run_classifier.h"
 
 /**
@@ -36,5 +38,7 @@ extern "C" EI_IMPULSE_ERROR ei_run_classifier(
     signal_t *signal,
     ei_impulse_result_t *result,
     bool debug = false);
+
+#endif // #if defined(__cplusplus) && EI_C_LINKAGE == 1
 
 #endif // _EDGE_IMPULSE_RUN_CLASSIFIER_H_

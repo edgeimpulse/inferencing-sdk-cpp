@@ -20,14 +20,14 @@
  * SOFTWARE.
  */
 
-#ifdef __MBED__
+#include "../ei_classifier_porting.h"
+#if EI_PORTING_MBED == 1
 
 #include "mbed.h"
 #include <stdarg.h>
 #include "us_ticker_api.h"
-#include "../ei_classifier_porting.h"
 
-#define EI_WEAK_FN __weak
+#define EI_WEAK_FN __attribute__((weak))
 
 EI_WEAK_FN EI_IMPULSE_ERROR ei_run_impulse_check_canceled() {
     return EI_IMPULSE_OK;
@@ -85,4 +85,4 @@ __attribute__((weak)) void DebugLog(const char* s) {
     ei_printf("%s", s);
 }
 
-#endif // __MBED__
+#endif // EI_PORTING_MBED == 1

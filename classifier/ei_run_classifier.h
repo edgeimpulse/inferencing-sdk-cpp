@@ -217,7 +217,7 @@ extern "C" EI_IMPULSE_ERROR run_classifier_continuous(signal_t *signal, ei_impul
             is_mfe = true;
         }
 
-        int ret = block.extract_fn(signal, &fm, block.config);
+        int ret = block.extract_fn(signal, &fm, block.config, EI_CLASSIFIER_FREQUENCY);
         if (ret != EIDSP_OK) {
             ei_printf("ERR: Failed to run DSP process (%d)\n", ret);
             return EI_IMPULSE_DSP_ERROR;
@@ -722,7 +722,7 @@ extern "C" EI_IMPULSE_ERROR run_classifier(
 
         ei::matrix_t fm(1, block.n_output_features, features_matrix.buffer + out_features_index);
 
-        int ret = block.extract_fn(signal, &fm, block.config);
+        int ret = block.extract_fn(signal, &fm, block.config, EI_CLASSIFIER_FREQUENCY);
         if (ret != EIDSP_OK) {
             ei_printf("ERR: Failed to run DSP process (%d)\n", ret);
             return EI_IMPULSE_DSP_ERROR;
@@ -773,7 +773,7 @@ static void calc_cepstral_mean_and_var_normalization_mfcc(ei_matrix *matrix, voi
     int ret = speechpy::processing::cmvnw(matrix, config->win_size, true, false);
     if (ret != EIDSP_OK) {
         ei_printf("ERR: cmvnw failed (%d)\n", ret);
-        EIDSP_ERR(ret);
+        return;
     }
 
     /* Reset rows and columns ratio */
@@ -799,7 +799,7 @@ static void calc_cepstral_mean_and_var_normalization_mfe(ei_matrix *matrix, void
     int ret = speechpy::processing::cmvnw(matrix, config->win_size, false, true);
     if (ret != EIDSP_OK) {
         ei_printf("ERR: cmvnw failed (%d)\n", ret);
-        EIDSP_ERR(ret);
+        return;
     }
 
     /* Reset rows and columns ratio */
@@ -878,11 +878,12 @@ static EI_IMPULSE_ERROR can_run_classifier_image_quantized() {
     return EI_IMPULSE_ONLY_SUPPORTED_FOR_IMAGES;
 #endif
 
-    // Check if we have a quantized NN, and one DSP block which operates on images...
-    if (!EI_CLASSIFIER_TFLITE_INPUT_QUANTIZED) {
-        return EI_IMPULSE_ONLY_SUPPORTED_FOR_IMAGES;
-    }
+    // Check if we have a quantized NN
+#if EI_CLASSIFIER_TFLITE_INPUT_QUANTIZED != 1
+    return EI_IMPULSE_ONLY_SUPPORTED_FOR_IMAGES;
+#endif
 
+    // And if we have one DSP block which operates on images...
     if (ei_dsp_blocks_size != 1 || ei_dsp_blocks[0].extract_fn != extract_image_features) {
         return EI_IMPULSE_ONLY_SUPPORTED_FOR_IMAGES;
     }
@@ -934,7 +935,7 @@ extern "C" EI_IMPULSE_ERROR run_classifier_image_quantized(
     ei::matrix_i8_t features_matrix(1, EI_CLASSIFIER_NN_INPUT_FRAME_SIZE, input->data.int8);
 
     // run DSP process and quantize automatically
-    int ret = extract_image_features_quantized(signal, &features_matrix, ei_dsp_blocks[0].config);
+    int ret = extract_image_features_quantized(signal, &features_matrix, ei_dsp_blocks[0].config, EI_CLASSIFIER_FREQUENCY);
     if (ret != EIDSP_OK) {
         ei_printf("ERR: Failed to run DSP process (%d)\n", ret);
         return EI_IMPULSE_DSP_ERROR;

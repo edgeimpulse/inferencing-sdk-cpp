@@ -20,8 +20,10 @@
  * SOFTWARE.
  */
 
+#include "../ei_classifier_porting.h"
+#if EI_PORTING_STM32_CUBEAI == 1
+
 #include "main.h"
-#include "edge-impulse-sdk/porting/ei_classifier_porting.h"
 #include <stdarg.h>
 #include <stdio.h>
 
@@ -59,3 +61,5 @@ extern "C"
 __attribute__((weak)) void DebugLog(const char* s) {
     ei_printf("%s", s);
 }
+
+#endif // EI_PORTING_STM32_CUBEAI

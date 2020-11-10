@@ -20,8 +20,10 @@
  * SOFTWARE.
  */
 
-#include <stdarg.h>
 #include "../ei_classifier_porting.h"
+#if EI_PORTING_ECM3532 == 1
+
+#include <stdarg.h>
 #include "ei_device_eta_ecm3532.h"
 #include "eta_bsp.h"
 
@@ -62,3 +64,5 @@ extern "C"
 __attribute__((weak)) void DebugLog(const char* s) {
     ei_printf("%s", s);
 }
+
+#endif // EI_PORTING_ECM3532 == 1

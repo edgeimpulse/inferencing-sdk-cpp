@@ -20,6 +20,8 @@
  * SOFTWARE.
  */
 
+#if defined(__cplusplus) && EI_C_LINKAGE == 1
+
 #include "ei_run_classifier_c.h"
 
 /**
@@ -33,3 +35,5 @@ EI_IMPULSE_ERROR ei_run_classifier(
 
     return run_classifier(signal, result, debug);
 }
+
+#endif // #if defined(__cplusplus) && EI_C_LINKAGE == 1

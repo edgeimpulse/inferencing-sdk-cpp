@@ -41,12 +41,12 @@ namespace {
 
 using namespace ei;
 
-__attribute__((unused)) int extract_spectral_analysis_features(signal_t *signal, matrix_t *output_matrix, void *config_ptr) {
+__attribute__((unused)) int extract_spectral_analysis_features(signal_t *signal, matrix_t *output_matrix, void *config_ptr, const float frequency) {
     ei_dsp_config_spectral_analysis_t config = *((ei_dsp_config_spectral_analysis_t*)config_ptr);
 
     int ret;
 
-    const float sampling_freq = EI_CLASSIFIER_FREQUENCY;
+    const float sampling_freq = frequency;
 
     // input matrix from the raw signal
     matrix_t input_matrix(signal->total_length / config.axes, config.axes);
@@ -126,7 +126,7 @@ __attribute__((unused)) int extract_spectral_analysis_features(signal_t *signal,
     return EIDSP_OK;
 }
 
-__attribute__((unused)) int extract_raw_features(signal_t *signal, matrix_t *output_matrix, void *config_ptr) {
+__attribute__((unused)) int extract_raw_features(signal_t *signal, matrix_t *output_matrix, void *config_ptr, const float frequency) {
     ei_dsp_config_raw_t config = *((ei_dsp_config_raw_t*)config_ptr);
 
     // input matrix from the raw signal
@@ -147,7 +147,7 @@ __attribute__((unused)) int extract_raw_features(signal_t *signal, matrix_t *out
     return EIDSP_OK;
 }
 
-__attribute__((unused)) int extract_flatten_features(signal_t *signal, matrix_t *output_matrix, void *config_ptr) {
+__attribute__((unused)) int extract_flatten_features(signal_t *signal, matrix_t *output_matrix, void *config_ptr, const float frequency) {
     ei_dsp_config_flatten_t config = *((ei_dsp_config_flatten_t*)config_ptr);
 
     uint32_t expected_matrix_size = 0;
@@ -253,15 +253,14 @@ static int preemphasized_audio_signal_get_data(size_t offset, size_t length, flo
     return preemphasis->get_data(offset, length, out_ptr);
 }
 
-__attribute__((unused)) int extract_mfcc_features(signal_t *signal, matrix_t *output_matrix, void *config_ptr) {
+__attribute__((unused)) int extract_mfcc_features(signal_t *signal, matrix_t *output_matrix, void *config_ptr, const float sampling_frequency) {
     ei_dsp_config_mfcc_t config = *((ei_dsp_config_mfcc_t*)config_ptr);
 
     if (config.axes != 1) {
         EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
     }
 
-    // @todo: move this to config
-    const uint32_t frequency = static_cast<uint32_t>(EI_CLASSIFIER_FREQUENCY);
+    const uint32_t frequency = static_cast<uint32_t>(sampling_frequency);
 
     // preemphasis class to preprocess the audio...
     class speechpy::processing::preemphasis pre(signal, config.pre_shift, config.pre_cof);
@@ -307,7 +306,7 @@ __attribute__((unused)) int extract_mfcc_features(signal_t *signal, matrix_t *ou
     return EIDSP_OK;
 }
 
-__attribute__((unused)) int extract_mfcc_per_slice_features(signal_t *signal, matrix_t *output_matrix, void *config_ptr) {
+__attribute__((unused)) int extract_mfcc_per_slice_features(signal_t *signal, matrix_t *output_matrix, void *config_ptr, const float sampling_frequency) {
     ei_dsp_config_mfcc_t config = *((ei_dsp_config_mfcc_t*)config_ptr);
 
     static bool first_run = false;
@@ -316,17 +315,16 @@ __attribute__((unused)) int extract_mfcc_per_slice_features(signal_t *signal, ma
         EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
     }
 
+    const uint32_t frequency = static_cast<uint32_t>(sampling_frequency);
+
     /* Fake an extra frame_length for stack frames calculations. There, 1 frame_length is always
     subtracted and there for never used. But skip the first slice to fit the feature_matrix
     buffer */
     if (first_run == true) {
-        signal->total_length += (size_t)(config.frame_length * (float)EI_CLASSIFIER_FREQUENCY);
+        signal->total_length += (size_t)(config.frame_length * (float)frequency);
     }
 
     first_run = true;
-
-    // @todo: move this to config
-    const uint32_t frequency = static_cast<uint32_t>(EI_CLASSIFIER_FREQUENCY);
 
     // preemphasis class to preprocess the audio...
     class speechpy::processing::preemphasis pre(signal, config.pre_shift, config.pre_cof);
@@ -366,15 +364,14 @@ __attribute__((unused)) int extract_mfcc_per_slice_features(signal_t *signal, ma
 }
 
 
-__attribute__((unused)) int extract_mfe_features(signal_t *signal, matrix_t *output_matrix, void *config_ptr) {
+__attribute__((unused)) int extract_mfe_features(signal_t *signal, matrix_t *output_matrix, void *config_ptr, const float sampling_frequency) {
     ei_dsp_config_mfe_t config = *((ei_dsp_config_mfe_t*)config_ptr);
 
     if (config.axes != 1) {
         EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
     }
 
-    // @todo: move this to config
-    const uint32_t frequency = static_cast<uint32_t>(EI_CLASSIFIER_FREQUENCY);
+    const uint32_t frequency = static_cast<uint32_t>(sampling_frequency);
 
     // calculate the size of the MFE matrix
     matrix_size_t out_matrix_size =
@@ -417,7 +414,7 @@ __attribute__((unused)) int extract_mfe_features(signal_t *signal, matrix_t *out
     return EIDSP_OK;
 }
 
-__attribute__((unused)) int extract_mfe_per_slice_features(signal_t *signal, matrix_t *output_matrix, void *config_ptr) {
+__attribute__((unused)) int extract_mfe_per_slice_features(signal_t *signal, matrix_t *output_matrix, void *config_ptr, const float sampling_frequency) {
     ei_dsp_config_mfe_t config = *((ei_dsp_config_mfe_t*)config_ptr);
 
     static bool first_run = false;
@@ -426,17 +423,16 @@ __attribute__((unused)) int extract_mfe_per_slice_features(signal_t *signal, mat
         EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
     }
 
+    const uint32_t frequency = static_cast<uint32_t>(sampling_frequency);
+
     /* Fake an extra frame_length for stack frames calculations. There, 1 frame_length is always
     subtracted and there for never used. But skip the first slice to fit the feature_matrix
     buffer */
     if (first_run == true) {
-        signal->total_length += (size_t)(config.frame_length * (float)EI_CLASSIFIER_FREQUENCY);
+        signal->total_length += (size_t)(config.frame_length * (float)frequency);
     }
 
     first_run = true;
-
-    // @todo: move this to config
-    const uint32_t frequency = static_cast<uint32_t>(EI_CLASSIFIER_FREQUENCY);
 
     // calculate the size of the MFE matrix
     matrix_size_t out_matrix_size =
@@ -472,7 +468,7 @@ __attribute__((unused)) int extract_mfe_per_slice_features(signal_t *signal, mat
     return EIDSP_OK;
 }
 
-__attribute__((unused)) int extract_image_features(signal_t *signal, matrix_t *output_matrix, void *config_ptr) {
+__attribute__((unused)) int extract_image_features(signal_t *signal, matrix_t *output_matrix, void *config_ptr, const float frequency) {
     ei_dsp_config_image_t config = *((ei_dsp_config_image_t*)config_ptr);
 
     int16_t channel_count = strcmp(config.channels, "Grayscale") == 0 ? 1 : 3;
@@ -524,7 +520,7 @@ __attribute__((unused)) int extract_image_features(signal_t *signal, matrix_t *o
 }
 
 #if EI_CLASSIFIER_TFLITE_INPUT_QUANTIZED == 1
-__attribute__((unused)) int extract_image_features_quantized(signal_t *signal, matrix_i8_t *output_matrix, void *config_ptr) {
+__attribute__((unused)) int extract_image_features_quantized(signal_t *signal, matrix_i8_t *output_matrix, void *config_ptr, const float frequency) {
     ei_dsp_config_image_t config = *((ei_dsp_config_image_t*)config_ptr);
 
     int16_t channel_count = strcmp(config.channels, "Grayscale") == 0 ? 1 : 3;

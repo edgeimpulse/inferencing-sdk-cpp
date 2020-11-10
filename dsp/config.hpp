@@ -73,13 +73,19 @@
 // this has an effect on runtime speed as CMSIS-DSP does not have optimized instructions
 // for q7 matrix multiplication and matrix transformation...
 #ifndef EIDSP_QUANTIZE_FILTERBANK
-#define EIDSP_QUANTIZE_FILTERBANK    1
+#define EIDSP_QUANTIZE_FILTERBANK    0
 #endif // EIDSP_QUANTIZE_FILTERBANK
 
 // prints buffer allocations to stdout, useful when debugging
 #ifndef EIDSP_TRACK_ALLOCATIONS
 #define EIDSP_TRACK_ALLOCATIONS      0
 #endif // EIDSP_TRACK_ALLOCATIONS
+
+// set EIDSP_TRACK_ALLOCATIONS=1 and EIDSP_PRINT_ALLOCATIONS=0
+// to track but not print allocations
+#ifndef EIDSP_PRINT_ALLOCATIONS
+#define EIDSP_PRINT_ALLOCATIONS      1
+#endif
 
 #ifndef EIDSP_SIGNAL_C_FN_POINTER
 #define EIDSP_SIGNAL_C_FN_POINTER    0

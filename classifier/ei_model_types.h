@@ -28,7 +28,7 @@
 
 typedef struct {
     size_t n_output_features;
-    int (*extract_fn)(ei::signal_t *signal, ei::matrix_t *output_matrix, void *config);
+    int (*extract_fn)(ei::signal_t *signal, ei::matrix_t *output_matrix, void *config, const float frequency);
     void *config;
 } ei_model_dsp_t;
 

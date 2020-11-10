@@ -23,10 +23,17 @@
 #ifndef _EIDSP_MEMORY_H_
 #define _EIDSP_MEMORY_H_
 
+#include <stdio.h>
 #include <stdlib.h>
 
 extern size_t ei_memory_in_use;
 extern size_t ei_memory_peak_use;
+
+#if EIDSP_PRINT_ALLOCATIONS == 1
+#define ei_dsp_printf           printf
+#else
+#define ei_dsp_printf           (void)
+#endif
 
 namespace ei {
 
@@ -46,7 +53,7 @@ namespace ei {
         if (ei_memory_in_use > ei_memory_peak_use) { \
             ei_memory_peak_use = ei_memory_in_use; \
         } \
-        printf("alloc %lu bytes (in_use=%lu, peak=%lu) (%s@%s:%d)\n", \
+        ei_dsp_printf("alloc %lu bytes (in_use=%lu, peak=%lu) (%s@%s:%d)\n", \
             bytes, ei_memory_in_use, ei_memory_peak_use, fn, file, line);
 
     /**
@@ -61,7 +68,7 @@ namespace ei {
         if (ei_memory_in_use > ei_memory_peak_use) { \
             ei_memory_peak_use = ei_memory_in_use; \
         } \
-        printf("alloc matrix %hu x %hu = %lu bytes (in_use=%lu, peak=%lu) (%s@%s:%d)\n", \
+        ei_dsp_printf("alloc matrix %hu x %hu = %lu bytes (in_use=%lu, peak=%lu) (%s@%s:%d)\n", \
             rows, cols, rows * cols * type_size, ei_memory_in_use, ei_memory_peak_use, fn, file, line);
 
     /**
@@ -70,7 +77,7 @@ namespace ei {
      */
     #define ei_dsp_register_free_internal(fn, file, line, bytes) \
         ei_memory_in_use -= bytes; \
-        printf("free %lu bytes (in_use=%lu, peak=%lu) (%s@%s:%d)\n", \
+        ei_dsp_printf("free %lu bytes (in_use=%lu, peak=%lu) (%s@%s:%d)\n", \
             bytes, ei_memory_in_use, ei_memory_peak_use, fn, file, line);
 
     /**
@@ -82,7 +89,7 @@ namespace ei {
      */
     #define ei_dsp_register_matrix_free_internal(fn, file, line, rows, cols, type_size) \
         ei_memory_in_use -= (rows * cols * type_size); \
-        printf("free matrix %hu x %hu = %lu bytes (in_use=%lu, peak=%lu) (%s@%s:%d)\n", \
+        ei_dsp_printf("free matrix %hu x %hu = %lu bytes (in_use=%lu, peak=%lu) (%s@%s:%d)\n", \
             rows, cols, rows * cols * type_size, ei_memory_in_use, ei_memory_peak_use, fn, file, line);
 
     #define ei_dsp_register_alloc(...) ei_dsp_register_alloc_internal(__func__, __FILE__, __LINE__, __VA_ARGS__)
