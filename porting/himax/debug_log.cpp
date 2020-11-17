@@ -20,34 +20,19 @@
  * SOFTWARE.
  */
 
-#ifndef _EI_CLASSIFIER_CONFIG_H_
-#define _EI_CLASSIFIER_CONFIG_H_
+#include "../ei_classifier_porting.h"
+#if EI_PORTING_HIMAX == 1
 
-#ifndef EI_CLASSIFIER_TFLITE_ENABLE_CMSIS_NN
-#if defined(__MBED__)
-    #include "mbed.h"
-    #if (MBED_VERSION < MBED_ENCODE_VERSION(5, 7, 0))
-        #define EI_CLASSIFIER_TFLITE_ENABLE_CMSIS_NN      0
-    #else
-        #define EI_CLASSIFIER_TFLITE_ENABLE_CMSIS_NN      1
-    #endif // Mbed OS 5.7 version check
-#elif defined(__TARGET_CPU_CORTEX_M0) || defined(__TARGET_CPU_CORTEX_M0PLUS) || defined(__TARGET_CPU_CORTEX_M3) || defined(__TARGET_CPU_CORTEX_M4) || defined(__TARGET_CPU_CORTEX_M7)
-    #define EI_CLASSIFIER_TFLITE_ENABLE_CMSIS_NN      1
-#else
-    #define EI_CLASSIFIER_TFLITE_ENABLE_CMSIS_NN      0
-#endif
-#endif // EI_CLASSIFIER_TFLITE_ENABLE_CMSIS_NN
+#include "tensorflow/lite/micro/debug_log.h"
+#include <stdio.h>
+#include <stdarg.h>
 
-#if EI_CLASSIFIER_TFLITE_ENABLE_CMSIS_NN == 1
-#define CMSIS_NN                    1
-#endif
+// Redirect TFLite DebugLog to ei_printf
+#if defined(__cplusplus) && EI_C_LINKAGE == 1
+extern "C"
+#endif // defined(__cplusplus) && EI_C_LINKAGE == 1
+void DebugLog(const char* s) {
+    ei_printf("%s", s);
+}
 
-#ifndef EI_CLASSIFIER_TFLITE_ENABLE_ARC
-#ifdef CPU_ARC
-#define EI_CLASSIFIER_TFLITE_ENABLE_ARC             1
-#else
-#define EI_CLASSIFIER_TFLITE_ENABLE_ARC             0
-#endif // CPU_ARC
-#endif // EI_CLASSIFIER_TFLITE_ENABLE_ARC
-
-#endif // _EI_CLASSIFIER_CONFIG_H_
+#endif // EI_PORTING_HIMAX == 1

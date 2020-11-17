@@ -317,6 +317,93 @@ public:
     }
 
     /**
+     * Compute spectrogram from a sensor signal.
+     * @param out_features Use `calculate_mfe_buffer_size` to allocate the right matrix.
+     * @param signal: audio signal structure with functions to retrieve data from a signal
+     * @param sampling_frequency (int): the sampling frequency of the signal
+     *     we are working with.
+     * @param frame_length (float): the length of each frame in seconds.
+     *     Default is 0.020s
+     * @param frame_stride (float): the step between successive frames in seconds.
+     *     Default is 0.02s (means no overlap)
+     * @param fft_length (int): number of FFT points. Default is 512.
+     * @EIDSP_OK if OK
+     */
+    static int spectrogram(matrix_t *out_features,
+        signal_t *signal, uint32_t sampling_frequency,
+        float frame_length = 0.02f, float frame_stride = 0.02f, uint16_t fft_length = 512
+        )
+    {
+        int ret = 0;
+
+        stack_frames_info_t stack_frame_info = { 0 };
+        stack_frame_info.signal = signal;
+
+        ret = processing::stack_frames(
+            &stack_frame_info,
+            sampling_frequency,
+            frame_length,
+            frame_stride,
+            false
+        );
+        if (ret != 0) {
+            EIDSP_ERR(ret);
+        }
+
+        if (stack_frame_info.frame_ixs->size() != out_features->rows) {
+            EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
+        }
+
+        uint16_t coefficients = fft_length / 2 + 1;
+
+        if (coefficients != out_features->cols) {
+            EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
+        }
+
+        for (uint32_t i = 0; i < out_features->rows * out_features->cols; i++) {
+            *(out_features->buffer + i) = 0;
+        }
+
+        for (size_t ix = 0; ix < stack_frame_info.frame_ixs->size(); ix++) {
+            // get signal data from the audio file
+            EI_DSP_MATRIX(signal_frame, 1, stack_frame_info.frame_length);
+
+            // don't read outside of the audio buffer... we'll automatically zero pad then
+            size_t signal_offset = stack_frame_info.frame_ixs->at(ix);
+            size_t signal_length = stack_frame_info.frame_length;
+            if (signal_offset + signal_length > stack_frame_info.signal->total_length) {
+                signal_length = signal_length -
+                    (stack_frame_info.signal->total_length - (signal_offset + signal_length));
+            }
+
+            ret = stack_frame_info.signal->get_data(
+                signal_offset,
+                signal_length,
+                signal_frame.buffer
+            );
+            if (ret != 0) {
+                EIDSP_ERR(ret);
+            }
+
+            ret = processing::power_spectrum(
+                signal_frame.buffer,
+                stack_frame_info.frame_length,
+                out_features->buffer + (ix * coefficients),
+                coefficients,
+                fft_length
+            );
+
+            if (ret != 0) {
+                EIDSP_ERR(ret);
+            }
+        }
+
+        functions::zero_handling(out_features);
+
+        return EIDSP_OK;
+    }
+
+    /**
      * Calculate the buffer size for MFE
      * @param signal_length: Length of the signal.
      * @param sampling_frequency (int): The sampling frequency of the signal.

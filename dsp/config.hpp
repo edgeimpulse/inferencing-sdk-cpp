@@ -73,7 +73,7 @@
 // this has an effect on runtime speed as CMSIS-DSP does not have optimized instructions
 // for q7 matrix multiplication and matrix transformation...
 #ifndef EIDSP_QUANTIZE_FILTERBANK
-#define EIDSP_QUANTIZE_FILTERBANK    0
+#define EIDSP_QUANTIZE_FILTERBANK    1
 #endif // EIDSP_QUANTIZE_FILTERBANK
 
 // prints buffer allocations to stdout, useful when debugging

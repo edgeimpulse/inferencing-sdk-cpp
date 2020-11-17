@@ -110,6 +110,7 @@ extern "C" EI_IMPULSE_ERROR run_classifier_image_quantized(signal_t *signal, ei_
 static EI_IMPULSE_ERROR can_run_classifier_image_quantized();
 static void calc_cepstral_mean_and_var_normalization_mfcc(ei_matrix *matrix, void *config_ptr);
 static void calc_cepstral_mean_and_var_normalization_mfe(ei_matrix *matrix, void *config_ptr);
+static void calc_cepstral_mean_and_var_normalization_spectrogram(ei_matrix *matrix, void *config_ptr);
 
 /* Private variables ------------------------------------------------------- */
 #if EI_CLASSIFIER_LABEL_COUNT > 0
@@ -195,7 +196,9 @@ extern "C" EI_IMPULSE_ERROR run_classifier_continuous(signal_t *signal, ei_impul
 
     size_t out_features_index = 0;
     size_t feature_size;
+    bool is_mfcc = false;
     bool is_mfe = false;
+    bool is_spectrogram = false;
 
     for (size_t ix = 0; ix < ei_dsp_blocks_size; ix++) {
         ei_model_dsp_t block = ei_dsp_blocks[ix];
@@ -211,10 +214,19 @@ extern "C" EI_IMPULSE_ERROR run_classifier_continuous(signal_t *signal, ei_impul
         /* Switch to the slice version of the mfcc feature extract function */
         if (block.extract_fn == extract_mfcc_features) {
             block.extract_fn = &extract_mfcc_per_slice_features;
+            is_mfcc = true;
+        }
+        else if (block.extract_fn == extract_spectrogram_features) {
+            block.extract_fn = &extract_spectrogram_per_slice_features;
+            is_spectrogram = true;
         }
         else if (block.extract_fn == extract_mfe_features) {
             block.extract_fn = &extract_mfe_per_slice_features;
             is_mfe = true;
+        }
+        else {
+            ei_printf("ERR: Unknown extract function, only MFCC, MFE and spectrogram supported\n");
+            return EI_IMPULSE_DSP_ERROR;
         }
 
         int ret = block.extract_fn(signal, &fm, block.config, EI_CLASSIFIER_FREQUENCY);
@@ -268,11 +280,14 @@ extern "C" EI_IMPULSE_ERROR run_classifier_continuous(signal_t *signal, ei_impul
             classify_matrix.buffer[m_ix] = static_features_matrix.buffer[m_ix];
         }
 
-        if (is_mfe) {
-            calc_cepstral_mean_and_var_normalization_mfe(&classify_matrix, ei_dsp_blocks[0].config);
-        }
-        else {
+        if (is_mfcc) {
             calc_cepstral_mean_and_var_normalization_mfcc(&classify_matrix, ei_dsp_blocks[0].config);
+        }
+        else if (is_spectrogram) {
+            calc_cepstral_mean_and_var_normalization_spectrogram(&classify_matrix, ei_dsp_blocks[0].config);
+        }
+        else if (is_mfe) {
+            calc_cepstral_mean_and_var_normalization_mfe(&classify_matrix, ei_dsp_blocks[0].config);
         }
         result->timing.dsp += ei_read_timer_ms() - dsp_start_ms;
 
@@ -806,6 +821,32 @@ static void calc_cepstral_mean_and_var_normalization_mfe(ei_matrix *matrix, void
     matrix->rows = 1;
     matrix->cols = EI_CLASSIFIER_NN_INPUT_FRAME_SIZE;
 }
+
+/**
+ * @brief      Calculates the cepstral mean and variable normalization.
+ *
+ * @param      matrix      Source and destination matrix
+ * @param      config_ptr  ei_dsp_config_spectrogram_t struct pointer
+ */
+static void calc_cepstral_mean_and_var_normalization_spectrogram(ei_matrix *matrix, void *config_ptr)
+{
+    ei_dsp_config_spectrogram_t *config = (ei_dsp_config_spectrogram_t *)config_ptr;
+
+    /* Modify rows and colums ration for matrix normalization */
+    matrix->cols = config->fft_length / 2 + 1;
+    matrix->rows = EI_CLASSIFIER_NN_INPUT_FRAME_SIZE / matrix->cols;
+
+    int ret = numpy::normalize(matrix);
+    if (ret != EIDSP_OK) {
+        ei_printf("ERR: normalization failed (%d)\n", ret);
+        return;
+    }
+
+    /* Reset rows and columns ratio */
+    matrix->rows = 1;
+    matrix->cols = EI_CLASSIFIER_NN_INPUT_FRAME_SIZE;
+}
+
 
 #if EIDSP_SIGNAL_C_FN_POINTER == 0
 
