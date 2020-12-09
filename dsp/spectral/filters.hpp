@@ -53,12 +53,12 @@ namespace filters {
         int n_steps = filter_order / 2;
         float a = tan(M_PI * cutoff_freq / sampling_freq);
         float a2 = pow(a, 2);
-        float *A = (float*)calloc(n_steps, sizeof(float));
-        float *d1 = (float*)calloc(n_steps, sizeof(float));
-        float *d2 = (float*)calloc(n_steps, sizeof(float));
-        float *w0 = (float*)calloc(n_steps, sizeof(float));
-        float *w1 = (float*)calloc(n_steps, sizeof(float));
-        float *w2 = (float*)calloc(n_steps, sizeof(float));
+        float *A = (float*)ei_calloc(n_steps, sizeof(float));
+        float *d1 = (float*)ei_calloc(n_steps, sizeof(float));
+        float *d2 = (float*)ei_calloc(n_steps, sizeof(float));
+        float *w0 = (float*)ei_calloc(n_steps, sizeof(float));
+        float *w1 = (float*)ei_calloc(n_steps, sizeof(float));
+        float *w2 = (float*)ei_calloc(n_steps, sizeof(float));
 
         // Calculate the filter parameters
         for(int ix = 0; ix < n_steps; ix++) {
@@ -81,12 +81,12 @@ namespace filters {
             }
         }
 
-        free(A);
-        free(d1);
-        free(d2);
-        free(w0);
-        free(w1);
-        free(w2);
+        ei_free(A);
+        ei_free(d1);
+        ei_free(d2);
+        ei_free(w0);
+        ei_free(w1);
+        ei_free(w2);
     }
 
     /**
@@ -109,12 +109,12 @@ namespace filters {
         int n_steps = filter_order / 2;
         float a = tan(M_PI * cutoff_freq / sampling_freq);
         float a2 = pow(a, 2);
-        float *A = (float*)calloc(n_steps, sizeof(float));
-        float *d1 = (float*)calloc(n_steps, sizeof(float));
-        float *d2 = (float*)calloc(n_steps, sizeof(float));
-        float *w0 = (float*)calloc(n_steps, sizeof(float));
-        float *w1 = (float*)calloc(n_steps, sizeof(float));
-        float *w2 = (float*)calloc(n_steps, sizeof(float));
+        float *A = (float*)ei_calloc(n_steps, sizeof(float));
+        float *d1 = (float*)ei_calloc(n_steps, sizeof(float));
+        float *d2 = (float*)ei_calloc(n_steps, sizeof(float));
+        float *w0 = (float*)ei_calloc(n_steps, sizeof(float));
+        float *w1 = (float*)ei_calloc(n_steps, sizeof(float));
+        float *w2 = (float*)ei_calloc(n_steps, sizeof(float));
 
         // Calculate the filter parameters
         for (int ix = 0; ix < n_steps; ix++) {
@@ -137,12 +137,12 @@ namespace filters {
             }
         }
 
-        free(A);
-        free(d1);
-        free(d2);
-        free(w0);
-        free(w1);
-        free(w2);
+        ei_free(A);
+        ei_free(d1);
+        ei_free(d2);
+        ei_free(w0);
+        ei_free(w1);
+        ei_free(w2);
     }
 
 } // namespace filters

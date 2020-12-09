@@ -85,6 +85,38 @@ public:
         return EIDSP_OK;
     }
 
+    /**
+     * Roll array elements along a given axis.
+     * Elements that roll beyond the last position are re-introduced at the first.
+     * @param input_array
+     * @param input_array_size
+     * @param shift The number of places by which elements are shifted.
+     * @returns EIDSP_OK if OK
+     */
+    static int roll(int *input_array, size_t input_array_size, int shift) {
+        if (shift < 0) {
+            shift = input_array_size + shift;
+        }
+
+        if (shift == 0) {
+            return EIDSP_OK;
+        }
+
+        // so we need to allocate a buffer of the size of shift...
+        EI_DSP_MATRIX(shift_matrix, 1, shift);
+
+        // we copy from the end of the buffer into the shift buffer
+        memcpy(shift_matrix.buffer, input_array + input_array_size - shift, shift * sizeof(int));
+
+        // now we do a memmove to shift the array
+        memmove(input_array + shift, input_array, (input_array_size - shift) * sizeof(int));
+
+        // and copy the shift buffer back to the beginning of the array
+        memcpy(input_array, shift_matrix.buffer, shift * sizeof(int));
+
+        return EIDSP_OK;
+    }
+
     static float sum(float *input_array, size_t input_array_size) {
         float res = 0.0f;
         for (size_t ix = 0; ix < input_array_size; ix++) {
@@ -227,23 +259,7 @@ public:
             EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
         }
 
-#if EIDSP_USE_CMSIS_DSP
-        EI_DSP_MATRIX(dequantized_matrix, 1, matrix1_cols);
-        if (!dequantized_matrix.buffer) {
-            EIDSP_ERR(EIDSP_OUT_OF_MEM);
-        }
-#endif
-
         for (uint16_t j = 0; j < matrix2->cols; j++) {
-#if EIDSP_USE_CMSIS_DSP
-            for (uint16_t k = 0; k < matrix1_cols; k++) {
-                dequantized_matrix.buffer[k] = matrix2->dequantization_fn(matrix2->buffer[k * matrix2->cols + j]);
-            }
-
-            float result;
-            arm_dot_prod_f32(row, dequantized_matrix.buffer, matrix1_cols, &result);
-            out_matrix->buffer[i * matrix2->cols + j] = result;
-#else
             float tmp = 0.0;
             for (uint16_t k = 0; k < matrix1_cols; k++) {
                 uint8_t u8 = matrix2->buffer[k * matrix2->cols + j];
@@ -251,8 +267,7 @@ public:
                     tmp += row[k] * quantized_values_one_zero[u8];
                 }
             }
-            out_matrix->buffer[i * matrix2->cols + j] += tmp;
-#endif
+            out_matrix->buffer[i * matrix2->cols + j] = tmp;
         }
 
         return EIDSP_OK;
@@ -1574,7 +1589,7 @@ private:
         /* Create transposed matrix */
         arm_transposed_matrix.numRows = input_matrix->cols;
         arm_transposed_matrix.numCols = input_matrix->rows;
-        arm_transposed_matrix.pData = (float *)calloc(input_matrix->cols * input_matrix->rows * sizeof(float), 1);
+        arm_transposed_matrix.pData = (float *)ei_calloc(input_matrix->cols * input_matrix->rows * sizeof(float), 1);
 
         if (arm_transposed_matrix.pData == NULL) {
             EIDSP_ERR(EIDSP_OUT_OF_MEM);
@@ -1596,7 +1611,7 @@ private:
             output_matrix->buffer[row] = std;
         }
 
-        free(arm_transposed_matrix.pData);
+        ei_free(arm_transposed_matrix.pData);
 
         return EIDSP_OK;
     }

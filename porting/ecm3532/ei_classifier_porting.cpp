@@ -24,6 +24,7 @@
 #if EI_PORTING_ECM3532 == 1
 
 #include <stdarg.h>
+#include <stdlib.h>
 #include "ei_device_eta_ecm3532.h"
 #include "eta_bsp.h"
 
@@ -56,6 +57,18 @@ __attribute__((weak)) void ei_printf(const char *format, ...) {
 
 __attribute__((weak)) void ei_printf_float(float f) {
     ei_printf("%f", f);
+}
+
+__attribute__((weak)) void *ei_malloc(size_t size) {
+    return malloc(size);
+}
+
+__attribute__((weak)) void *ei_calloc(size_t nitems, size_t size) {
+    return calloc(nitems, size);
+}
+
+__attribute__((weak)) void ei_free(void *ptr) {
+    free(ptr);
 }
 
 #if defined(__cplusplus) && EI_C_LINKAGE == 1

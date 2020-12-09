@@ -24,6 +24,7 @@
 #define _EDGE_IMPULSE_ALIGNED_MALLOC_H_
 
 #include <assert.h>
+#include "../porting/ei_classifier_porting.h"
 
 #ifdef __cplusplus
 namespace {
@@ -65,7 +66,7 @@ __attribute__((unused)) void * ei_aligned_malloc(size_t align, size_t size)
 		 * We also allocate extra bytes to ensure we can meet the alignment
 		 */
 		uint32_t hdr_size = PTR_OFFSET_SZ + (align - 1);
-		void * p = malloc(size + hdr_size);
+		void * p = ei_malloc(size + hdr_size);
 
 		if(p)
 		{
@@ -103,7 +104,7 @@ __attribute__((unused)) void ei_aligned_free(void * ptr)
 	* Once we have the offset, we can get our original pointer and call free
 	*/
 	void * p = (void *)((uint8_t *)ptr - offset);
-	free(p);
+	ei_free(p);
 }
 
 #ifdef __cplusplus

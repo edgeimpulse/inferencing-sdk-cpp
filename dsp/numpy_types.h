@@ -35,6 +35,8 @@
 #endif // __MBED__
 #endif // __cplusplus
 
+#include "../porting/ei_classifier_porting.h"
+
 #if EIDSP_TRACK_ALLOCATIONS
 #include "memory.hpp"
 #endif
@@ -88,7 +90,7 @@ typedef struct ei_matrix {
             buffer_managed_by_me = false;
         }
         else {
-            buffer = (float*)calloc(n_rows * n_cols * sizeof(float), 1);
+            buffer = (float*)ei_calloc(n_rows * n_cols * sizeof(float), 1);
             buffer_managed_by_me = true;
         }
         rows = n_rows;
@@ -111,7 +113,7 @@ typedef struct ei_matrix {
 
     ~ei_matrix() {
         if (buffer && buffer_managed_by_me) {
-            free(buffer);
+            ei_free(buffer);
 
 #if EIDSP_TRACK_ALLOCATIONS
             if (_fn) {
@@ -166,7 +168,7 @@ typedef struct ei_matrix_i8 {
             buffer_managed_by_me = false;
         }
         else {
-            buffer = (int8_t*)calloc(n_rows * n_cols * sizeof(int8_t), 1);
+            buffer = (int8_t*)ei_calloc(n_rows * n_cols * sizeof(int8_t), 1);
             buffer_managed_by_me = true;
         }
         rows = n_rows;
@@ -189,7 +191,7 @@ typedef struct ei_matrix_i8 {
 
     ~ei_matrix_i8() {
         if (buffer && buffer_managed_by_me) {
-            free(buffer);
+            ei_free(buffer);
 
 #if EIDSP_TRACK_ALLOCATIONS
             if (_fn) {
@@ -255,7 +257,7 @@ typedef struct ei_quantized_matrix {
             buffer_managed_by_me = false;
         }
         else {
-            buffer = (uint8_t*)calloc(n_rows * n_cols * sizeof(uint8_t), 1);
+            buffer = (uint8_t*)ei_calloc(n_rows * n_cols * sizeof(uint8_t), 1);
             buffer_managed_by_me = true;
         }
         rows = n_rows;
@@ -278,7 +280,7 @@ typedef struct ei_quantized_matrix {
 
     ~ei_quantized_matrix() {
         if (buffer && buffer_managed_by_me) {
-            free(buffer);
+            ei_free(buffer);
 
 #if EIDSP_TRACK_ALLOCATIONS
             if (_fn) {

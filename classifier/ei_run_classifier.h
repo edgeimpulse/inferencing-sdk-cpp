@@ -29,6 +29,7 @@
 #endif
 #include "ei_run_dsp.h"
 #include "ei_classifier_types.h"
+#include "ei_classifier_smooth.h"
 #if defined(EI_CLASSIFIER_HAS_SAMPLER) && EI_CLASSIFIER_HAS_SAMPLER == 1
 #include "ei_sampler.h"
 #endif
@@ -448,7 +449,7 @@ static EI_IMPULSE_ERROR inference_tflite_run(uint64_t ctx_start_ms,
         ei_aligned_free(tensor_arena);
         return EI_IMPULSE_TFLITE_ERROR;
     }
-    free(interpreter);
+    delete interpreter;
 #endif
 
     uint64_t ctx_end_ms = ei_read_timer_ms();

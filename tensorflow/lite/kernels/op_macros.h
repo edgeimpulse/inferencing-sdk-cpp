@@ -48,7 +48,9 @@ inline void InfiniteLoop() {
 
 #endif  // TF_LITE_MCU_DEBUG_LOG
 
-#ifdef NDEBUG
+// Patched by Edge Impulse, skip over asserts on Arduino
+// https://github.com/tensorflow/tensorflow/commit/6d5f02b47af2efb5ed2f5b4ccf34d4abecf8cfde
+#if defined(NDEBUG) || defined(ARDUINO)
 #define TFLITE_ASSERT_FALSE (static_cast<void>(0))
 #else
 #define TFLITE_ASSERT_FALSE TFLITE_ABORT

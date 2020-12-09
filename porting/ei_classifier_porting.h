@@ -24,6 +24,7 @@
 #define _EI_CLASSIFIER_PORTING_H_
 
 #include <stdint.h>
+#include <stdlib.h>
 #include "tensorflow/lite/micro/debug_log.h"
 
 #if defined(__cplusplus) && EI_C_LINKAGE == 1
@@ -76,6 +77,21 @@ void ei_printf(const char *format, ...);
  */
 void ei_printf_float(float f);
 
+/**
+ * Wrapper around malloc
+ */
+void *ei_malloc(size_t size);
+
+/**
+ * Wrapper around calloc
+ */
+void *ei_calloc(size_t nitems, size_t size);
+
+/**
+ * Wrapper around free
+ */
+void ei_free(void *ptr);
+
 #if defined(__cplusplus) && EI_C_LINKAGE == 1
 }
 #endif // defined(__cplusplus) && EI_C_LINKAGE == 1
@@ -121,19 +137,19 @@ void ei_printf_float(float f);
 #endif
 #endif
 
-#ifndef EI_PORTING_STM32_CUBEAI
-#if defined(USE_HAL_DRIVER) && !defined(__MBED__)
-#define EI_PORTING_STM32_CUBEAI      1
-#else
-#define EI_PORTING_STM32_CUBEAI      0
-#endif
-#endif
-
 #ifndef EI_PORTING_ZEPHYR
 #if defined(__ZEPHYR__)
 #define EI_PORTING_ZEPHYR      1
 #else
 #define EI_PORTING_ZEPHYR      0
+#endif
+#endif
+
+#ifndef EI_PORTING_STM32_CUBEAI
+#if defined(USE_HAL_DRIVER) && !defined(__MBED__) && EI_PORTING_ZEPHYR == 0
+#define EI_PORTING_STM32_CUBEAI      1
+#else
+#define EI_PORTING_STM32_CUBEAI      0
 #endif
 #endif
 

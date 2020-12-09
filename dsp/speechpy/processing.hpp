@@ -110,7 +110,9 @@ public:
                 }
 
                 // roll through and overwrite last element
-                numpy::roll(_prev_buffer, _shift, -1);
+                if (_shift != 1) {
+                    numpy::roll(_prev_buffer, _shift, -1);
+                }
                 _prev_buffer[_shift - 1] = now;
             }
 
