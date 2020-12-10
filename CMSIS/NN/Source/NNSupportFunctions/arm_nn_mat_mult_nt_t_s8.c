@@ -37,9 +37,9 @@
 __STATIC_FORCEINLINE uint32_t __patched_SXTB16_RORn(uint32_t op1, uint32_t rotate) {
 uint32_t result;
 if (__builtin_constant_p (rotate) && ((rotate == 8U) || (rotate == 16U) || (rotate == 24U))) {
-  __ASM volatile ("sxtb16 %0, %1, ROR %2" : "=r" (result) : "r" (op1), "i" (rotate) );
+    __ASM volatile ("sxtb16 %0, %1, ROR %2" : "=r" (result) : "r" (op1), "i" (rotate) );
 } else {
-  result = __SXTB16(__ROR(op1, rotate)) ;
+    result = __SXTB16(__ROR(op1, rotate)) ;
 }
 return result;
 }

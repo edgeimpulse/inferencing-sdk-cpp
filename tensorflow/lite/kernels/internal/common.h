@@ -253,10 +253,11 @@ inline void gen_lut(const std::function<double(double)>& func, double min,
         TfLiteRound(func(min + i * step + half_step) * 32768.0);
     double midpoint_err = midpoint_interp_val - midpoint_val;
     double bias = TfLiteRound(midpoint_err / 2.0);
-    table[i] = std::min(std::max(sample_val - bias, -32768.0), 32767.0);
+    // Patched by Edge Impulse, cast double to std::min/std::max calls
+    table[i] = std::min<double>(std::max<double>(sample_val - bias, -32768.0), 32767.0);
   }
   table[num - 1] =
-      std::min(std::max(TfLiteRound(func(max) * 32768.0), -32768.0), 32767.0);
+      std::min<double>(std::max<double>(TfLiteRound(func(max) * 32768.0), -32768.0), 32767.0);
 }
 
 // int16 func table lookup, e.g., lookup exp() and 1/(1+x) used in softmax

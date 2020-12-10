@@ -15,19 +15,25 @@ SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
     SEDCMD="sed -i '' -e"
+    ECHOCMD="echo"
+    LC_CTYPE=C
+    LANG=C
 else
     SEDCMD="sed -i -e"
+    ECHOCMD="echo -e"
 fi
 
-rm -rf $SCRIPTPATH/utensor
 rm -rf $SCRIPTPATH/tensorflow/lite/micro/mbed/
 rm -rf $SCRIPTPATH/porting/ecm3532/
+rm -rf $SCRIPTPATH/porting/himax/
 rm -rf $SCRIPTPATH/porting/mbed/
 rm -rf $SCRIPTPATH/porting/posix/
 rm -rf $SCRIPTPATH/porting/silabs/
 rm -rf $SCRIPTPATH/porting/stm32-cubeai/
+rm -rf $SCRIPTPATH/porting/zephyr/
 rm -rf $SCRIPTPATH/classifier/ei_run_classifier_c*
 rm -rf $SCRIPTPATH/CMSIS/DSP/Source/TransformFunctions/arm_bitreversal2.S
+rm -rf $SCRIPTPATH/third_party/arc_mli_package/
 
 # rename all .cc files to .cpp, and do an inplace change of the headers
 find . -name '*.cc' -exec sh -c 'mv "$0" "${0%.cc}.cpp"' {} \;
@@ -82,7 +88,7 @@ find $SCRIPTPATH/CMSIS/DSP/Source -name "*.c" -print0 | while read -d $'\0' file
 #if EIDSP_LOAD_CMSIS_DSP_SOURCES
 ' "$file"
 
-    echo -e '\n#endif // EIDSP_LOAD_CMSIS_DSP_SOURCES' >> "$file"
+    $ECHOCMD '\n#endif // EIDSP_LOAD_CMSIS_DSP_SOURCES' >> "$file"
 done
 
 # remove all the -e files

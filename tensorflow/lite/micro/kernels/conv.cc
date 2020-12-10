@@ -630,7 +630,7 @@ TfLiteStatus Prepare(TfLiteContext* context, TfLiteNode* node) {
   int output_width = output->dims->data[2];
   int output_height = output->dims->data[1];
 
-  // Dynimically allocate per-channel quantization parameters.
+  // Dynamically allocate per-channel quantization parameters.
   void* per_channel_output_multiplier;
   void* per_channel_output_shift;
   const int num_channels = filter->dims->data[kConvQuantizedDimension];

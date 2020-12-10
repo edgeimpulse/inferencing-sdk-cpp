@@ -113,7 +113,7 @@ const char* ei_classifier_smooth_update(ei_classifier_smooth_t *smooth, ei_impul
             top_result = ix;
             top_count = smooth->count[ix];
         }
-        if (smooth->count[ix] > confidence_threshold) {
+        if (smooth->count[ix] >= confidence_threshold) {
             met_confidence_threshold = true;
         }
     }
