@@ -848,66 +848,6 @@ static void calc_cepstral_mean_and_var_normalization_spectrogram(ei_matrix *matr
     matrix->cols = EI_CLASSIFIER_NN_INPUT_FRAME_SIZE;
 }
 
-
-#if EIDSP_SIGNAL_C_FN_POINTER == 0
-
-/**
- * Run the impulse, if you provide an instance of sampler it will also persist the data for you
- * @param sampler Instance to an **initialized** sampler
- * @param result Object to store the results in
- * @param data_fn Function to retrieve data from sensors
- * @param debug Whether to log debug messages (default false)
- */
-__attribute__((unused)) EI_IMPULSE_ERROR run_impulse(
-#if defined(EI_CLASSIFIER_HAS_SAMPLER) && EI_CLASSIFIER_HAS_SAMPLER == 1
-        EdgeSampler *sampler,
-#endif
-        ei_impulse_result_t *result,
-#ifdef __MBED__
-        mbed::Callback<void(float*, size_t)> data_fn,
-#else
-        std::function<void(float*, size_t)> data_fn,
-#endif
-        bool debug = false) {
-
-    float x[EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE] = { 0 };
-
-    uint64_t next_tick = 0;
-
-    uint64_t sampling_us_start = ei_read_timer_us();
-
-    // grab some data
-    for (int i = 0; i < EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE; i += EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME) {
-        uint64_t curr_us = ei_read_timer_us() - sampling_us_start;
-
-        next_tick = curr_us + (EI_CLASSIFIER_INTERVAL_MS * 1000);
-
-        data_fn(x + i, EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME);
-#if defined(EI_CLASSIFIER_HAS_SAMPLER) && EI_CLASSIFIER_HAS_SAMPLER == 1
-        if (sampler != NULL) {
-            sampler->write_sensor_data(x + i, EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME);
-        }
-#endif
-
-        if (ei_run_impulse_check_canceled() == EI_IMPULSE_CANCELED) {
-            return EI_IMPULSE_CANCELED;
-        }
-
-        while (next_tick > ei_read_timer_us() - sampling_us_start);
-    }
-
-    result->timing.sampling = (ei_read_timer_us() - sampling_us_start) / 1000;
-
-    signal_t signal;
-    int err = numpy::signal_from_buffer(x, EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE, &signal);
-    if (err != 0) {
-        ei_printf("ERR: signal_from_buffer failed (%d)\n", err);
-        return EI_IMPULSE_DSP_ERROR;
-    }
-
-    return run_classifier(&signal, result, debug);
-}
-
 /**
  * Check if the current impulse could be used by 'run_classifier_image_quantized'
  */
@@ -1014,6 +954,72 @@ extern "C" EI_IMPULSE_ERROR run_classifier_image_quantized(
 #endif // EI_CLASSIFIER_INFERENCING_ENGINE != EI_CLASSIFIER_TFLITE
 }
 #endif // #if EI_CLASSIFIER_TFLITE_INPUT_QUANTIZED == 1
+
+#if EIDSP_SIGNAL_C_FN_POINTER == 0
+
+/**
+ * Run the impulse, if you provide an instance of sampler it will also persist the data for you
+ * @param sampler Instance to an **initialized** sampler
+ * @param result Object to store the results in
+ * @param data_fn Function to retrieve data from sensors
+ * @param debug Whether to log debug messages (default false)
+ */
+__attribute__((unused)) EI_IMPULSE_ERROR run_impulse(
+#if defined(EI_CLASSIFIER_HAS_SAMPLER) && EI_CLASSIFIER_HAS_SAMPLER == 1
+        EdgeSampler *sampler,
+#endif
+        ei_impulse_result_t *result,
+#ifdef __MBED__
+        mbed::Callback<void(float*, size_t)> data_fn,
+#else
+        std::function<void(float*, size_t)> data_fn,
+#endif
+        bool debug = false) {
+
+    float *x = (float*)calloc(EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE, sizeof(float));
+    if (!x) {
+        return EI_IMPULSE_OUT_OF_MEMORY;
+    }
+
+    uint64_t next_tick = 0;
+
+    uint64_t sampling_us_start = ei_read_timer_us();
+
+    // grab some data
+    for (int i = 0; i < EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE; i += EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME) {
+        uint64_t curr_us = ei_read_timer_us() - sampling_us_start;
+
+        next_tick = curr_us + (EI_CLASSIFIER_INTERVAL_MS * 1000);
+
+        data_fn(x + i, EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME);
+#if defined(EI_CLASSIFIER_HAS_SAMPLER) && EI_CLASSIFIER_HAS_SAMPLER == 1
+        if (sampler != NULL) {
+            sampler->write_sensor_data(x + i, EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME);
+        }
+#endif
+
+        if (ei_run_impulse_check_canceled() == EI_IMPULSE_CANCELED) {
+            free(x);
+            return EI_IMPULSE_CANCELED;
+        }
+
+        while (next_tick > ei_read_timer_us() - sampling_us_start);
+    }
+
+    result->timing.sampling = (ei_read_timer_us() - sampling_us_start) / 1000;
+
+    signal_t signal;
+    int err = numpy::signal_from_buffer(x, EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE, &signal);
+    if (err != 0) {
+        free(x);
+        ei_printf("ERR: signal_from_buffer failed (%d)\n", err);
+        return EI_IMPULSE_DSP_ERROR;
+    }
+
+    EI_IMPULSE_ERROR r = run_classifier(&signal, result, debug);
+    free(x);
+    return r;
+}
 
 #if defined(EI_CLASSIFIER_HAS_SAMPLER) && EI_CLASSIFIER_HAS_SAMPLER == 1
 /**

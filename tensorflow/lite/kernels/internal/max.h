@@ -19,18 +19,11 @@ limitations under the License.
 
 namespace tflite {
 
-// Patched by Edge Impulse, Arduino ESP32 targets have no std::fmax (at least on some targets)
-// see https://forum.edgeimpulse.com/t/esp32-cam-support/797/21
-#if defined(TF_LITE_USE_GLOBAL_MAX) || defined(__ZEPHYR__) || defined(ARDUINO_ARCH_ESP32)
-inline float TfLiteMax(const float& x, const float& y) {
-  return std::max(x, y);
-}
-#else
+// Patched by Edge Impulse, remove std::fmax
 template <class T>
 inline T TfLiteMax(const T& x, const T& y) {
-  return std::fmax(x, y);
+  return std::max(x, y);
 }
-#endif
 
 }  // namespace tflite
 

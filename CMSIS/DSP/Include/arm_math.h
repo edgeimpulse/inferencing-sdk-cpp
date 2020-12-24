@@ -1028,6 +1028,24 @@ compiler file in Core or Core_A would not make sense.
 
 */
 #if defined ( _MSC_VER ) || defined(__GNUC_PYTHON__)
+    // Patched by Edge Impulse, make CMSIS-NN models compile under x86
+    /**
+     \brief   Rotate Right in unsigned value (32 bit)
+     \details Rotate Right (immediate) provides the value of the contents of a register rotated by a variable number of bits.
+     \param [in]    op1  Value to rotate
+     \param [in]    op2  Number of Bits to rotate
+     */
+    __STATIC_FORCEINLINE uint32_t __ROR(uint32_t op1, uint32_t op2)
+    {
+      op2 %= 32U;
+      if (op2 == 0U)
+      {
+        return op1;
+      }
+      return (op1 >> op2) | (op1 << (32U - op2));
+    }
+    #undef ARM_MATH_DSP
+
     __STATIC_FORCEINLINE uint8_t __CLZ(uint32_t data)
     {
       if (data == 0U) { return 32U; }

@@ -31,6 +31,15 @@
 #include <math.h>
 
 
+/* Constants ---------------------------------------------------------------- */
+#define HIMAX_TIMER_CLK_FREQ_HZ  400000000
+#define HIMAX_TIMER_TICK_1SEC    (HIMAX_TIMER_CLK_FREQ_HZ/1)
+#define HIMAX_TIMER_TICK_1MSEC   (HIMAX_TIMER_TICK_1SEC/1000)
+
+/* Private variables -------------------------------------------------------- */
+static uint64_t system_time_ms = 0;
+static uint32_t prev_tick_us = 0;
+
 __attribute__((weak)) EI_IMPULSE_ERROR ei_run_impulse_check_canceled() {
     return EI_IMPULSE_OK;
 }
@@ -39,29 +48,39 @@ __attribute__((weak)) EI_IMPULSE_ERROR ei_run_impulse_check_canceled() {
  * Cancelable sleep, can be triggered with signal from other thread
  */
 __attribute__((weak)) EI_IMPULSE_ERROR ei_sleep(int32_t time_ms) {
-    uint32_t tick;
     uint64_t end_delay, cur_time = 0;
 
-    hx_drv_tick_start();
-    hx_drv_tick_get(&tick);
-
-    end_delay = (uint64_t)time_ms + (tick / 400000);
+    end_delay = (uint64_t)time_ms + ei_read_timer_ms();
 
     do {
-        tick = 0;
-        hx_drv_tick_get(&tick);
-        cur_time = (uint64_t)(tick / 400000);
-
-    }while(cur_time < end_delay);
+        cur_time = ei_read_timer_ms();
+    } while (cur_time < end_delay);
 
     return EI_IMPULSE_OK;
 }
 
+// Should be called at least once every ~10.7 seconds
 uint64_t ei_read_timer_ms()
 {
-    uint32_t tick;
-    hx_drv_tick_get(&tick);
-    return (uint64_t)(tick / 400000);
+    uint32_t tick_us, diff_tick_us, elapsed_time_ms;
+
+    //  handles 32-bit overflows
+    hx_drv_tick_get(&tick_us);
+    diff_tick_us = (uint32_t)(tick_us - prev_tick_us);
+
+    // integer number of ms elapsed
+    elapsed_time_ms = diff_tick_us / HIMAX_TIMER_TICK_1MSEC;
+
+    // update system time and previous tick reference
+    if (elapsed_time_ms > 0) {
+        system_time_ms += elapsed_time_ms;
+
+        // use the remainder of ms elapsed
+        // handles 32-bit overflows
+        prev_tick_us = (uint32_t)(tick_us - (diff_tick_us % HIMAX_TIMER_TICK_1MSEC));
+    }
+
+    return system_time_ms;
 }
 
 uint64_t ei_read_timer_us()
