@@ -1,5 +1,5 @@
 /* Edge Impulse inferencing library
- * Copyright (c) 2020 EdgeImpulse Inc.
+ * Copyright (c) 2021 EdgeImpulse Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -59,12 +59,12 @@
 #endif // EIDSP_USE_CMSIS_DSP
 
 #ifndef EIDSP_USE_ASSERTS
-#define EIDSP_USE_ASSERTS        1
+#define EIDSP_USE_ASSERTS        0
 #endif // EIDSP_USE_ASSERTS
 
 #if EIDSP_USE_ASSERTS == 1
 #include <assert.h>
-#define EIDSP_ERR(err_code) printf("ERR: %d (%s)\n", err_code, #err_code); assert(false)
+#define EIDSP_ERR(err_code) ei_printf("ERR: %d (%s)\n", err_code, #err_code); assert(false)
 #else // EIDSP_USE_ASSERTS == 0
 #define EIDSP_ERR(err_code) return(err_code)
 #endif

@@ -1,5 +1,5 @@
 /* Edge Impulse inferencing library
- * Copyright (c) 2020 EdgeImpulse Inc.
+ * Copyright (c) 2021 EdgeImpulse Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -159,6 +159,14 @@ void ei_free(void *ptr);
 #define EI_PORTING_HIMAX        1
 #else
 #define EI_PORTING_HIMAX        0
+#endif
+#endif
+
+#ifndef EI_PORTING_MINGW32
+#ifdef __MINGW32__
+#define EI_PORTING_MINGW32      1
+#else
+#define EI_PORTING_MINGW32      0
 #endif
 #endif
 // End load porting layer depending on target

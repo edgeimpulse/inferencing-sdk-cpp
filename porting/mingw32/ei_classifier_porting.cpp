@@ -1,5 +1,5 @@
 /* Edge Impulse inferencing library
- * Copyright (c) 2021 EdgeImpulse Inc.
+ * Copyright (c) 2020 EdgeImpulse Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,90 +21,64 @@
  */
 
 #include "../ei_classifier_porting.h"
-#if EI_PORTING_POSIX == 1
+#if EI_PORTING_MINGW32 == 1
 
 #include <inttypes.h>
 #include <math.h>
 #include <stdio.h>
-#include <time.h>
+#include <chrono>
 #include <unistd.h>
 #include <stdarg.h>
 #include <stdlib.h>
+#include <string.h>
 
-__attribute__((weak)) EI_IMPULSE_ERROR ei_run_impulse_check_canceled() {
+EI_IMPULSE_ERROR ei_run_impulse_check_canceled() {
     return EI_IMPULSE_OK;
 }
 
 /**
  * Cancelable sleep, can be triggered with signal from other thread
  */
-__attribute__((weak)) EI_IMPULSE_ERROR ei_sleep(int32_t time_ms) {
+EI_IMPULSE_ERROR ei_sleep(int32_t time_ms) {
     usleep(time_ms * 1000);
     return EI_IMPULSE_OK;
 }
 
 uint64_t ei_read_timer_ms() {
-    uint64_t ms; // Milliseconds
-    uint64_t s;  // Seconds
-    struct timespec spec;
-
-    clock_gettime(CLOCK_REALTIME, &spec);
-
-    s  = spec.tv_sec;
-    ms = round(spec.tv_nsec / 1.0e6); // Convert nanoseconds to milliseconds
-    if (ms > 999) {
-        s++;
-        ms = 0;
-    }
-
-    return (s * 1000) + ms;
+    auto now = std::chrono::system_clock::now();
+    auto duration = now.time_since_epoch();
+    auto millis = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
+    return static_cast<uint64_t>(millis);
 }
 
 uint64_t ei_read_timer_us() {
-    uint64_t us; // Milliseconds
-    uint64_t s;  // Seconds
-    struct timespec spec;
-
-    clock_gettime(CLOCK_REALTIME, &spec);
-
-    s  = spec.tv_sec;
-    us = round(spec.tv_nsec / 1.0e3); // Convert nanoseconds to nanoseconds
-    if (us > 999999) {
-        s++;
-        us = 0;
-    }
-
-    return (s * 1000000) + us;
+    auto now = std::chrono::system_clock::now();
+    auto duration = now.time_since_epoch();
+    auto micros = std::chrono::duration_cast<std::chrono::microseconds>(duration).count();
+    return static_cast<uint64_t>(micros);
 }
 
-__attribute__((weak)) void ei_printf(const char *format, ...) {
+void ei_printf(const char *format, ...) {
     va_list myargs;
     va_start(myargs, format);
     vprintf(format, myargs);
     va_end(myargs);
 }
 
-__attribute__((weak)) void ei_printf_float(float f) {
+void ei_printf_float(float f) {
     ei_printf("%f", f);
 }
 
-__attribute__((weak)) void *ei_malloc(size_t size) {
+void *ei_malloc(size_t size) {
     return malloc(size);
 }
 
-__attribute__((weak)) void *ei_calloc(size_t nitems, size_t size) {
+void *ei_calloc(size_t nitems, size_t size) {
     return calloc(nitems, size);
 }
 
-__attribute__((weak)) void ei_free(void *ptr) {
+void ei_free(void *ptr) {
     free(ptr);
 }
 
-#if defined(__cplusplus) && EI_C_LINKAGE == 1
-extern "C"
-#endif
-__attribute__((weak)) void DebugLog(const char* s) {
-    ei_printf("%s", s);
-}
-
-#endif // EI_PORTING_POSIX == 1
+#endif // EI_PORTING_MINGW32 == 1

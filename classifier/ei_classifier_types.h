@@ -1,5 +1,5 @@
 /* Edge Impulse inferencing library
- * Copyright (c) 2020 EdgeImpulse Inc.
+ * Copyright (c) 2021 EdgeImpulse Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -47,7 +47,7 @@ typedef struct {
 typedef struct {
     uint32_t buf_idx;
     float running_sum;
-    float maf_buffer[EI_CLASSIFIER_SLICES_PER_MODEL_WINDOW >> 1];    
+    float maf_buffer[EI_CLASSIFIER_SLICES_PER_MODEL_WINDOW >> 1];
 }ei_impulse_maf;
 
 #endif // _EDGE_IMPULSE_RUN_CLASSIFIER_TYPES_H_
