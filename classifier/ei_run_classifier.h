@@ -143,7 +143,11 @@ extern "C" float run_moving_average_filter(ei_impulse_maf *maf, float classifica
         maf->buf_idx = 0;
     }
 
+#if (EI_CLASSIFIER_SLICES_PER_MODEL_WINDOW > 1)
     return maf->running_sum / (float)(EI_CLASSIFIER_SLICES_PER_MODEL_WINDOW >> 1);
+#else
+    return maf->running_sum;
+#endif
 }
 
 /**

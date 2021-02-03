@@ -343,7 +343,9 @@ __attribute__((unused)) int extract_mfcc_per_slice_features(signal_t *signal, ma
         signal->total_length += (size_t)(config.frame_length * (float)frequency);
     }
 
+#if (EI_CLASSIFIER_SLICES_PER_MODEL_WINDOW > 1)
     first_run = true;
+#endif
 
     signal_t preemphasized_audio_signal;
     preemphasized_audio_signal.total_length = signal->total_length;
