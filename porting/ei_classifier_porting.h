@@ -169,6 +169,15 @@ void ei_free(void *ptr);
 #define EI_PORTING_MINGW32      0
 #endif
 #endif
+
+#ifndef EI_PORTING_CY8CKIT_062_BLE
+#ifdef TARGET_CY8CKIT_062_BLE
+#define EI_PORTING_CY8CKIT_062_BLE      1
+#else
+#define EI_PORTING_CY8CKIT_062_BLE      0
+#endif
+#endif
+
 // End load porting layer depending on target
 
 #endif // _EI_CLASSIFIER_PORTING_H_
