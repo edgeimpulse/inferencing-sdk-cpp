@@ -88,6 +88,11 @@ uint64_t ei_read_timer_us()
     return 0;
 }
 
+void ei_serial_set_baudrate(int baudrate)
+{
+    hx_drv_uart_initial((HX_DRV_UART_BAUDRATE_E)baudrate);
+}
+
 __attribute__((weak)) void ei_printf(const char *format, ...) {
     va_list myargs;
     va_start(myargs, format);

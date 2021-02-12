@@ -1,5 +1,5 @@
 /* Edge Impulse inferencing library
- * Copyright (c) 2021 EdgeImpulse Inc.
+ * Copyright (c) 2020 EdgeImpulse Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -19,30 +19,6 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+#pragma once
 
-#ifndef _EIDSP_RETURN_TYPES_H_
-#define _EIDSP_RETURN_TYPES_H_
-
-#include <stdint.h>
-
-namespace ei {
-
-typedef enum {
-    EIDSP_OK = 0,
-    EIDSP_OUT_OF_MEM = -1002,
-    EIDSP_SIGNAL_SIZE_MISMATCH = -1003,
-    EIDSP_MATRIX_SIZE_MISMATCH = -1004,
-    EIDSP_DCT_ERROR = -1005,
-    EIDSP_INPUT_MATRIX_EMPTY = -1006,
-    EIDSP_BUFFER_SIZE_MISMATCH = -1007,
-    EIDSP_PARAMETER_INVALID = -1008,
-    EIDSP_UNEXPECTED_NEXT_OFFSET = -1009,
-    EIDSP_OUT_OF_BOUNDS = -1010,
-    EIDSP_UNSUPPORTED_FILTER_CONFIG = -1011,
-    EIDSP_NARROWING = -1012,
-    EIDSP_BLOCK_VERSION_INCORRECT = -1013
-} EIDSP_RETURN_T;
-
-} // namespace ei
-
-#endif // _EIDSP_RETURN_TYPES_H_
+#define ARRAY_LENGTH(array) (sizeof((array))/sizeof((array)[0]))

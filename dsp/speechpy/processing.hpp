@@ -197,7 +197,8 @@ namespace processing {
                             uint32_t sampling_frequency,
                             float frame_length,
                             float frame_stride,
-                            bool zero_padding)
+                            bool zero_padding,
+                            uint16_t version)
     {
         if (!info->signal || !info->signal->get_data || info->signal->total_length == 0) {
             EIDSP_ERR(EIDSP_SIGNAL_SIZE_MISMATCH);
@@ -210,10 +211,12 @@ namespace processing {
         volatile int numframes;
         volatile int len_sig;
 
+        int length = (version > 1) ? (frame_sample_length - frame_stride) : (frame_sample_length);
+
         if (zero_padding) {
             // Calculation of number of frames
             numframes = static_cast<int>(
-                ceil(static_cast<float>(length_signal - frame_sample_length) / frame_stride));
+                ceil(static_cast<float>(length_signal - length) / frame_stride));
 
             // Zero padding
             len_sig = static_cast<int>(static_cast<float>(numframes) * frame_stride) + frame_sample_length;
@@ -222,7 +225,7 @@ namespace processing {
         }
         else {
             numframes = static_cast<int>(
-                floor(static_cast<float>(length_signal - frame_sample_length) / frame_stride));
+                floor(static_cast<float>(length_signal - length) / frame_stride));
             len_sig = static_cast<int>(
                 (static_cast<float>(numframes - 1) * frame_stride + frame_sample_length));
 
@@ -264,22 +267,24 @@ namespace processing {
         uint32_t sampling_frequency,
         float frame_length,
         float frame_stride,
-        bool zero_padding)
+        bool zero_padding,
+        uint16_t version)
     {
         size_t length_signal = signal_size;
         int frame_sample_length = static_cast<int>(round(static_cast<float>(sampling_frequency) * frame_length));
         frame_stride = round(static_cast<float>(sampling_frequency) * frame_stride);
 
         int numframes;
+        int length = (version > 1) ? (frame_sample_length - frame_stride) : (frame_sample_length);
 
         if (zero_padding) {
             // Calculation of number of frames
             numframes = static_cast<int>(
-                ceil(static_cast<float>(length_signal - frame_sample_length) / frame_stride));
+                ceil(static_cast<float>(length_signal - length) / frame_stride));
         }
         else {
             numframes = static_cast<int>(
-                floor(static_cast<float>(length_signal - frame_sample_length) / frame_stride));
+                floor(static_cast<float>(length_signal - length) / frame_stride));
         }
 
         return numframes;

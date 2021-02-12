@@ -33,7 +33,7 @@
 #include "memory.hpp"
 #include "dct/fast-dct-fft.h"
 #include "kissfft/kiss_fftr.h"
-#if EIDSP_USE_CMSIS_DSP
+#if EIDSP_USE_CMSIS_FIXED_RFFT
 #include "edge-impulse-sdk/CMSIS/DSP/Include/arm_math.h"
 #endif
 
@@ -296,6 +296,21 @@ public:
         return EIDSP_OK;
     }
 
+    static int transpose(matrix_i16_t *matrix) {
+        int r = transpose(matrix->buffer, matrix->cols, matrix->rows);
+        if (r != 0) {
+            return r;
+        }
+
+        uint16_t old_rows = matrix->rows;
+        uint16_t old_cols = matrix->cols;
+
+        matrix->rows = old_cols;
+        matrix->cols = old_rows;
+
+        return EIDSP_OK;
+    }
+
     /**
      * Transpose an array in place (from MxN to NxM)
      * @param matrix
@@ -337,6 +352,40 @@ public:
 #endif
 
         memcpy(matrix, temp_matrix.buffer, rows * columns * sizeof(float));
+
+        return EIDSP_OK;
+    }
+
+    static int transpose(EIDSP_i16 *matrix, int rows, int columns) {
+        EI_DSP_i16_MATRIX(temp_matrix, rows, columns);
+        if (!temp_matrix.buffer) {
+            EIDSP_ERR(EIDSP_OUT_OF_MEM);
+        }
+
+#if EIDSP_USE_CMSIS_DSP
+        const arm_matrix_instance_q15 i_m = {
+            static_cast<uint16_t>(columns),
+            static_cast<uint16_t>(rows),
+            matrix
+        };
+        arm_matrix_instance_q15 o_m = {
+            static_cast<uint16_t>(rows),
+            static_cast<uint16_t>(columns),
+            temp_matrix.buffer
+        };
+        arm_status status = arm_mat_trans_q15(&i_m, &o_m);
+        if (status != ARM_MATH_SUCCESS) {
+            return status;
+        }
+#else
+        for (int j = 0; j < rows; j++){
+            for (int i = 0; i < columns; i++){
+                temp_matrix.buffer[j * columns + i] = matrix[i * rows + j];
+            }
+        }
+#endif
+
+        memcpy(matrix, temp_matrix.buffer, rows * columns * sizeof(EIDSP_i16));
 
         return EIDSP_OK;
     }
@@ -588,6 +637,67 @@ public:
     }
 
     /**
+     * Scale a q15 matrix in place, per row
+     * @todo Now works for scale values between 0 and 1. Should also work for bigger values.
+     * @param matrix Input matrix (MxN)
+     * @param scale_matrix Scale matrix (Mx1)
+     * @returns 0 if OK
+     */
+    static int scale(matrix_i16_t *matrix, float scale) {
+        if (scale == 1.0f) return EIDSP_OK;
+        else if(scale > 1.0f) return EIDSP_PARAMETER_INVALID;
+
+        EIDSP_i16 scale_i16;
+        float_to_int16(&scale, &scale_i16, 1);
+
+#if EIDSP_USE_CMSIS_DSP
+        const arm_matrix_instance_q15 mi = {(uint16_t)matrix->rows, (uint16_t)matrix->cols, matrix->buffer };
+        arm_matrix_instance_q15 mo = { (uint16_t)matrix->rows, (uint16_t)matrix->cols, matrix->buffer };
+        int status = arm_mat_scale_q15(&mi, scale_i16, 0, &mo);
+        if (status != ARM_MATH_SUCCESS) {
+            return status;
+        }
+#else
+        for (size_t ix = 0; ix < matrix->rows * matrix->cols; ix++) {
+            int32_t prod = (int32_t)matrix->buffer[ix] * scale_i16;
+            matrix->buffer[ix] = saturate((EIDSP_i16)(prod >> 15), 16);
+        }
+#endif
+        return EIDSP_OK;
+    }
+
+    /**
+     * Scale a q31 matrix in place, per row
+     * @todo Now works for scale values between 0 and 1. Should also work for bigger values.
+     * @param matrix Input matrix (MxN)
+     * @param scale_matrix Scale matrix (Mx1)
+     * @returns 0 if OK
+     */
+    static int scale(matrix_i32_t *matrix, float scale) {
+        if (scale == 1.0f) return EIDSP_OK;
+        else if(scale > 1.0f) return EIDSP_PARAMETER_INVALID;
+
+        EIDSP_i32 scale_i32;
+        float_to_int32(&scale, &scale_i32, 1);
+
+#if EIDSP_USE_CMSIS_DSP
+        const arm_matrix_instance_q31 mi = { (uint16_t)matrix->rows, (uint16_t)matrix->cols, matrix->buffer };
+        arm_matrix_instance_q31 mo = { (uint16_t)matrix->rows, (uint16_t)matrix->cols, matrix->buffer };
+        int status = arm_mat_scale_q31(&mi, scale_i32, 0, &mo);
+        if (status != ARM_MATH_SUCCESS) {
+            return status;
+        }
+#else
+        for (size_t ix = 0; ix < matrix->rows * matrix->cols; ix++) {
+            int64_t prod = (int64_t)matrix->buffer[ix] * scale_i32;
+            matrix->buffer[ix] = saturate((EIDSP_i32)(prod >> 31), 32);
+        }
+#endif
+        return EIDSP_OK;
+    }
+
+
+    /**
      * Scale a matrix in place, per row
      * @param matrix Input matrix (MxN)
      * @param scale_matrix Scale matrix (Mx1)
@@ -666,6 +776,19 @@ public:
     }
 
     /**
+     * Subtract q15 from matrix in place
+     * @param matrix
+     * @param subtraction
+     * @returns 0 if OK
+     */
+    static int subtract(matrix_i16_t *matrix, EIDSP_i16 subtraction) {
+        for (uint32_t ix = 0; ix < matrix->rows * matrix->cols; ix++) {
+            matrix->buffer[ix] -= subtraction;
+        }
+        return EIDSP_OK;
+    }
+
+    /**
      * Add on a matrix in place, per row
      * @param matrix Input matrix (MxN)
      * @param add Scale matrix (Mx1)
@@ -682,6 +805,32 @@ public:
 
         for (size_t row = 0; row < matrix->rows; row++) {
             EI_DSP_MATRIX_B(temp, 1, matrix->cols, matrix->buffer + (row * matrix->cols));
+            int ret = subtract(&temp, subtract_matrix->buffer[row]);
+            if (ret != EIDSP_OK) {
+                EIDSP_ERR(ret);
+            }
+        }
+
+        return EIDSP_OK;
+    }
+
+    /**
+     * Subract subtract_matrix from matrix
+     * @param matrix Input matrix (MxN)
+     * @param add Scale matrix (Mx1)
+     * @returns 0 if OK
+     */
+    static int subtract(matrix_i16_t *matrix, matrix_i16_t *subtract_matrix) {
+        if (matrix->rows != subtract_matrix->rows) {
+            EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
+        }
+
+        if (subtract_matrix->cols != 1) {
+            EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
+        }
+
+        for (size_t row = 0; row < matrix->rows; row++) {
+            EI_DSP_i16_MATRIX_B(temp, 1, matrix->cols, matrix->buffer + (row * matrix->cols));
             int ret = subtract(&temp, subtract_matrix->buffer[row]);
             if (ret != EIDSP_OK) {
                 EIDSP_ERR(ret);
@@ -725,6 +874,39 @@ public:
     }
 
     /**
+     * Calculate the root mean square of a q15 matrix, one per row
+     * @param matrix Matrix of size (MxN)
+     * @param output_matrix Matrix of size (Mx1)
+     * @returns 0 if OK
+     */
+    static int rms(matrix_i16_t *matrix, matrix_i16_t *output_matrix) {
+        if (matrix->rows != output_matrix->rows) {
+            EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
+        }
+
+        if (output_matrix->cols != 1) {
+            EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
+        }
+
+        for (size_t row = 0; row < matrix->rows; row++) {
+#if EIDSP_USE_CMSIS_DSP
+            EIDSP_i16 rms_result;
+            arm_rms_q15(matrix->buffer + (row * matrix->cols), matrix->cols, &rms_result);
+            output_matrix->buffer[row] = rms_result;
+#else
+            int64_t sum = 0;
+            for(size_t ix = 0; ix < matrix->cols; ix++) {
+                int32_t v = matrix->buffer[(row * matrix->cols) + ix];
+                sum += (int64_t)abs(v * v);
+            }
+            sqrt_q15(saturate((sum / matrix->cols)>>15, 16UL), &output_matrix->buffer[row]);
+#endif
+        }
+
+        return EIDSP_OK;
+    }
+
+    /**
      * Calculate the mean over a matrix per row
      * @param input_matrix Input matrix (MxN)
      * @param output_matrix Output matrix (Mx1)
@@ -750,6 +932,38 @@ public:
             }
 
             output_matrix->buffer[row] = sum / input_matrix->cols;
+#endif
+        }
+
+        return EIDSP_OK;
+    }
+
+    /**
+     * Calculate the mean over a q15 matrix per row
+     * @param input_matrix Input matrix (MxN)
+     * @param output_matrix Output matrix (Mx1)
+     */
+    static int mean(matrix_i16_t *input_matrix, matrix_i16_t *output_matrix) {
+        if (input_matrix->rows != output_matrix->rows) {
+            EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
+        }
+        if (output_matrix->cols != 1) {
+            EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
+        }
+
+        for (size_t row = 0; row < input_matrix->rows; row++) {
+#if EIDSP_USE_CMSIS_DSP
+            EIDSP_i16 mean;
+            arm_mean_q15(input_matrix->buffer + (row * input_matrix->cols), input_matrix->cols, &mean);
+            output_matrix->buffer[row] = mean;
+#else
+            int32_t sum = 0.0f;
+
+            for (size_t col = 0; col < input_matrix->cols; col++) {
+                sum += input_matrix->buffer[( row * input_matrix->cols ) + col];
+            }
+
+            output_matrix->buffer[row] = (EIDSP_i16)(sum / input_matrix->cols);
 #endif
         }
 
@@ -1162,6 +1376,147 @@ public:
      * @param output_size Size of the output buffer, should be n_fft / 2 + 1
      * @returns 0 if OK
      */
+    static int rfft(const EIDSP_i16 *src, size_t src_size, EIDSP_i16 *output, size_t output_size, size_t n_fft) {
+        size_t n_fft_out_features = (n_fft / 2) + 1;
+        if (output_size != n_fft_out_features) {
+            EIDSP_ERR(EIDSP_BUFFER_SIZE_MISMATCH);
+        }
+
+        // truncate if needed
+        if (src_size > n_fft) {
+            src_size = n_fft;
+        }
+
+        // declare input and output arrays
+        EI_DSP_i16_MATRIX(fft_input, 1, n_fft << 1);
+
+        // copy from src to fft_input
+        memcpy(fft_input.buffer, src, src_size * sizeof(EIDSP_i16));
+        // pad to the rigth with zeros
+        memset(fft_input.buffer + src_size, 0, (n_fft - src_size) * sizeof(EIDSP_i16));
+
+#if EIDSP_USE_CMSIS_FIXED_RFFT
+        if (n_fft != 32 && n_fft != 64 && n_fft != 128 && n_fft != 256 &&
+            n_fft != 512 && n_fft != 1024 && n_fft != 2048 && n_fft != 4096) {
+            EIDSP_ERR(EIDSP_PARAMETER_INVALID); //TODO zero pad so we can use anyway`
+        } else {
+            // hardware acceleration only works for the powers above...
+            arm_rfft_instance_q15 rfft_instance;
+            arm_status status = arm_rfft_init_q15(&rfft_instance, n_fft, 0, 1);
+            if (status != ARM_MATH_SUCCESS) {
+                return (int)status;
+            }
+
+            EI_DSP_i16_MATRIX(fft_output, 1, n_fft << 1);
+            if (!fft_output.buffer) {
+                EIDSP_ERR(EIDSP_OUT_OF_MEM);
+            }
+
+            arm_rfft_q15(&rfft_instance, fft_input.buffer, fft_output.buffer);
+
+            output[0] = fft_output.buffer[0];
+            output[n_fft_out_features - 1] = fft_output.buffer[1];
+
+            size_t fft_output_buffer_ix = 2;
+            for (size_t ix = 1; ix < n_fft_out_features - 1; ix += 1) {
+                EIDSP_i16 rms_result;
+                arm_rms_q15(&fft_output.buffer[fft_output_buffer_ix], 2, &rms_result);
+                output[ix] = (EIDSP_i16)saturate((int32_t)rms_result * ((int32_t)(1.414213562f * (1 << 15))) >> 15, 16); /* sqrt(2) */
+
+                fft_output_buffer_ix += 2;
+            }
+        }
+#else
+        #error("No DSP lib defined!  Use CMSIS-DSP for C implementation ( #define EIDSP_USE_CMSIS_FIXED_RFFT 1 )")
+#endif
+
+        return EIDSP_OK;
+    }
+
+
+    /**
+     * Compute the one-dimensional discrete Fourier Transform for real input.
+     * This function computes the one-dimensional n-point discrete Fourier Transform (DFT) of
+     * a real-valued array by means of an efficient algorithm called the Fast Fourier Transform (FFT).
+     * @param src Source buffer
+     * @param src_size Size of the source buffer
+     * @param output Output buffer
+     * @param output_size Size of the output buffer, should be n_fft / 2 + 1
+     * @returns 0 if OK
+     */
+    static int rfft(const EIDSP_i32 *src, size_t src_size, EIDSP_i32 *output, size_t output_size, size_t n_fft) {
+        size_t n_fft_out_features = (n_fft / 2) + 1;
+        if (output_size != n_fft_out_features) {
+            EIDSP_ERR(EIDSP_BUFFER_SIZE_MISMATCH);
+        }
+
+        // truncate if needed
+        if (src_size > n_fft) {
+            src_size = n_fft;
+        }
+
+        // declare input and output arrays
+        EI_DSP_i32_MATRIX(fft_input, 1, n_fft << 1);
+        
+        if (!fft_input.buffer) {
+            EIDSP_ERR(EIDSP_OUT_OF_MEM);
+        }
+
+        // copy from src to fft_input
+        memcpy(fft_input.buffer, src, src_size * sizeof(EIDSP_i32));
+        // pad to the rigth with zeros
+        memset(fft_input.buffer + src_size, 0, (n_fft - src_size) * sizeof(EIDSP_i32));
+
+#if EIDSP_USE_CMSIS_FIXED_RFFT
+        if (n_fft != 32 && n_fft != 64 && n_fft != 128 && n_fft != 256 &&
+            n_fft != 512 && n_fft != 1024 && n_fft != 2048 && n_fft != 4096) {
+            EIDSP_ERR(EIDSP_PARAMETER_INVALID);
+        } else {
+            // hardware acceleration only works for the powers above...
+            arm_rfft_instance_q31 rfft_instance;
+            arm_status status = arm_rfft_init_q31(&rfft_instance, n_fft, 0, 1);
+            if (status != ARM_MATH_SUCCESS) {
+                return status;
+            }
+
+            // EI_DSP_i16_MATRIX(fft_output, 1, n_fft << 1);
+            matrix_i32_t fft_output(1, n_fft << 1);
+
+            if (!fft_output.buffer) {
+                EIDSP_ERR(EIDSP_OUT_OF_MEM);
+            }
+
+            arm_rfft_q31(&rfft_instance, (EIDSP_i32 *)fft_input.buffer, (EIDSP_i32 *)fft_output.buffer);
+
+            output[0] = fft_output.buffer[0];
+            output[n_fft_out_features - 1] = fft_output.buffer[1];
+
+            size_t fft_output_buffer_ix = 2;
+            for (size_t ix = 1; ix < n_fft_out_features - 1; ix += 1) {
+                EIDSP_i32 rms_result;
+                arm_rms_q31((EIDSP_i32 *)&fft_output.buffer[fft_output_buffer_ix], 2, &rms_result);
+                output[ix] = (EIDSP_i32)saturate((int64_t)rms_result * ((int64_t)(1.414213562f * 2147483648.f)) >> 31, 32); /* sqrt(2) */
+
+                fft_output_buffer_ix += 2;
+            }
+        }
+#else
+        #error("No DSP lib defined!  Use CMSIS-DSP for C implementation ( #define EIDSP_USE_CMSIS_FIXED_RFFT 1 )")
+#endif
+
+        return EIDSP_OK;
+    }
+
+    /**
+     * Compute the one-dimensional discrete Fourier Transform for real input.
+     * This function computes the one-dimensional n-point discrete Fourier Transform (DFT) of
+     * a real-valued array by means of an efficient algorithm called the Fast Fourier Transform (FFT).
+     * @param src Source buffer
+     * @param src_size Size of the source buffer
+     * @param output Output buffer
+     * @param output_size Size of the output buffer, should be n_fft / 2 + 1
+     * @returns 0 if OK
+     */
     static int rfft(const float *src, size_t src_size, fft_complex_t *output, size_t output_size, size_t n_fft) {
         size_t n_fft_out_features = (n_fft / 2) + 1;
         if (output_size != n_fft_out_features) {
@@ -1237,6 +1592,82 @@ public:
         return EIDSP_OK;
     }
 
+    static int rfft(const EIDSP_i16 *src, size_t src_size, fft_complex_i16_t *output, size_t output_size, size_t n_fft) {
+        size_t n_fft_out_features = (n_fft / 2) + 1;
+        if (output_size != n_fft_out_features) {
+            EIDSP_ERR(EIDSP_BUFFER_SIZE_MISMATCH);
+        }
+
+        // truncate if needed
+        if (src_size > n_fft) {
+            src_size = n_fft;
+        }
+
+        // declare input and output arrays
+        EIDSP_i16 *fft_input_buffer = NULL;
+        if (src_size == n_fft) {
+            fft_input_buffer = (EIDSP_i16*)src;
+        }
+
+        EI_DSP_i16_MATRIX_B(fft_input, 1, n_fft, fft_input_buffer);
+        if (!fft_input.buffer) {
+            EIDSP_ERR(EIDSP_OUT_OF_MEM);
+        }
+
+        if (!fft_input_buffer) {
+            // copy from src to fft_input
+            memcpy(fft_input.buffer, src, src_size * sizeof(EIDSP_i16));
+            // pad to the rigth with zeros
+            memset(fft_input.buffer + src_size, 0, (n_fft - src_size) * sizeof(EIDSP_i16));
+        }
+
+#if 1//EIDSP_USE_CMSIS_DSP
+        // if (n_fft != 32 && n_fft != 64 && n_fft != 128 && n_fft != 256 &&
+        //     n_fft != 512 && n_fft != 1024 && n_fft != 2048 && n_fft != 4096) {
+        //     int ret = software_rfft(fft_input.buffer, output, n_fft, n_fft_out_features);
+        //     if (ret != EIDSP_OK) {
+        //         EIDSP_ERR(ret);
+        //     }
+        // }
+        // else {
+        {
+            // hardware acceleration only works for the powers above...
+            arm_rfft_instance_q15 rfft_instance;
+            arm_status status = arm_rfft_init_q15(&rfft_instance, n_fft, 0, 1);
+            if (status != ARM_MATH_SUCCESS) {
+                return status;
+            }
+
+            EI_DSP_i16_MATRIX(fft_output, 1, n_fft << 1);
+            if (!fft_output.buffer) {
+                EIDSP_ERR(EIDSP_OUT_OF_MEM);
+            }
+
+            arm_rfft_q15(&rfft_instance, fft_input.buffer, fft_output.buffer);
+
+            output[0].r = fft_output.buffer[0];
+            output[0].i = 0.0f;
+            output[n_fft_out_features - 1].r = fft_output.buffer[1];
+            output[n_fft_out_features - 1].i = 0.0f;
+
+            size_t fft_output_buffer_ix = 2;
+            for (size_t ix = 1; ix < n_fft_out_features - 1; ix += 1) {
+                output[ix].r = fft_output.buffer[fft_output_buffer_ix];
+                output[ix].i = fft_output.buffer[fft_output_buffer_ix + 1];
+
+                fft_output_buffer_ix += 2;
+            }
+        }
+#else
+        int ret = software_rfft(fft_input.buffer, output, n_fft, n_fft_out_features);
+        if (ret != EIDSP_OK) {
+            EIDSP_ERR(ret);
+        }
+#endif
+
+        return EIDSP_OK;
+    }
+
     /**
      * Return evenly spaced numbers over a specified interval.
      * Returns num evenly spaced samples, calculated over the interval [start, stop].
@@ -1277,6 +1708,121 @@ public:
     }
 
     /**
+     * Return evenly spaced q15 numbers over a specified interval.
+     * Returns num evenly spaced samples, calculated over the interval [start, stop].
+     * The endpoint of the interval can optionally be excluded.
+     *
+     * Based on https://github.com/ntessore/algo/blob/master/linspace.c
+     * Licensed in public domain (see LICENSE in repository above)
+     *
+     * @param start The starting value of the sequence.
+     * @param stop The end value of the sequence.
+     * @param number Number of samples to generate.
+     * @param out Out array, with size `number`
+     * @returns 0 if OK
+     */
+    static int linspace(EIDSP_i16 start, EIDSP_i16 stop, uint32_t number, EIDSP_i16 *out)
+    {
+        if (number < 1 || !out) {
+            EIDSP_ERR(EIDSP_PARAMETER_INVALID);
+        }
+
+        if (number == 1) {
+            out[0] = start;
+            return EIDSP_OK;
+        }
+
+        // step size
+        EIDSP_i16 step = (stop - start) / (number - 1);
+
+        // do steps
+        for (uint32_t ix = 0; ix < number - 1; ix++) {
+            out[ix] = start + ix * step;
+        }
+
+        // last entry always stop
+        out[number - 1] = stop;
+
+        return EIDSP_OK;
+    }
+
+    /**
+     * Return evenly spaced q31 numbers over a specified interval.
+     * Returns num evenly spaced samples, calculated over the interval [start, stop].
+     * The endpoint of the interval can optionally be excluded.
+     *
+     * Based on https://github.com/ntessore/algo/blob/master/linspace.c
+     * Licensed in public domain (see LICENSE in repository above)
+     *
+     * @param start The starting value of the sequence.
+     * @param stop The end value of the sequence.
+     * @param number Number of samples to generate.
+     * @param out Out array, with size `number`
+     * @returns 0 if OK
+     */
+    static int linspace(EIDSP_i32 start, EIDSP_i32 stop, uint32_t number, EIDSP_i32 *out)
+    {
+        if (number < 1 || !out) {
+            EIDSP_ERR(EIDSP_PARAMETER_INVALID);
+        }
+
+        if (number == 1) {
+            out[0] = start;
+            return EIDSP_OK;
+        }
+
+        // step size
+        EIDSP_i32 step = (stop - start) / (number - 1);
+
+        // do steps
+        for (uint32_t ix = 0; ix < number - 1; ix++) {
+            out[ix] = start + ix * step;
+        }
+
+        // last entry always stop
+        out[number - 1] = stop;
+
+        return EIDSP_OK;
+    }
+
+    /**
+     * Convert an int32_t buffer into a float buffer, maps to -1..1
+     * @param input
+     * @param output
+     * @param length
+     * @returns 0 if OK
+     */
+    static int int32_to_float(const EIDSP_i32 *input, float *output, size_t length) {
+#if EIDSP_USE_CMSIS_DSP
+        arm_q31_to_float((q31_t *)input, output, length);
+#else
+        for (size_t ix = 0; ix < length; ix++) {
+            output[ix] = (float)(input[ix]) / 2147483648.f;
+        }
+#endif
+        return EIDSP_OK;
+    }
+
+    /**
+     * Convert an float buffer into a fixedpoint 32 bit buffer, input values are
+     * limited between -1 and 1
+     * @param input
+     * @param output
+     * @param length
+     * @returns 0 if OK
+     */
+    static int float_to_int32(const float *input, EIDSP_i32 *output, size_t length) {
+#if EIDSP_USE_CMSIS_DSP
+        arm_float_to_q31((float *)input, (q31_t *)output, length);
+#else
+        for (size_t ix = 0; ix < length; ix++) {
+            output[ix] = (EIDSP_i32)saturate((int64_t)(input[ix] * 2147483648.f), 32);
+        }
+#endif
+        return EIDSP_OK;
+    }
+
+    /**
      * Convert an int16_t buffer into a float buffer, maps to -1..1
      * @param input
      * @param output
@@ -1285,10 +1831,29 @@ public:
      */
     static int int16_to_float(const EIDSP_i16 *input, float *output, size_t length) {
 #if EIDSP_USE_CMSIS_DSP
-        arm_q15_to_float(input, output, length);
+        arm_q15_to_float((q15_t *)input, output, length);
 #else
         for (size_t ix = 0; ix < length; ix++) {
-            output[ix] = (float)(input[ix]) / 32768;
+            output[ix] = (float)(input[ix]) / 32768.f;
+        }
+#endif
+        return EIDSP_OK;
+    }
+
+    /**
+     * Convert an float buffer into a fixedpoint 16 bit buffer, input values are
+     * limited between -1 and 1
+     * @param input
+     * @param output
+     * @param length
+     * @returns 0 if OK
+     */
+    static int float_to_int16(const float *input, EIDSP_i16 *output, size_t length) {
+#if EIDSP_USE_CMSIS_DSP
+        arm_float_to_q15((float *)input, output, length);
+#else
+        for (size_t ix = 0; ix < length; ix++) {
+            output[ix] = (EIDSP_i16)saturate((int32_t)(input[ix] * 32768.f), 16);
         }
 #endif
         return EIDSP_OK;
@@ -1303,7 +1868,7 @@ public:
      */
     static int int8_to_float(const EIDSP_i8 *input, float *output, size_t length) {
 #if EIDSP_USE_CMSIS_DSP
-        arm_q7_to_float(input, output, length);
+        arm_q7_to_float((q7_t *)input, output, length);
 #else
         for (size_t ix = 0; ix < length; ix++) {
             output[ix] = (float)(input[ix]) / 128;
@@ -1334,7 +1899,28 @@ public:
 #endif
         return EIDSP_OK;
     }
+
+    static int signal_from_buffer_i16(EIDSP_i16 *data_i16, size_t data_size, signal_i16_t *signal)
+    {
+        signal->total_length = data_size;
+#ifdef __MBED__
+        signal->get_data = mbed::callback(&numpy::signal_get_data_i16, data_i16);
+#else
+        signal->get_data = [data_i16](size_t offset, size_t length, EIDSP_i16 *out_ptr) {
+            return numpy::signal_get_data_i16(data_i16, offset, length, out_ptr);
+        };
 #endif
+        return EIDSP_OK;
+    }
+#endif
+
+    static int signal_from_buffer_pointer_function_q15(size_t data_size, signal_i16_t *signal, int (*data_i16)(size_t, size_t, EIDSP_i16 *))
+    {
+        signal->total_length = data_size;
+        signal->get_data = data_i16;
+
+        return EIDSP_OK;
+    }
 
 #if defined ( __GNUC__ )
 #pragma GCC diagnostic push
@@ -1386,6 +1972,28 @@ public:
         }
 
         return EIDSP_OK;
+    }
+
+    /**
+     * @brief      Signed Saturate
+     *
+     * @param[in]  val   The value to be saturated
+     * @param[in]  sat   Bit position to saturate to (1..32)
+     *
+     * @return     Saturated value
+     */
+    static int32_t saturate(int64_t val, uint32_t sat)
+    {
+        if ((sat >= 1U) && (sat <= 32U)) {
+            int64_t max = (int64_t)((1U << (sat - 1U)) - 1U);
+            int64_t min = -1 - max;
+            if (val > max) {
+                return (int32_t)max;
+            } else if (val < min) {
+                return (int32_t)min;
+            }
+        }
+        return (int32_t)val;
     }
 
     /**
@@ -1488,6 +2096,12 @@ private:
     static int signal_get_data(float *in_buffer, size_t offset, size_t length, float *out_ptr)
     {
         memcpy(out_ptr, in_buffer + offset, length * sizeof(float));
+        return 0;
+    }
+
+    static int signal_get_data_i16(int16_t *in_buffer, size_t offset, size_t length, int16_t *out_ptr)
+    {
+        memcpy(out_ptr, in_buffer + offset, length * sizeof(int16_t));
         return 0;
     }
 
@@ -1738,7 +2352,105 @@ private:
         /* Store result to destination */
         *pResult = sum;
     }
-#endif
+#endif // EIDSP_USE_CMSIS_DSP
+
+    static uint8_t count_leading_zeros(uint32_t data)
+    {
+      if (data == 0U) { return 32U; }
+
+      uint32_t count = 0U;
+      uint32_t mask = 0x80000000U;
+
+      while ((data & mask) == 0U)
+      {
+        count += 1U;
+        mask = mask >> 1U;
+      }
+      return count;
+    }
+
+    static void sqrt_q15(int16_t in, int16_t *pOut)
+    {
+        int32_t bits_val1;
+        int16_t number, temp1, var1, signBits1, half;
+        float temp_float1;
+        union {
+            int32_t fracval;
+            float floatval;
+        } tempconv;
+
+        number = in;
+
+        /* If the input is a positive number then compute the signBits. */
+        if (number > 0) {
+            signBits1 = count_leading_zeros(number) - 17;
+
+            /* Shift by the number of signBits1 */
+            if ((signBits1 % 2) == 0) {
+                number = number << signBits1;
+            } else {
+                number = number << (signBits1 - 1);
+            }
+
+            /* Calculate half value of the number */
+            half = number >> 1;
+            /* Store the number for later use */
+            temp1 = number;
+
+            /* Convert to float */
+            temp_float1 = number * 3.051757812500000e-005f;
+            /* Store as integer */
+            tempconv.floatval = temp_float1;
+            bits_val1 = tempconv.fracval;
+            /* Subtract the shifted value from the magic number to give intial guess */
+            bits_val1 = 0x5f3759df - (bits_val1 >> 1); /* gives initial guess */
+            /* Store as float */
+            tempconv.fracval = bits_val1;
+            temp_float1 = tempconv.floatval;
+            /* Convert to integer format */
+            var1 = (int32_t)(temp_float1 * 16384);
+
+            /* 1st iteration */
+            var1 =
+                ((int16_t)(
+                    (int32_t)var1 *
+                        (0x3000 -
+                         ((int16_t)((((int16_t)(((int32_t)var1 * var1) >> 15)) * (int32_t)half) >> 15))) >>
+                    15))
+                << 2;
+            /* 2nd iteration */
+            var1 =
+                ((int16_t)(
+                    (int32_t)var1 *
+                        (0x3000 -
+                         ((int16_t)((((int16_t)(((int32_t)var1 * var1) >> 15)) * (int32_t)half) >> 15))) >>
+                    15))
+                << 2;
+            /* 3rd iteration */
+            var1 =
+                ((int16_t)(
+                    (int32_t)var1 *
+                        (0x3000 -
+                         ((int16_t)((((int16_t)(((int32_t)var1 * var1) >> 15)) * (int32_t)half) >> 15))) >>
+                    15))
+                << 2;
+
+            /* Multiply the inverse square root with the original value */
+            var1 = ((int16_t)(((int32_t)temp1 * var1) >> 15)) << 1;
+
+            /* Shift the output down accordingly */
+            if ((signBits1 % 2) == 0) {
+                var1 = var1 >> (signBits1 / 2);
+            } else {
+                var1 = var1 >> ((signBits1 - 1) / 2);
+            }
+            *pOut = var1;
+        }
+        /* If the number is a negative number then store zero as its square root value */
+        else {
+            *pOut = 0;
+        }
+    }
 };
 
 } // namespace ei

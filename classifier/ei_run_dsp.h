@@ -57,6 +57,7 @@ __attribute__((unused)) int extract_spectral_analysis_features(signal_t *signal,
     if (!input_matrix.buffer) {
         EIDSP_ERR(EIDSP_OUT_OF_MEM);
     }
+
     signal->get_data(0, signal->total_length, input_matrix.buffer);
 
     // scale the signal
@@ -129,6 +130,120 @@ __attribute__((unused)) int extract_spectral_analysis_features(signal_t *signal,
     ret = spectral::feature::spectral_analysis(output_matrix, &input_matrix,
         sampling_freq, filter_type, config.filter_cutoff, config.filter_order,
         config.fft_length, config.spectral_peaks_count, config.spectral_peaks_threshold, &edges_matrix_in);
+    if (ret != EIDSP_OK) {
+        ei_printf("ERR: Failed to calculate spectral features (%d)\n", ret);
+        EIDSP_ERR(ret);
+    }
+
+    // flatten again
+    output_matrix->cols = config.axes * output_matrix_cols;
+    output_matrix->rows = 1;
+
+    return EIDSP_OK;
+}
+
+matrix_i16_t *create_edges_matrix(ei_dsp_config_spectral_analysis_t config, const float sampling_freq)
+{
+    // the spectral edges that we want to calculate
+    static matrix_i16_t edges_matrix_in(64, 1);
+    static bool matrix_created = false;    
+    size_t edge_matrix_ix = 0;
+
+    if(matrix_created == false) {
+
+        char spectral_str[128] = { 0 };
+        if (strlen(config.spectral_power_edges) > sizeof(spectral_str) - 1) {
+            return NULL;
+        }
+        memcpy(spectral_str, config.spectral_power_edges, strlen(config.spectral_power_edges));
+
+        // convert spectral_power_edges (string) into float array
+        char *spectral_ptr = spectral_str;
+        while (spectral_ptr != NULL) {
+            float edge = (atof(spectral_ptr) / (float)(sampling_freq/2.f));
+            numpy::float_to_int16(&edge, &edges_matrix_in.buffer[edge_matrix_ix++], 1);            
+
+            // find next (spectral) delimiter (or '\0' character)
+            while((*spectral_ptr != ',')) {
+                spectral_ptr++;
+                if (*spectral_ptr == '\0') break;
+            }
+
+            if (*spectral_ptr == '\0') {
+                spectral_ptr = NULL;
+            }
+            else  {
+                spectral_ptr++;
+            }
+        }
+        edges_matrix_in.rows = edge_matrix_ix;
+        matrix_created = true;
+    }
+
+    return &edges_matrix_in;
+}
+
+__attribute__((unused)) int extract_spectral_analysis_features(signal_i16_t *signal, matrix_i32_t *output_matrix, void *config_ptr, const float frequency) {
+    ei_dsp_config_spectral_analysis_t config = *((ei_dsp_config_spectral_analysis_t*)config_ptr);
+
+    int ret;
+
+    const float sampling_freq = frequency;
+
+    // input matrix from the raw signal
+    matrix_i16_t input_matrix(signal->total_length / config.axes, config.axes);
+    if (!input_matrix.buffer) {
+        EIDSP_ERR(EIDSP_OUT_OF_MEM);
+    }
+
+    signal->get_data(0, signal->total_length, (EIDSP_i16 *)&input_matrix.buffer[0]);
+
+    // scale the signal
+    ret = numpy::scale(&input_matrix, config.scale_axes);
+    if (ret != EIDSP_OK) {
+        ei_printf("ERR: Failed to scale signal (%d)\n", ret);
+        EIDSP_ERR(ret);
+    }
+
+    // transpose the matrix so we have one row per axis (nifty!)
+    ret = numpy::transpose(&input_matrix);
+    if (ret != EIDSP_OK) {
+        ei_printf("ERR: Failed to transpose matrix (%d)\n", ret);
+        EIDSP_ERR(ret);
+    }
+
+    matrix_i16_t *edges_matrix_in = create_edges_matrix(config, sampling_freq);
+
+    if(edges_matrix_in == NULL) {
+        EIDSP_ERR(EIDSP_PARAMETER_INVALID);
+    }
+
+    // calculate how much room we need for the output matrix
+    size_t output_matrix_cols = spectral::feature::calculate_spectral_buffer_size(
+        true, config.spectral_peaks_count, edges_matrix_in->rows
+    );
+    // ei_printf("output_matrix_size %hux%zu\n", input_matrix.rows, output_matrix_cols);
+    if (output_matrix->cols * output_matrix->rows != static_cast<uint32_t>(output_matrix_cols * config.axes)) {
+        EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
+    }
+
+    output_matrix->cols = output_matrix_cols;
+    output_matrix->rows = config.axes;
+
+    spectral::filter_t filter_type;
+    if (strcmp(config.filter_type, "low") == 0) {
+        filter_type = spectral::filter_lowpass;
+    }
+    else if (strcmp(config.filter_type, "high") == 0) {
+        filter_type = spectral::filter_highpass;
+    }
+    else {
+        filter_type = spectral::filter_none;
+    }
+
+    ret = spectral::feature::spectral_analysis(output_matrix, &input_matrix,
+        sampling_freq, filter_type, config.filter_cutoff, config.filter_order,
+        config.fft_length, config.spectral_peaks_count, config.spectral_peaks_threshold, edges_matrix_in);
     if (ret != EIDSP_OK) {
         ei_printf("ERR: Failed to calculate spectral features (%d)\n", ret);
         EIDSP_ERR(ret);
@@ -275,6 +390,10 @@ __attribute__((unused)) int extract_mfcc_features(signal_t *signal, matrix_t *ou
         EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
     }
 
+    if(config.implementation_version != 1 && config.implementation_version != 2) {
+        EIDSP_ERR(EIDSP_BLOCK_VERSION_INCORRECT);
+    }
+
     const uint32_t frequency = static_cast<uint32_t>(sampling_frequency);
 
     // preemphasis class to preprocess the audio...
@@ -288,7 +407,7 @@ __attribute__((unused)) int extract_mfcc_features(signal_t *signal, matrix_t *ou
     // calculate the size of the MFCC matrix
     matrix_size_t out_matrix_size =
         speechpy::feature::calculate_mfcc_buffer_size(
-            signal->total_length, frequency, config.frame_length, config.frame_stride, config.num_cepstral);
+            signal->total_length, frequency, config.frame_length, config.frame_stride, config.num_cepstral, config.implementation_version);
     /* Only throw size mismatch error calculated buffer doesn't fit for continuous inferencing */
     if (out_matrix_size.rows * out_matrix_size.cols > output_matrix->rows * output_matrix->cols) {
         ei_printf("out_matrix = %hux%hu\n", output_matrix->rows, output_matrix->cols);
@@ -302,7 +421,7 @@ __attribute__((unused)) int extract_mfcc_features(signal_t *signal, matrix_t *ou
     // and run the MFCC extraction (using 32 rather than 40 filters here to optimize speed on embedded)
     int ret = speechpy::feature::mfcc(output_matrix, &preemphasized_audio_signal,
         frequency, config.frame_length, config.frame_stride, config.num_cepstral, config.num_filters, config.fft_length,
-        config.low_frequency, config.high_frequency);
+        config.low_frequency, config.high_frequency, true, config.implementation_version);
     if (ret != EIDSP_OK) {
         ei_printf("ERR: MFCC failed (%d)\n", ret);
         EIDSP_ERR(ret);
@@ -322,12 +441,15 @@ __attribute__((unused)) int extract_mfcc_features(signal_t *signal, matrix_t *ou
 }
 
 __attribute__((unused)) int extract_mfcc_per_slice_features(signal_t *signal, matrix_t *output_matrix, void *config_ptr, const float sampling_frequency) {
-    ei_dsp_config_mfcc_t config = *((ei_dsp_config_mfcc_t*)config_ptr);
 
-    static bool first_run = false;
+    ei_dsp_config_mfcc_t config = *((ei_dsp_config_mfcc_t*)config_ptr);
 
     if (config.axes != 1) {
         EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
+    }
+
+    if(config.implementation_version != 1 && config.implementation_version != 2) {
+        EIDSP_ERR(EIDSP_BLOCK_VERSION_INCORRECT);
     }
 
     const uint32_t frequency = static_cast<uint32_t>(sampling_frequency);
@@ -339,13 +461,16 @@ __attribute__((unused)) int extract_mfcc_per_slice_features(signal_t *signal, ma
     /* Fake an extra frame_length for stack frames calculations. There, 1 frame_length is always
     subtracted and there for never used. But skip the first slice to fit the feature_matrix
     buffer */
-    if (first_run == true) {
-        signal->total_length += (size_t)(config.frame_length * (float)frequency);
-    }
+    static bool first_run = false;
 
-#if (EI_CLASSIFIER_SLICES_PER_MODEL_WINDOW > 1)
-    first_run = true;
-#endif
+    if(config.implementation_version < 2) {
+
+        if (first_run == true) {
+            signal->total_length += (size_t)(config.frame_length * (float)frequency);
+        }
+
+        first_run = true;
+    }
 
     signal_t preemphasized_audio_signal;
     preemphasized_audio_signal.total_length = signal->total_length;
@@ -354,7 +479,7 @@ __attribute__((unused)) int extract_mfcc_per_slice_features(signal_t *signal, ma
     // calculate the size of the MFCC matrix
     matrix_size_t out_matrix_size =
         speechpy::feature::calculate_mfcc_buffer_size(
-            signal->total_length, frequency, config.frame_length, config.frame_stride, config.num_cepstral);
+            signal->total_length, frequency, config.frame_length, config.frame_stride, config.num_cepstral, config.implementation_version);
     /* Only throw size mismatch error calculated buffer doesn't fit for continuous inferencing */
     if (out_matrix_size.rows * out_matrix_size.cols > output_matrix->rows * output_matrix->cols) {
         ei_printf("out_matrix = %hux%hu\n", output_matrix->rows, output_matrix->cols);
@@ -368,7 +493,7 @@ __attribute__((unused)) int extract_mfcc_per_slice_features(signal_t *signal, ma
     // and run the MFCC extraction (using 32 rather than 40 filters here to optimize speed on embedded)
     int ret = speechpy::feature::mfcc(output_matrix, &preemphasized_audio_signal,
         frequency, config.frame_length, config.frame_stride, config.num_cepstral, config.num_filters, config.fft_length,
-        config.low_frequency, config.high_frequency);
+        config.low_frequency, config.high_frequency, true, config.implementation_version);
     if (ret != EIDSP_OK) {
         ei_printf("ERR: MFCC failed (%d)\n", ret);
         EIDSP_ERR(ret);
@@ -377,9 +502,12 @@ __attribute__((unused)) int extract_mfcc_per_slice_features(signal_t *signal, ma
     output_matrix->cols = out_matrix_size.rows * out_matrix_size.cols;
     output_matrix->rows = 1;
 
-    if (first_run == true) {
-        signal->total_length -= (size_t)(config.frame_length * (float)frequency);
+    if(config.implementation_version < 2) {
+        if (first_run == true) {
+            signal->total_length -= (size_t)(config.frame_length * (float)frequency);
+        }
     }
+
 
     return EIDSP_OK;
 }

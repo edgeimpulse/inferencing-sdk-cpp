@@ -49,11 +49,17 @@
 #endif // Mbed / ARM Core check
 #endif // ifndef EIDSP_USE_CMSIS_DSP
 
+//TODO when we have other fixed point libraries, change this
+//even if we don't use cmsis, use their fixed point FFT
+#define EIDSP_USE_CMSIS_FIXED_RFFT 1
+
 #if EIDSP_USE_CMSIS_DSP == 1
-#define EIDSP_i16                q15_t
+#define EIDSP_i32                int32_t
+#define EIDSP_i16                int16_t
 #define EIDSP_i8                 q7_t
 #define ARM_MATH_ROUNDING        1
 #else
+#define EIDSP_i32                int32_t
 #define EIDSP_i16                int16_t
 #define EIDSP_i8                 int8_t
 #endif // EIDSP_USE_CMSIS_DSP
