@@ -23,6 +23,7 @@
 #ifndef _EI_CLASSIFIER_CONFIG_H_
 #define _EI_CLASSIFIER_CONFIG_H_
 
+// clang-format off
 #ifndef EI_CLASSIFIER_TFLITE_ENABLE_CMSIS_NN
 #if defined(__MBED__)
     #include "mbed.h"
@@ -61,4 +62,5 @@
 #endif // CPU_ARC
 #endif // EI_CLASSIFIER_TFLITE_ENABLE_ARC
 
+// clang-format on
 #endif // _EI_CLASSIFIER_CONFIG_H_

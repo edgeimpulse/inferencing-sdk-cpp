@@ -12,7 +12,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
-#include "tensorflow/lite/micro/micro_optional_debug_tools.h"
+#include "edge-impulse-sdk/tensorflow/lite/micro/micro_optional_debug_tools.h"
 
 // `cinttypes` requires `__STDC_FORMAT_MACROS` to be defined to expose `PRId32`.
 #ifndef __STDC_FORMAT_MACROS
@@ -25,12 +25,12 @@ limitations under the License.
 #include <cstdio>
 #include <vector>
 
-#include "flatbuffers/flatbuffers.h"  // from @flatbuffers
-#include "tensorflow/lite/c/common.h"
-#include "tensorflow/lite/micro/memory_helpers.h"
-#include "tensorflow/lite/micro/micro_allocator.h"
-#include "tensorflow/lite/micro/micro_interpreter.h"
-#include "tensorflow/lite/schema/schema_generated.h"
+#include "edge-impulse-sdk/third_party/flatbuffers/include/flatbuffers/flatbuffers.h"  // from @flatbuffers
+#include "edge-impulse-sdk/tensorflow/lite/c/common.h"
+#include "edge-impulse-sdk/tensorflow/lite/micro/memory_helpers.h"
+#include "edge-impulse-sdk/tensorflow/lite/micro/micro_allocator.h"
+#include "edge-impulse-sdk/tensorflow/lite/micro/micro_interpreter.h"
+#include "edge-impulse-sdk/tensorflow/lite/schema/schema_generated.h"
 
 namespace tflite {
 namespace {

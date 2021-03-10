@@ -51,12 +51,12 @@
 
 #include "edge-impulse-sdk/CMSIS/DSP/Include/arm_math.h"
 #include "edge-impulse-sdk/CMSIS/DSP/Include/arm_common_tables.h"
-#include "arm_const_structs.h"
+#include "edge-impulse-sdk/CMSIS/DSP/Include/arm_const_structs.h"
 
 #if defined(ARM_MATH_MVEI) 
 
-#include "arm_vec_fft.h"
-#include "arm_mve_tables.h"
+#include "edge-impulse-sdk/CMSIS/DSP/Include/arm_vec_fft.h"
+#include "edge-impulse-sdk/CMSIS/DSP/Include/arm_mve_tables.h"
 
 
 arm_status arm_cfft_radix4by2_rearrange_twiddles_q31(arm_cfft_instance_q31 *S, int twidCoefModifier)

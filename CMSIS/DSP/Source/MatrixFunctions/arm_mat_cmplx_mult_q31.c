@@ -58,7 +58,7 @@
  */
 #if defined(ARM_MATH_MVEI)
 
-#include "arm_helium_utils.h"
+#include "edge-impulse-sdk/CMSIS/DSP/Include/arm_helium_utils.h"
 
 #define MATRIX_DIM2 2
 #define MATRIX_DIM3 3

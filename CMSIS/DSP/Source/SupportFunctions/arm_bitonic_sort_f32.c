@@ -27,7 +27,7 @@
  */
 
 #include "edge-impulse-sdk/CMSIS/DSP/Include/arm_math.h"
-#include "arm_sorting.h"
+#include "edge-impulse-sdk/CMSIS/DSP/Include/arm_sorting.h"
 
 
 #if !defined(ARM_MATH_NEON)

@@ -60,8 +60,8 @@
                    Refer to \ref arm_correlate_fast_q31() for a faster but less precise implementation of this function.
  */
 #if defined(ARM_MATH_MVEI)
-#include "arm_helium_utils.h"
-#include "arm_vec_filtering.h"
+#include "edge-impulse-sdk/CMSIS/DSP/Include/arm_helium_utils.h"
+#include "edge-impulse-sdk/CMSIS/DSP/Include/arm_vec_filtering.h"
 void arm_correlate_q31(
   const q31_t * pSrcA,
         uint32_t srcALen,

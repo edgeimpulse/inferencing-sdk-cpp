@@ -23,10 +23,10 @@ limitations under the License.
 
 #include <functional>
 
-#include "fixedpoint/fixedpoint.h"
-#include "tensorflow/lite/kernels/internal/cppmath.h"
-#include "tensorflow/lite/kernels/internal/optimized/neon_check.h"
-#include "tensorflow/lite/kernels/internal/types.h"
+#include "edge-impulse-sdk/third_party/gemmlowp/fixedpoint/fixedpoint.h"
+#include "edge-impulse-sdk/tensorflow/lite/kernels/internal/cppmath.h"
+#include "edge-impulse-sdk/tensorflow/lite/kernels/internal/optimized/neon_check.h"
+#include "edge-impulse-sdk/tensorflow/lite/kernels/internal/types.h"
 
 namespace tflite {
 

@@ -18,7 +18,7 @@ limitations under the License.
 #ifndef FLATBUFFERS_GENERATED_SCHEMA_TFLITE_H_
 #define FLATBUFFERS_GENERATED_SCHEMA_TFLITE_H_
 
-#include "flatbuffers/flatbuffers.h"
+#include "edge-impulse-sdk/third_party/flatbuffers/include/flatbuffers/flatbuffers.h"
 
 namespace tflite {
 

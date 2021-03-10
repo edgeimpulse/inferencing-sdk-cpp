@@ -16,8 +16,8 @@ limitations under the License.
 #ifndef TENSORFLOW_LITE_MICRO_MEMORY_PLANNER_GREEDY_MEMORY_PLANNER_H_
 #define TENSORFLOW_LITE_MICRO_MEMORY_PLANNER_GREEDY_MEMORY_PLANNER_H_
 
-#include "tensorflow/lite/micro/compatibility.h"
-#include "tensorflow/lite/micro/memory_planner/memory_planner.h"
+#include "edge-impulse-sdk/tensorflow/lite/micro/compatibility.h"
+#include "edge-impulse-sdk/tensorflow/lite/micro/memory_planner/memory_planner.h"
 
 namespace tflite {
 

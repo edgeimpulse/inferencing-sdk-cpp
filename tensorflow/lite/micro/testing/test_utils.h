@@ -20,11 +20,11 @@ limitations under the License.
 #include <initializer_list>
 #include <limits>
 
-#include "tensorflow/lite/c/common.h"
-#include "tensorflow/lite/core/api/tensor_utils.h"
-#include "tensorflow/lite/micro/micro_utils.h"
-#include "tensorflow/lite/micro/test_helpers.h"
-#include "tensorflow/lite/micro/testing/micro_test.h"
+#include "edge-impulse-sdk/tensorflow/lite/c/common.h"
+#include "edge-impulse-sdk/tensorflow/lite/core/api/tensor_utils.h"
+#include "edge-impulse-sdk/tensorflow/lite/micro/micro_utils.h"
+#include "edge-impulse-sdk/tensorflow/lite/micro/test_helpers.h"
+#include "edge-impulse-sdk/tensorflow/lite/micro/testing/micro_test.h"
 
 namespace tflite {
 namespace testing {

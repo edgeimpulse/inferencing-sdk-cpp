@@ -379,7 +379,7 @@ extern "C"
 #pragma GCC diagnostic ignored "-Wattributes"
 
 #else
-#include "cmsis_compiler.h"
+#include "edge-impulse-sdk/CMSIS/Core/Include/cmsis_compiler.h"
 #endif
 
 

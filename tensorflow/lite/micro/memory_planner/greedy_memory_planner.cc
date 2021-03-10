@@ -13,7 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-#include "tensorflow/lite/micro/memory_planner/greedy_memory_planner.h"
+#include "edge-impulse-sdk/tensorflow/lite/micro/memory_planner/greedy_memory_planner.h"
 
 namespace tflite {
 

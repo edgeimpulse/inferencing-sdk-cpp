@@ -13,14 +13,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-#include "tensorflow/lite/micro/micro_utils.h"
+#include "edge-impulse-sdk/tensorflow/lite/micro/micro_utils.h"
 
 #include <limits.h>
 #include <math.h>
 #include <stdint.h>
 
-#include "tensorflow/lite/c/common.h"
-#include "tensorflow/lite/kernels/op_macros.h"
+#include "edge-impulse-sdk/tensorflow/lite/c/common.h"
+#include "edge-impulse-sdk/tensorflow/lite/kernels/op_macros.h"
 
 namespace tflite {
 

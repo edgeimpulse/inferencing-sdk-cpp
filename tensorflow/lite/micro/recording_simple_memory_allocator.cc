@@ -13,11 +13,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-#include "tensorflow/lite/micro/recording_simple_memory_allocator.h"
+#include "edge-impulse-sdk/tensorflow/lite/micro/recording_simple_memory_allocator.h"
 
 #include <new>
 
-#include "tensorflow/lite/kernels/internal/compatibility.h"
+#include "edge-impulse-sdk/tensorflow/lite/kernels/internal/compatibility.h"
 
 namespace tflite {
 

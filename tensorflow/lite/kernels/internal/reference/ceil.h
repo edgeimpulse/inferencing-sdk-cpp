@@ -17,7 +17,7 @@ limitations under the License.
 
 #include <cmath>
 
-#include "tensorflow/lite/kernels/internal/types.h"
+#include "edge-impulse-sdk/tensorflow/lite/kernels/internal/types.h"
 
 namespace tflite {
 

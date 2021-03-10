@@ -20,8 +20,8 @@ limitations under the License.
 #define TENSORFLOW_LITE_MICRO_KERNELS_ARC_MLI_TF_UTILS_H_
 
 #include "mli_api.h"  // NOLINT
-#include "tensorflow/lite/kernels/internal/common.h"
-#include "tensorflow/lite/kernels/internal/tensor_ctypes.h"
+#include "edge-impulse-sdk/tensorflow/lite/kernels/internal/common.h"
+#include "edge-impulse-sdk/tensorflow/lite/kernels/internal/tensor_ctypes.h"
 
 constexpr int kFracBitsQ15 = 15;
 constexpr int kFracBitsQ31 = 31;

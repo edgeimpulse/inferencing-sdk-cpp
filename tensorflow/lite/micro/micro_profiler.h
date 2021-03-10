@@ -16,9 +16,9 @@ limitations under the License.
 #ifndef TENSORFLOW_LITE_MICRO_MICRO_PROFILER_H_
 #define TENSORFLOW_LITE_MICRO_MICRO_PROFILER_H_
 
-#include "tensorflow/lite/core/api/error_reporter.h"
-#include "tensorflow/lite/core/api/profiler.h"
-#include "tensorflow/lite/micro/compatibility.h"
+#include "edge-impulse-sdk/tensorflow/lite/core/api/error_reporter.h"
+#include "edge-impulse-sdk/tensorflow/lite/core/api/profiler.h"
+#include "edge-impulse-sdk/tensorflow/lite/micro/compatibility.h"
 
 namespace tflite {
 

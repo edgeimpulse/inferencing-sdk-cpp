@@ -33,7 +33,7 @@
 #include "memory.hpp"
 #include "dct/fast-dct-fft.h"
 #include "kissfft/kiss_fftr.h"
-#if EIDSP_USE_CMSIS_FIXED_RFFT
+#if EIDSP_USE_CMSIS_FIXED
 #include "edge-impulse-sdk/CMSIS/DSP/Include/arm_math.h"
 #endif
 
@@ -47,9 +47,11 @@
 
 namespace ei {
 
+// clang-format off
 // lookup table for quantized values between 0.0f and 1.0f
 static const float quantized_values_one_zero[] = { (0.0f / 1.0f), (1.0f / 100.0f), (2.0f / 100.0f), (3.0f / 100.0f), (4.0f / 100.0f), (1.0f / 22.0f), (1.0f / 21.0f), (1.0f / 20.0f), (1.0f / 19.0f), (1.0f / 18.0f), (1.0f / 17.0f), (6.0f / 100.0f), (1.0f / 16.0f), (1.0f / 15.0f), (7.0f / 100.0f), (1.0f / 14.0f), (1.0f / 13.0f), (8.0f / 100.0f), (1.0f / 12.0f), (9.0f / 100.0f), (1.0f / 11.0f), (2.0f / 21.0f), (1.0f / 10.0f), (2.0f / 19.0f), (11.0f / 100.0f), (1.0f / 9.0f), (2.0f / 17.0f), (12.0f / 100.0f), (1.0f / 8.0f), (13.0f / 100.0f), (2.0f / 15.0f), (3.0f / 22.0f), (14.0f / 100.0f), (1.0f / 7.0f), (3.0f / 20.0f), (2.0f / 13.0f), (3.0f / 19.0f), (16.0f / 100.0f), (1.0f / 6.0f), (17.0f / 100.0f), (3.0f / 17.0f), (18.0f / 100.0f), (2.0f / 11.0f), (3.0f / 16.0f), (19.0f / 100.0f), (4.0f / 21.0f), (1.0f / 5.0f), (21.0f / 100.0f), (4.0f / 19.0f), (3.0f / 14.0f), (22.0f / 100.0f), (2.0f / 9.0f), (5.0f / 22.0f), (23.0f / 100.0f), (3.0f / 13.0f), (4.0f / 17.0f), (5.0f / 21.0f), (24.0f / 100.0f), (1.0f / 4.0f), (26.0f / 100.0f), (5.0f / 19.0f), (4.0f / 15.0f), (27.0f / 100.0f), (3.0f / 11.0f), (5.0f / 18.0f), (28.0f / 100.0f), (2.0f / 7.0f), (29.0f / 100.0f), (5.0f / 17.0f), (3.0f / 10.0f), (4.0f / 13.0f), (31.0f / 100.0f), (5.0f / 16.0f), (6.0f / 19.0f), (7.0f / 22.0f), (32.0f / 100.0f), (33.0f / 100.0f), (1.0f / 3.0f), (34.0f / 100.0f), (7.0f / 20.0f), (6.0f / 17.0f), (5.0f / 14.0f), (36.0f / 100.0f), (4.0f / 11.0f), (7.0f / 19.0f), (37.0f / 100.0f), (3.0f / 8.0f), (38.0f / 100.0f), (8.0f / 21.0f), (5.0f / 13.0f), (7.0f / 18.0f), (39.0f / 100.0f), (2.0f / 5.0f), (9.0f / 22.0f), (41.0f / 100.0f), (7.0f / 17.0f), (5.0f / 12.0f), (42.0f / 100.0f), (8.0f / 19.0f), (3.0f / 7.0f), (43.0f / 100.0f), (7.0f / 16.0f), (44.0f / 100.0f), (4.0f / 9.0f), (9.0f / 20.0f), (5.0f / 11.0f), (46.0f / 100.0f), (6.0f / 13.0f), (7.0f / 15.0f), (47.0f / 100.0f), (8.0f / 17.0f), (9.0f / 19.0f), (10.0f / 21.0f), (48.0f / 100.0f), (49.0f / 100.0f), (1.0f / 2.0f), (51.0f / 100.0f), (52.0f / 100.0f), (11.0f / 21.0f), (10.0f / 19.0f), (9.0f / 17.0f), (53.0f / 100.0f), (8.0f / 15.0f), (7.0f / 13.0f), (54.0f / 100.0f), (6.0f / 11.0f), (11.0f / 20.0f), (5.0f / 9.0f), (56.0f / 100.0f), (9.0f / 16.0f), (57.0f / 100.0f), (4.0f / 7.0f), (11.0f / 19.0f), (58.0f / 100.0f), (7.0f / 12.0f), (10.0f / 17.0f), (59.0f / 100.0f), (13.0f / 22.0f), (3.0f / 5.0f), (61.0f / 100.0f), (11.0f / 18.0f), (8.0f / 13.0f), (13.0f / 21.0f), (62.0f / 100.0f), (5.0f / 8.0f), (63.0f / 100.0f), (12.0f / 19.0f), (7.0f / 11.0f), (64.0f / 100.0f), (9.0f / 14.0f), (11.0f / 17.0f), (13.0f / 20.0f), (66.0f / 100.0f), (2.0f / 3.0f), (67.0f / 100.0f), (68.0f / 100.0f), (15.0f / 22.0f), (13.0f / 19.0f), (11.0f / 16.0f), (69.0f / 100.0f), (9.0f / 13.0f), (7.0f / 10.0f), (12.0f / 17.0f), (71.0f / 100.0f), (5.0f / 7.0f), (72.0f / 100.0f), (13.0f / 18.0f), (8.0f / 11.0f), (73.0f / 100.0f), (11.0f / 15.0f), (14.0f / 19.0f), (74.0f / 100.0f), (3.0f / 4.0f), (76.0f / 100.0f), (16.0f / 21.0f), (13.0f / 17.0f), (10.0f / 13.0f), (77.0f / 100.0f), (17.0f / 22.0f), (7.0f / 9.0f), (78.0f / 100.0f), (11.0f / 14.0f), (15.0f / 19.0f), (79.0f / 100.0f), (4.0f / 5.0f), (17.0f / 21.0f), (81.0f / 100.0f), (13.0f / 16.0f), (9.0f / 11.0f), (82.0f / 100.0f), (14.0f / 17.0f), (83.0f / 100.0f), (5.0f / 6.0f), (84.0f / 100.0f), (16.0f / 19.0f), (11.0f / 13.0f), (17.0f / 20.0f), (6.0f / 7.0f), (86.0f / 100.0f), (19.0f / 22.0f), (13.0f / 15.0f), (87.0f / 100.0f), (7.0f / 8.0f), (88.0f / 100.0f), (15.0f / 17.0f), (8.0f / 9.0f), (89.0f / 100.0f), (17.0f / 19.0f), (9.0f / 10.0f), (19.0f / 21.0f), (10.0f / 11.0f), (91.0f / 100.0f), (11.0f / 12.0f), (92.0f / 100.0f), (12.0f / 13.0f), (13.0f / 14.0f), (93.0f / 100.0f), (14.0f / 15.0f), (15.0f / 16.0f), (94.0f / 100.0f), (16.0f / 17.0f), (17.0f / 18.0f), (18.0f / 19.0f), (19.0f / 20.0f), (20.0f / 21.0f), (21.0f / 22.0f), (96.0f / 100.0f), (97.0f / 100.0f), (98.0f / 100.0f), (99.0f / 100.0f), (1.0f / 1.0f) ,
     1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f };
+// clang-format on
 
 class numpy {
 public:
@@ -362,7 +364,7 @@ public:
             EIDSP_ERR(EIDSP_OUT_OF_MEM);
         }
 
-#if EIDSP_USE_CMSIS_DSP
+#if EIDSP_USE_CMSIS_FiXED
         const arm_matrix_instance_q15 i_m = {
             static_cast<uint16_t>(columns),
             static_cast<uint16_t>(rows),
@@ -650,7 +652,7 @@ public:
         EIDSP_i16 scale_i16;
         float_to_int16(&scale, &scale_i16, 1);
 
-#if EIDSP_USE_CMSIS_DSP
+#if EIDSP_USE_CMSIS_FiXED
         const arm_matrix_instance_q15 mi = {(uint16_t)matrix->rows, (uint16_t)matrix->cols, matrix->buffer };
         arm_matrix_instance_q15 mo = { (uint16_t)matrix->rows, (uint16_t)matrix->cols, matrix->buffer };
         int status = arm_mat_scale_q15(&mi, scale_i16, 0, &mo);
@@ -680,7 +682,7 @@ public:
         EIDSP_i32 scale_i32;
         float_to_int32(&scale, &scale_i32, 1);
 
-#if EIDSP_USE_CMSIS_DSP
+#if EIDSP_USE_CMSIS_FiXED
         const arm_matrix_instance_q31 mi = { (uint16_t)matrix->rows, (uint16_t)matrix->cols, matrix->buffer };
         arm_matrix_instance_q31 mo = { (uint16_t)matrix->rows, (uint16_t)matrix->cols, matrix->buffer };
         int status = arm_mat_scale_q31(&mi, scale_i32, 0, &mo);
@@ -889,7 +891,7 @@ public:
         }
 
         for (size_t row = 0; row < matrix->rows; row++) {
-#if EIDSP_USE_CMSIS_DSP
+#if EIDSP_USE_CMSIS_FiXED
             EIDSP_i16 rms_result;
             arm_rms_q15(matrix->buffer + (row * matrix->cols), matrix->cols, &rms_result);
             output_matrix->buffer[row] = rms_result;
@@ -952,7 +954,7 @@ public:
         }
 
         for (size_t row = 0; row < input_matrix->rows; row++) {
-#if EIDSP_USE_CMSIS_DSP
+#if EIDSP_USE_CMSIS_FiXED
             EIDSP_i16 mean;
             arm_mean_q15(input_matrix->buffer + (row * input_matrix->cols), input_matrix->cols, &mean);
             output_matrix->buffer[row] = mean;
@@ -1395,7 +1397,7 @@ public:
         // pad to the rigth with zeros
         memset(fft_input.buffer + src_size, 0, (n_fft - src_size) * sizeof(EIDSP_i16));
 
-#if EIDSP_USE_CMSIS_FIXED_RFFT
+#if EIDSP_USE_CMSIS_FIXED
         if (n_fft != 32 && n_fft != 64 && n_fft != 128 && n_fft != 256 &&
             n_fft != 512 && n_fft != 1024 && n_fft != 2048 && n_fft != 4096) {
             EIDSP_ERR(EIDSP_PARAMETER_INVALID); //TODO zero pad so we can use anyway`
@@ -1427,7 +1429,8 @@ public:
             }
         }
 #else
-        #error("No DSP lib defined!  Use CMSIS-DSP for C implementation ( #define EIDSP_USE_CMSIS_FIXED_RFFT 1 )")
+        #error("No DSP lib defined!  Use CMSIS-DSP for C implementation ( #define EIDSP_USE_CMSIS_DSP 1 )")
+}
 #endif
 
         return EIDSP_OK;
@@ -1467,7 +1470,7 @@ public:
         // pad to the rigth with zeros
         memset(fft_input.buffer + src_size, 0, (n_fft - src_size) * sizeof(EIDSP_i32));
 
-#if EIDSP_USE_CMSIS_FIXED_RFFT
+#if EIDSP_USE_CMSIS_FIXED
         if (n_fft != 32 && n_fft != 64 && n_fft != 128 && n_fft != 256 &&
             n_fft != 512 && n_fft != 1024 && n_fft != 2048 && n_fft != 4096) {
             EIDSP_ERR(EIDSP_PARAMETER_INVALID);
@@ -1501,7 +1504,7 @@ public:
             }
         }
 #else
-        #error("No DSP lib defined!  Use CMSIS-DSP for C implementation ( #define EIDSP_USE_CMSIS_FIXED_RFFT 1 )")
+        #error("No DSP lib defined!  Use CMSIS-DSP for C implementation ( #define EIDSP_USE_CMSIS_FIXED 1 )")
 #endif
 
         return EIDSP_OK;
@@ -1621,16 +1624,12 @@ public:
             memset(fft_input.buffer + src_size, 0, (n_fft - src_size) * sizeof(EIDSP_i16));
         }
 
-#if 1//EIDSP_USE_CMSIS_DSP
-        // if (n_fft != 32 && n_fft != 64 && n_fft != 128 && n_fft != 256 &&
-        //     n_fft != 512 && n_fft != 1024 && n_fft != 2048 && n_fft != 4096) {
-        //     int ret = software_rfft(fft_input.buffer, output, n_fft, n_fft_out_features);
-        //     if (ret != EIDSP_OK) {
-        //         EIDSP_ERR(ret);
-        //     }
-        // }
-        // else {
-        {
+#if EIDSP_USE_CMSIS_FIXED
+        if (n_fft != 32 && n_fft != 64 && n_fft != 128 && n_fft != 256 &&
+            n_fft != 512 && n_fft != 1024 && n_fft != 2048 && n_fft != 4096) {
+                EIDSP_ERR(EIDSP_PARAMETER_INVALID); // fixed fft lib does not support arbitrary input length
+        }
+        else {
             // hardware acceleration only works for the powers above...
             arm_rfft_instance_q15 rfft_instance;
             arm_status status = arm_rfft_init_q15(&rfft_instance, n_fft, 0, 1);
@@ -1793,7 +1792,7 @@ public:
      * @returns 0 if OK
      */
     static int int32_to_float(const EIDSP_i32 *input, float *output, size_t length) {
-#if EIDSP_USE_CMSIS_DSP
+#if EIDSP_USE_CMSIS_FiXED
         arm_q31_to_float((q31_t *)input, output, length);
 #else
         for (size_t ix = 0; ix < length; ix++) {
@@ -1812,7 +1811,7 @@ public:
      * @returns 0 if OK
      */
     static int float_to_int32(const float *input, EIDSP_i32 *output, size_t length) {
-#if EIDSP_USE_CMSIS_DSP
+#if EIDSP_USE_CMSIS_FiXED
         arm_float_to_q31((float *)input, (q31_t *)output, length);
 #else
         for (size_t ix = 0; ix < length; ix++) {
@@ -1830,7 +1829,7 @@ public:
      * @returns 0 if OK
      */
     static int int16_to_float(const EIDSP_i16 *input, float *output, size_t length) {
-#if EIDSP_USE_CMSIS_DSP
+#if EIDSP_USE_CMSIS_FiXED
         arm_q15_to_float((q15_t *)input, output, length);
 #else
         for (size_t ix = 0; ix < length; ix++) {
@@ -1849,7 +1848,7 @@ public:
      * @returns 0 if OK
      */
     static int float_to_int16(const float *input, EIDSP_i16 *output, size_t length) {
-#if EIDSP_USE_CMSIS_DSP
+#if EIDSP_USE_CMSIS_FiXED
         arm_float_to_q15((float *)input, output, length);
 #else
         for (size_t ix = 0; ix < length; ix++) {
@@ -1867,7 +1866,7 @@ public:
      * @returns 0 if OK
      */
     static int int8_to_float(const EIDSP_i8 *input, float *output, size_t length) {
-#if EIDSP_USE_CMSIS_DSP
+#if EIDSP_USE_CMSIS_FiXED
         arm_q7_to_float((q7_t *)input, output, length);
 #else
         for (size_t ix = 0; ix < length; ix++) {

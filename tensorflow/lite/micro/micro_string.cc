@@ -19,7 +19,7 @@ limitations under the License.
 // of DebugLog() and then get the numerical variations without requiring any
 // more code.
 
-#include "tensorflow/lite/micro/micro_string.h"
+#include "edge-impulse-sdk/tensorflow/lite/micro/micro_string.h"
 
 #include <cstdarg>
 #include <cstdint>

@@ -205,13 +205,22 @@ namespace processing {
         }
 
         size_t length_signal = info->signal->total_length;
-        int frame_sample_length = static_cast<int>(round(static_cast<float>(sampling_frequency) * frame_length));
-        frame_stride = round(static_cast<float>(sampling_frequency) * frame_stride);
+        int frame_sample_length;
+        int length;
+        if (version == 1) {
+            frame_sample_length = static_cast<int>(round(static_cast<float>(sampling_frequency) * frame_length));
+            frame_stride = round(static_cast<float>(sampling_frequency) * frame_stride);
+            length = frame_sample_length;
+        }
+        else {
+            frame_sample_length = static_cast<int>(ceil(static_cast<float>(sampling_frequency) * frame_length));
+            float frame_stride_arg = frame_stride;
+            frame_stride = ceil(static_cast<float>(sampling_frequency) * frame_stride_arg);
+            length = (frame_sample_length - (int)frame_stride);
+        }
 
         volatile int numframes;
         volatile int len_sig;
-
-        int length = (version > 1) ? (frame_sample_length - frame_stride) : (frame_sample_length);
 
         if (zero_padding) {
             // Calculation of number of frames
@@ -270,21 +279,30 @@ namespace processing {
         bool zero_padding,
         uint16_t version)
     {
-        size_t length_signal = signal_size;
-        int frame_sample_length = static_cast<int>(round(static_cast<float>(sampling_frequency) * frame_length));
-        frame_stride = round(static_cast<float>(sampling_frequency) * frame_stride);
+        int frame_sample_length;
+        int length;
+        if (version == 1) {
+            frame_sample_length = static_cast<int>(round(static_cast<float>(sampling_frequency) * frame_length));
+            frame_stride = round(static_cast<float>(sampling_frequency) * frame_stride);
+            length = frame_sample_length;
+        }
+        else {
+            frame_sample_length = static_cast<int>(ceil(static_cast<float>(sampling_frequency) * frame_length));
+            float frame_stride_arg = frame_stride;
+            frame_stride = ceil(static_cast<float>(sampling_frequency) * frame_stride_arg);
+            length = (frame_sample_length - (int)frame_stride);
+        }
 
-        int numframes;
-        int length = (version > 1) ? (frame_sample_length - frame_stride) : (frame_sample_length);
+        volatile int numframes;
 
         if (zero_padding) {
             // Calculation of number of frames
             numframes = static_cast<int>(
-                ceil(static_cast<float>(length_signal - length) / frame_stride));
+                ceil(static_cast<float>(signal_size - length) / frame_stride));
         }
         else {
             numframes = static_cast<int>(
-                floor(static_cast<float>(length_signal - length) / frame_stride));
+                floor(static_cast<float>(signal_size - length) / frame_stride));
         }
 
         return numframes;

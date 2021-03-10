@@ -59,7 +59,7 @@
 
 #if defined(ARM_MATH_MVEI)
 
-#include "arm_helium_utils.h"
+#include "edge-impulse-sdk/CMSIS/DSP/Include/arm_helium_utils.h"
 
 void arm_fir_decimate_q15(
   const arm_fir_decimate_instance_q15 * S,

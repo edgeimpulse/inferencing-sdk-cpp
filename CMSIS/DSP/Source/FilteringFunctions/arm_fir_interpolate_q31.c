@@ -56,7 +56,7 @@
 
 #if defined(ARM_MATH_MVEI)
 
-#include "arm_helium_utils.h"
+#include "edge-impulse-sdk/CMSIS/DSP/Include/arm_helium_utils.h"
 void arm_fir_interpolate_q31(
   const arm_fir_interpolate_instance_q31 * S,
   const q31_t * pSrc,

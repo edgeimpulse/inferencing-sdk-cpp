@@ -42,8 +42,8 @@ limitations under the License.
 
 #include <vector>
 
-#include "tensorflow/lite/c/common.h"
-#include "tensorflow/lite/string_type.h"
+#include "edge-impulse-sdk/tensorflow/lite/c/common.h"
+#include "edge-impulse-sdk/tensorflow/lite/string_type.h"
 
 namespace tflite {
 

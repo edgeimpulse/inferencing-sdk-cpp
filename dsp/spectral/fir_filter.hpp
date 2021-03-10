@@ -1,4 +1,4 @@
-/* Edge Impulse inferencing library
+/* Edge Impulse inferencing library 
  * Copyright (c) 2020 EdgeImpulse Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -82,7 +82,7 @@ private:
 
     void convert_lowpass_to_highpass(std::vector<float> &f_taps)
     {
-        for (int i = 0; i < f_taps.size(); i += 2)
+        for (size_t i = 0; i < f_taps.size(); i += 2)
         {
             f_taps[i] *= -1;
         }
@@ -154,7 +154,7 @@ public:
         input_t *dest,
         size_t size)
     {
-        for (int i = 0; i < size; i++)
+        for (size_t i = 0; i < size; i++)
         {
             history[write_index] = src[i];
             int read_index = write_index;

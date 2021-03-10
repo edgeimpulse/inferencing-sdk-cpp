@@ -25,8 +25,8 @@
 
 #include <stdarg.h>
 #include <stdlib.h>
-#include "ei_device_eta_ecm3532.h"
 #include "eta_bsp.h"
+#include "FreeRTOS.h"
 
 __attribute__((weak)) EI_IMPULSE_ERROR ei_run_impulse_check_canceled() {
     return EI_IMPULSE_OK;
@@ -36,7 +36,7 @@ __attribute__((weak)) EI_IMPULSE_ERROR ei_run_impulse_check_canceled() {
  * Cancelable sleep, can be triggered with signal from other thread
  */
 __attribute__((weak)) EI_IMPULSE_ERROR ei_sleep(int32_t time_ms) {
-    EiDevice.delay_ms(time_ms);
+    EtaCspTimerDelayMs(time_ms);
     return EI_IMPULSE_OK;
 }
 
@@ -49,10 +49,18 @@ uint64_t ei_read_timer_us() {
 }
 
 __attribute__((weak)) void ei_printf(const char *format, ...) {
-    va_list myargs;
-    va_start(myargs, format);
-    vprintf(format, myargs);
-    va_end(myargs);
+    
+    extern tUart etaUart;
+    char print_buf[1024] = {0};
+
+    va_list args;
+    va_start(args, format);
+    int r = vsnprintf(print_buf, sizeof(print_buf), format, args);
+    va_end(args);
+
+    if (r > 0) {
+        EtaCspUartPuts(&etaUart, print_buf);
+    }
 }
 
 __attribute__((weak)) void ei_printf_float(float f) {
@@ -60,15 +68,25 @@ __attribute__((weak)) void ei_printf_float(float f) {
 }
 
 __attribute__((weak)) void *ei_malloc(size_t size) {
-    return malloc(size);
+    return pvPortMalloc(size);
 }
 
 __attribute__((weak)) void *ei_calloc(size_t nitems, size_t size) {
-    return calloc(nitems, size);
+    
+    uint32_t ix;
+    uint8_t *ptr = (uint8_t *)pvPortMalloc(nitems * size);
+
+    if(ptr) {
+        for (ix = 0; ix < (nitems * size); ix++) {
+            *(ptr + ix) = 0;            
+        }
+    }
+
+    return (void *)ptr;
 }
 
 __attribute__((weak)) void ei_free(void *ptr) {
-    free(ptr);
+    vPortFree(ptr);
 }
 
 #if defined(__cplusplus) && EI_C_LINKAGE == 1

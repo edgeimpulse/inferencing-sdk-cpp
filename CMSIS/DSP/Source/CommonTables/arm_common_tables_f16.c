@@ -26,7 +26,7 @@
  * limitations under the License.
  */
 
-#include "arm_math_f16.h"
+#include "edge-impulse-sdk/CMSIS/DSP/Include/arm_math_f16.h"
 
 /**
   @ingroup ComplexFFT
@@ -47,7 +47,7 @@
 
 #if defined(ARM_FLOAT16_SUPPORTED)
 
-#include "arm_common_tables_f16.h"
+#include "edge-impulse-sdk/CMSIS/DSP/Include/arm_common_tables_f16.h"
 
 
 #if !defined(ARM_DSP_CONFIG_TABLES) || defined(ARM_FFT_ALLOW_TABLES)

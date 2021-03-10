@@ -28,7 +28,7 @@
  */
 
 #include "edge-impulse-sdk/CMSIS/DSP/Include/arm_math.h"
-#include "arm_const_structs.h"
+#include "edge-impulse-sdk/CMSIS/DSP/Include/arm_const_structs.h"
 
 /*
 ALLOW TABLE is true when config table is enabled and the Tramsform folder is included 

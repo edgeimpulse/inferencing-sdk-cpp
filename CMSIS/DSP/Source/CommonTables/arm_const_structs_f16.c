@@ -27,11 +27,11 @@
  * limitations under the License.
  */
 
-#include "arm_math_f16.h"
+#include "edge-impulse-sdk/CMSIS/DSP/Include/arm_math_f16.h"
 
 #if defined(ARM_FLOAT16_SUPPORTED)
 
-#include "arm_const_structs_f16.h"
+#include "edge-impulse-sdk/CMSIS/DSP/Include/arm_const_structs_f16.h"
 
 
 /*

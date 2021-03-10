@@ -15,8 +15,8 @@ limitations under the License.
 #ifndef TENSORFLOW_LITE_KERNELS_INTERNAL_REFERENCE_ADD_H_
 #define TENSORFLOW_LITE_KERNELS_INTERNAL_REFERENCE_ADD_H_
 
-#include "fixedpoint/fixedpoint.h"
-#include "tensorflow/lite/kernels/internal/common.h"
+#include "edge-impulse-sdk/third_party/gemmlowp/fixedpoint/fixedpoint.h"
+#include "edge-impulse-sdk/tensorflow/lite/kernels/internal/common.h"
 
 namespace tflite {
 

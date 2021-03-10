@@ -56,9 +56,9 @@
                    Refer to \ref arm_conv_opt_q7() for a faster implementation of this function.
  */
 #if defined(ARM_MATH_MVEI)
-#include "arm_helium_utils.h"
+#include "edge-impulse-sdk/CMSIS/DSP/Include/arm_helium_utils.h"
 
-#include "arm_vec_filtering.h"
+#include "edge-impulse-sdk/CMSIS/DSP/Include/arm_vec_filtering.h"
 
 void arm_conv_q7(
   const q7_t * pSrcA,

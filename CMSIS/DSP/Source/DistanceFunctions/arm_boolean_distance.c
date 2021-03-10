@@ -43,7 +43,7 @@
 #define TF 
 #define FT
 #define EXT _TT_TF_FT
-#include "arm_boolean_distance_template.h"
+#include "edge-impulse-sdk/CMSIS/DSP/Source/DistanceFunctions/arm_boolean_distance_template.h"
 
 #undef TT
 #undef FF
@@ -53,7 +53,7 @@
 #define TF 
 #define FT
 #define EXT _TF_FT
-#include "arm_boolean_distance_template.h"
+#include "edge-impulse-sdk/CMSIS/DSP/Source/DistanceFunctions/arm_boolean_distance_template.h"
 
 #undef TT
 #undef FF
@@ -65,7 +65,7 @@
 #define TF 
 #define FT
 #define EXT _TT_FF_TF_FT
-#include "arm_boolean_distance_template.h"
+#include "edge-impulse-sdk/CMSIS/DSP/Source/DistanceFunctions/arm_boolean_distance_template.h"
 
 #undef TT
 #undef FF
@@ -74,5 +74,5 @@
 #undef EXT
 #define TT
 #define EXT _TT
-#include "arm_boolean_distance_template.h"
+#include "edge-impulse-sdk/CMSIS/DSP/Source/DistanceFunctions/arm_boolean_distance_template.h"
 

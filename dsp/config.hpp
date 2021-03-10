@@ -23,6 +23,7 @@
 #ifndef _EIDSP_CPP_CONFIG_H_
 #define _EIDSP_CPP_CONFIG_H_
 
+// clang-format off
 #ifndef EIDSP_USE_CMSIS_DSP
 #if defined(__MBED__) || defined(__TARGET_CPU_CORTEX_M0) || defined(__TARGET_CPU_CORTEX_M0PLUS) || defined(__TARGET_CPU_CORTEX_M3) || defined(__TARGET_CPU_CORTEX_M4) || defined(__TARGET_CPU_CORTEX_M7) || defined(USE_HAL_DRIVER)
     // Mbed OS versions before 5.7 are not based on CMSIS5, disable CMSIS-DSP and CMSIS-NN instructions
@@ -51,7 +52,7 @@
 
 //TODO when we have other fixed point libraries, change this
 //even if we don't use cmsis, use their fixed point FFT
-#define EIDSP_USE_CMSIS_FIXED_RFFT 1
+#define EIDSP_USE_CMSIS_FIXED 1
 
 #if EIDSP_USE_CMSIS_DSP == 1
 #define EIDSP_i32                int32_t
@@ -97,4 +98,5 @@
 #define EIDSP_SIGNAL_C_FN_POINTER    0
 #endif // EIDSP_SIGNAL_C_FN_POINTER
 
+// clang-format on
 #endif // _EIDSP_CPP_CONFIG_H_

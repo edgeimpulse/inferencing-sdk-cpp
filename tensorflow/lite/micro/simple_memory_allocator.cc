@@ -13,15 +13,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-#include "tensorflow/lite/micro/simple_memory_allocator.h"
+#include "edge-impulse-sdk/tensorflow/lite/micro/simple_memory_allocator.h"
 
 #include <cstddef>
 #include <cstdint>
 #include <new>
 
-#include "tensorflow/lite/core/api/error_reporter.h"
-#include "tensorflow/lite/kernels/internal/compatibility.h"
-#include "tensorflow/lite/micro/memory_helpers.h"
+#include "edge-impulse-sdk/tensorflow/lite/core/api/error_reporter.h"
+#include "edge-impulse-sdk/tensorflow/lite/kernels/internal/compatibility.h"
+#include "edge-impulse-sdk/tensorflow/lite/micro/memory_helpers.h"
 
 namespace tflite {
 

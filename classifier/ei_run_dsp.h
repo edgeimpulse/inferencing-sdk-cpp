@@ -146,7 +146,7 @@ matrix_i16_t *create_edges_matrix(ei_dsp_config_spectral_analysis_t config, cons
 {
     // the spectral edges that we want to calculate
     static matrix_i16_t edges_matrix_in(64, 1);
-    static bool matrix_created = false;    
+    static bool matrix_created = false;
     size_t edge_matrix_ix = 0;
 
     if(matrix_created == false) {
@@ -161,7 +161,7 @@ matrix_i16_t *create_edges_matrix(ei_dsp_config_spectral_analysis_t config, cons
         char *spectral_ptr = spectral_str;
         while (spectral_ptr != NULL) {
             float edge = (atof(spectral_ptr) / (float)(sampling_freq/2.f));
-            numpy::float_to_int16(&edge, &edges_matrix_in.buffer[edge_matrix_ix++], 1);            
+            numpy::float_to_int16(&edge, &edges_matrix_in.buffer[edge_matrix_ix++], 1);
 
             // find next (spectral) delimiter (or '\0' character)
             while((*spectral_ptr != ',')) {
@@ -525,7 +525,8 @@ __attribute__((unused)) int extract_spectrogram_features(signal_t *signal, matri
     // calculate the size of the MFE matrix
     matrix_size_t out_matrix_size =
         speechpy::feature::calculate_mfe_buffer_size(
-            signal->total_length, frequency, config.frame_length, config.frame_stride, config.fft_length / 2 + 1);
+            signal->total_length, frequency, config.frame_length, config.frame_stride, config.fft_length / 2 + 1,
+            config.implementation_version);
     /* Only throw size mismatch error calculated buffer doesn't fit for continuous inferencing */
     if (out_matrix_size.rows * out_matrix_size.cols > output_matrix->rows * output_matrix->cols) {
         ei_printf("out_matrix = %hux%hu\n", output_matrix->rows, output_matrix->cols);
@@ -543,9 +544,9 @@ __attribute__((unused)) int extract_spectrogram_features(signal_t *signal, matri
     }
 
     int ret = speechpy::feature::spectrogram(output_matrix, signal,
-        frequency, config.frame_length, config.frame_stride, config.fft_length);
+        frequency, config.frame_length, config.frame_stride, config.fft_length, config.implementation_version);
     if (ret != EIDSP_OK) {
-        ei_printf("ERR: MFE failed (%d)\n", ret);
+        ei_printf("ERR: Spectrogram failed (%d)\n", ret);
         EIDSP_ERR(ret);
     }
 
@@ -583,7 +584,8 @@ __attribute__((unused)) int extract_spectrogram_per_slice_features(signal_t *sig
     // calculate the size of the MFE matrix
     matrix_size_t out_matrix_size =
         speechpy::feature::calculate_mfe_buffer_size(
-            signal->total_length, frequency, config.frame_length, config.frame_stride, config.fft_length / 2 + 1);
+            signal->total_length, frequency, config.frame_length, config.frame_stride, config.fft_length / 2 + 1,
+            config.implementation_version);
     /* Only throw size mismatch error calculated buffer doesn't fit for continuous inferencing */
     if (out_matrix_size.rows * out_matrix_size.cols > output_matrix->rows * output_matrix->cols) {
         ei_printf("out_matrix = %hux%hu\n", output_matrix->rows, output_matrix->cols);
@@ -601,7 +603,7 @@ __attribute__((unused)) int extract_spectrogram_per_slice_features(signal_t *sig
 
     // and calculate the spectrogram
     int ret = speechpy::feature::spectrogram(output_matrix, signal,
-        frequency, config.frame_length, config.frame_stride, config.fft_length);
+        frequency, config.frame_length, config.frame_stride, config.fft_length, config.implementation_version);
     if (ret != EIDSP_OK) {
         ei_printf("ERR: Spectrogram failed (%d)\n", ret);
         EIDSP_ERR(ret);
@@ -625,7 +627,8 @@ __attribute__((unused)) int extract_mfe_features(signal_t *signal, matrix_t *out
     // calculate the size of the MFE matrix
     matrix_size_t out_matrix_size =
         speechpy::feature::calculate_mfe_buffer_size(
-            signal->total_length, frequency, config.frame_length, config.frame_stride, config.num_filters);
+            signal->total_length, frequency, config.frame_length, config.frame_stride, config.num_filters,
+            config.implementation_version);
     /* Only throw size mismatch error calculated buffer doesn't fit for continuous inferencing */
     if (out_matrix_size.rows * out_matrix_size.cols > output_matrix->rows * output_matrix->cols) {
         ei_printf("out_matrix = %hux%hu\n", output_matrix->rows, output_matrix->cols);
@@ -644,7 +647,7 @@ __attribute__((unused)) int extract_mfe_features(signal_t *signal, matrix_t *out
 
     int ret = speechpy::feature::mfe(output_matrix, &energy_matrix, signal,
         frequency, config.frame_length, config.frame_stride, config.num_filters, config.fft_length,
-        config.low_frequency, config.high_frequency);
+        config.low_frequency, config.high_frequency, config.implementation_version);
     if (ret != EIDSP_OK) {
         ei_printf("ERR: MFE failed (%d)\n", ret);
         EIDSP_ERR(ret);
@@ -686,7 +689,8 @@ __attribute__((unused)) int extract_mfe_per_slice_features(signal_t *signal, mat
     // calculate the size of the MFE matrix
     matrix_size_t out_matrix_size =
         speechpy::feature::calculate_mfe_buffer_size(
-            signal->total_length, frequency, config.frame_length, config.frame_stride, config.num_filters);
+            signal->total_length, frequency, config.frame_length, config.frame_stride, config.num_filters,
+            config.implementation_version);
     /* Only throw size mismatch error calculated buffer doesn't fit for continuous inferencing */
     if (out_matrix_size.rows * out_matrix_size.cols > output_matrix->rows * output_matrix->cols) {
         ei_printf("out_matrix = %hux%hu\n", output_matrix->rows, output_matrix->cols);
@@ -705,7 +709,7 @@ __attribute__((unused)) int extract_mfe_per_slice_features(signal_t *signal, mat
     // and run the MFE extraction
     int ret = speechpy::feature::mfe(output_matrix, &energy_matrix, signal,
         frequency, config.frame_length, config.frame_stride, config.num_filters, config.fft_length,
-        config.low_frequency, config.high_frequency);
+        config.low_frequency, config.high_frequency, config.implementation_version);
     if (ret != EIDSP_OK) {
         ei_printf("ERR: MFCC failed (%d)\n", ret);
         EIDSP_ERR(ret);

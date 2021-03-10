@@ -53,7 +53,7 @@
 
 #if defined(ARM_MATH_MVEI)
 
-#include "arm_helium_utils.h"
+#include "edge-impulse-sdk/CMSIS/DSP/Include/arm_helium_utils.h"
 
 void arm_abs_q7(
     const q7_t * pSrc,

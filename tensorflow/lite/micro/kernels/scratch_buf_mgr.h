@@ -20,7 +20,7 @@ limitations under the License.
 #define TENSORFLOW_LITE_MICRO_ARC_SCRATCH_BUF_MGR_H_
 
 #include "mli_api.h"  // NOLINT
-#include "tensorflow/lite/c/common.h"
+#include "edge-impulse-sdk/tensorflow/lite/c/common.h"
 
 namespace tflite {
 namespace ops {

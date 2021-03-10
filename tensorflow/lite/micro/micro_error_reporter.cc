@@ -13,13 +13,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-#include "tensorflow/lite/micro/micro_error_reporter.h"
+#include "edge-impulse-sdk/tensorflow/lite/micro/micro_error_reporter.h"
 
 #include <cstdarg>
 
 #ifndef TF_LITE_STRIP_ERROR_STRINGS
-#include "tensorflow/lite/micro/debug_log.h"
-#include "tensorflow/lite/micro/micro_string.h"
+#include "edge-impulse-sdk/tensorflow/lite/micro/debug_log.h"
+#include "edge-impulse-sdk/tensorflow/lite/micro/micro_string.h"
 #endif
 
 namespace tflite {

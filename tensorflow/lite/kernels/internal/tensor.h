@@ -15,13 +15,20 @@ limitations under the License.
 #ifndef TENSORFLOW_LITE_KERNELS_INTERNAL_TENSOR_H_
 #define TENSORFLOW_LITE_KERNELS_INTERNAL_TENSOR_H_
 
+#ifdef ECM3532
+#undef _GLIBCXX_HAVE_ENOTSUP
+#undef _GLIBCXX_HAVE_ECANCELED
+#undef _GLIBCXX_HAVE_EOWNERDEAD
+#undef _GLIBCXX_HAVE_ENOTRECOVERABLE
+#endif
+
 #include <complex>
 #include <vector>
 
-#include "tensorflow/lite/c/common.h"
-#include "tensorflow/lite/kernels/internal/tensor_ctypes.h"
-#include "tensorflow/lite/kernels/internal/types.h"
-#include "tensorflow/lite/string_util.h"
+#include "edge-impulse-sdk/tensorflow/lite/c/common.h"
+#include "edge-impulse-sdk/tensorflow/lite/kernels/internal/tensor_ctypes.h"
+#include "edge-impulse-sdk/tensorflow/lite/kernels/internal/types.h"
+#include "edge-impulse-sdk/tensorflow/lite/string_util.h"
 
 namespace tflite {
 

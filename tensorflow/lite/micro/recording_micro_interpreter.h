@@ -16,8 +16,8 @@ limitations under the License.
 #ifndef TENSORFLOW_LITE_MICRO_RECORDING_MICRO_INTERPRETER_H_
 #define TENSORFLOW_LITE_MICRO_RECORDING_MICRO_INTERPRETER_H_
 
-#include "tensorflow/lite/micro/micro_interpreter.h"
-#include "tensorflow/lite/micro/recording_micro_allocator.h"
+#include "edge-impulse-sdk/tensorflow/lite/micro/micro_interpreter.h"
+#include "edge-impulse-sdk/tensorflow/lite/micro/recording_micro_allocator.h"
 
 namespace tflite {
 

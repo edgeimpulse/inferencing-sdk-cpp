@@ -17,7 +17,7 @@ limitations under the License.
 #ifndef TENSORFLOW_LITE_MICRO_MICRO_OPTIONAL_DEBUG_TOOLS_H_
 #define TENSORFLOW_LITE_MICRO_MICRO_OPTIONAL_DEBUG_TOOLS_H_
 
-#include "tensorflow/lite/micro/micro_interpreter.h"
+#include "edge-impulse-sdk/tensorflow/lite/micro/micro_interpreter.h"
 
 namespace tflite {
 // Helper function to print model flatbuffer data. This function is not called

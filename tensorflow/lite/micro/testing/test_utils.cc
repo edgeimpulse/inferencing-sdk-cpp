@@ -13,9 +13,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-#include "tensorflow/lite/micro/testing/test_utils.h"
+#include "edge-impulse-sdk/tensorflow/lite/micro/testing/test_utils.h"
 
-#include "tensorflow/lite/micro/simple_memory_allocator.h"
+#include "edge-impulse-sdk/tensorflow/lite/micro/simple_memory_allocator.h"
 
 namespace tflite {
 namespace testing {

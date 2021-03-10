@@ -27,7 +27,7 @@
  */
 
 #include "edge-impulse-sdk/CMSIS/DSP/Include/arm_math.h"
-#include "arm_math_f16.h"
+#include "edge-impulse-sdk/CMSIS/DSP/Include/arm_math_f16.h"
 #include "edge-impulse-sdk/CMSIS/DSP/Include/arm_common_tables.h"
 
 /*

@@ -13,7 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-#include "tensorflow/lite/micro/testing/test_conv_model.h"
+#include "edge-impulse-sdk/tensorflow/lite/micro/testing/test_conv_model.h"
 
 extern const unsigned char kTestConvModelData[] = {
     0x24, 0x00, 0x00, 0x00, 0x54, 0x46, 0x4c, 0x33, 0x00, 0x00, 0x00, 0x00,

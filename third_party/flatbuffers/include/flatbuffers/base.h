@@ -33,9 +33,16 @@
 #include <cstring>
 
 #if defined(ARDUINO) && !defined(ARDUINOSTL_M_H)
-  #include <utility.h>
+  #include <utility>
 #else
   #include <utility>
+#endif
+
+#ifdef ECM3532
+#undef _GLIBCXX_HAVE_ENOTSUP
+#undef _GLIBCXX_HAVE_ECANCELED
+#undef _GLIBCXX_HAVE_EOWNERDEAD
+#undef _GLIBCXX_HAVE_ENOTRECOVERABLE
 #endif
 
 #include <string>
@@ -53,7 +60,7 @@
   #include <functional>
 #endif
 
-#include "flatbuffers/stl_emulation.h"
+#include "edge-impulse-sdk/third_party/flatbuffers/include/flatbuffers/stl_emulation.h"
 
 #if defined(__ICCARM__)
 #include <intrinsics.h>

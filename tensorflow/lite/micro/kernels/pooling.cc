@@ -17,15 +17,15 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
-#include "tensorflow/lite/kernels/internal/reference/pooling.h"
+#include "edge-impulse-sdk/tensorflow/lite/kernels/internal/reference/pooling.h"
 
 #include "edge-impulse-sdk/CMSIS/NN/Include/arm_nnfunctions.h"
-#include "flatbuffers/base.h"  // from @flatbuffers
-#include "tensorflow/lite/c/builtin_op_data.h"
-#include "tensorflow/lite/kernels/internal/reference/integer_ops/pooling.h"
-#include "tensorflow/lite/kernels/internal/tensor_ctypes.h"
-#include "tensorflow/lite/kernels/kernel_util.h"
-#include "tensorflow/lite/kernels/padding.h"
+#include "edge-impulse-sdk/third_party/flatbuffers/include/flatbuffers/base.h"  // from @flatbuffers
+#include "edge-impulse-sdk/tensorflow/lite/c/builtin_op_data.h"
+#include "edge-impulse-sdk/tensorflow/lite/kernels/internal/reference/integer_ops/pooling.h"
+#include "edge-impulse-sdk/tensorflow/lite/kernels/internal/tensor_ctypes.h"
+#include "edge-impulse-sdk/tensorflow/lite/kernels/kernel_util.h"
+#include "edge-impulse-sdk/tensorflow/lite/kernels/padding.h"
 
 namespace tflite {
 namespace ops {
@@ -406,18 +406,18 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
-#include "tensorflow/lite/kernels/internal/reference/pooling.h"
+#include "edge-impulse-sdk/tensorflow/lite/kernels/internal/reference/pooling.h"
 
 #include "mli_api.h"  // NOLINT
-#include "tensorflow/lite/c/builtin_op_data.h"
-#include "tensorflow/lite/kernels/internal/reference/integer_ops/pooling.h"
-#include "tensorflow/lite/kernels/internal/tensor_ctypes.h"
-#include "tensorflow/lite/kernels/kernel_util.h"
-#include "tensorflow/lite/kernels/padding.h"
-#include "tensorflow/lite/micro/kernels/mli_slicers.h"
-#include "tensorflow/lite/micro/kernels/mli_tf_utils.h"
-#include "tensorflow/lite/micro/kernels/scratch_buf_mgr.h"
-#include "tensorflow/lite/micro/kernels/scratch_buffers.h"
+#include "edge-impulse-sdk/tensorflow/lite/c/builtin_op_data.h"
+#include "edge-impulse-sdk/tensorflow/lite/kernels/internal/reference/integer_ops/pooling.h"
+#include "edge-impulse-sdk/tensorflow/lite/kernels/internal/tensor_ctypes.h"
+#include "edge-impulse-sdk/tensorflow/lite/kernels/kernel_util.h"
+#include "edge-impulse-sdk/tensorflow/lite/kernels/padding.h"
+#include "edge-impulse-sdk/tensorflow/lite/micro/kernels/mli_slicers.h"
+#include "edge-impulse-sdk/tensorflow/lite/micro/kernels/mli_tf_utils.h"
+#include "edge-impulse-sdk/tensorflow/lite/micro/kernels/scratch_buf_mgr.h"
+#include "edge-impulse-sdk/tensorflow/lite/micro/kernels/scratch_buffers.h"
 
 namespace tflite {
 namespace ops {
@@ -774,13 +774,13 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
-#include "tensorflow/lite/kernels/internal/reference/pooling.h"
+#include "edge-impulse-sdk/tensorflow/lite/kernels/internal/reference/pooling.h"
 
-#include "tensorflow/lite/c/builtin_op_data.h"
-#include "tensorflow/lite/kernels/internal/reference/integer_ops/pooling.h"
-#include "tensorflow/lite/kernels/internal/tensor_ctypes.h"
-#include "tensorflow/lite/kernels/kernel_util.h"
-#include "tensorflow/lite/kernels/padding.h"
+#include "edge-impulse-sdk/tensorflow/lite/c/builtin_op_data.h"
+#include "edge-impulse-sdk/tensorflow/lite/kernels/internal/reference/integer_ops/pooling.h"
+#include "edge-impulse-sdk/tensorflow/lite/kernels/internal/tensor_ctypes.h"
+#include "edge-impulse-sdk/tensorflow/lite/kernels/kernel_util.h"
+#include "edge-impulse-sdk/tensorflow/lite/kernels/padding.h"
 
 namespace tflite {
 namespace ops {

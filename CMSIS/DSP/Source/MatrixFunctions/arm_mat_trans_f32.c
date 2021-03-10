@@ -56,7 +56,7 @@
  */
 #if defined(ARM_MATH_MVEF) && !defined(ARM_MATH_AUTOVECTORIZE)
 
-#include "arm_helium_utils.h"
+#include "edge-impulse-sdk/CMSIS/DSP/Include/arm_helium_utils.h"
 
 arm_status arm_mat_trans_f32(
   const arm_matrix_instance_f32 * pSrc,

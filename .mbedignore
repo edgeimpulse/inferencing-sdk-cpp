@@ -9,3 +9,4 @@ porting/stm32-cubeai/
 porting/zephyr/
 classifier/ei_run_classifier_c*
 third_party/arc_mli_package/
+tensorflow-lite/

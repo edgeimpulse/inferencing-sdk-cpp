@@ -23,7 +23,7 @@
 #include "../ei_classifier_porting.h"
 #if EI_PORTING_MINGW32 == 1
 
-#include "tensorflow/lite/micro/debug_log.h"
+#include "edge-impulse-sdk/tensorflow/lite/micro/debug_log.h"
 #include <stdio.h>
 #include <stdarg.h>
 

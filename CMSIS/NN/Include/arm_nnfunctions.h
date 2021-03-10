@@ -160,7 +160,7 @@
 #ifndef _ARM_NNFUNCTIONS_H
 #define _ARM_NNFUNCTIONS_H
 
-#include "arm_nnsupportfunctions.h"
+#include "edge-impulse-sdk/CMSIS/NN/Include/arm_nnsupportfunctions.h"
 #include "edge-impulse-sdk/CMSIS/NN/Include/arm_nn_tables.h"
 #include "arm_nn_types.h"
 

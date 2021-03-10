@@ -19,10 +19,10 @@ limitations under the License.
 #include <algorithm>
 #include <cmath>
 
-#include "tensorflow/lite/c/builtin_op_data.h"
-#include "tensorflow/lite/kernels/internal/cppmath.h"
-#include "tensorflow/lite/kernels/internal/max.h"
-#include "tensorflow/lite/kernels/internal/min.h"
+#include "edge-impulse-sdk/tensorflow/lite/c/builtin_op_data.h"
+#include "edge-impulse-sdk/tensorflow/lite/kernels/internal/cppmath.h"
+#include "edge-impulse-sdk/tensorflow/lite/kernels/internal/max.h"
+#include "edge-impulse-sdk/tensorflow/lite/kernels/internal/min.h"
 
 namespace tflite {
 namespace ops {

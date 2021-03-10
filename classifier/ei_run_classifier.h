@@ -84,12 +84,19 @@ static ai_u8 activations[AI_NETWORK_DATA_ACTIVATIONS_SIZE];
 
 static ai_handle network = AI_HANDLE_NULL;
 #elif EI_CLASSIFIER_COMPILED == 1
-#include "tensorflow/lite/c/common.h"
-#include "tensorflow/lite/kernels/internal/tensor_ctypes.h"
+#include "edge-impulse-sdk/tensorflow/lite/c/common.h"
+#include "edge-impulse-sdk/tensorflow/lite/kernels/internal/tensor_ctypes.h"
 #include "tflite-model/trained_model_compiled.h"
 #include "edge-impulse-sdk/classifier/ei_aligned_malloc.h"
 
+#elif EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_TFLITE_FULL
 
+#include "edge-impulse-sdk/tensorflow-lite/tensorflow/lite/c/common.h"
+#include "edge-impulse-sdk/tensorflow-lite/tensorflow/lite/interpreter.h"
+#include "edge-impulse-sdk/tensorflow-lite/tensorflow/lite/kernels/register.h"
+#include "edge-impulse-sdk/tensorflow-lite/tensorflow/lite/model.h"
+#include "edge-impulse-sdk/tensorflow-lite/tensorflow/lite/optional_debug_tools.h"
+#include "tflite-model/tflite-trained.h"
 
 #elif EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_NONE
 // noop
@@ -658,6 +665,123 @@ extern "C" EI_IMPULSE_ERROR run_inference(
         result->classification[ix].label = ei_classifier_inferencing_categories[ix];
         result->classification[ix].value = v;
     }
+
+#elif EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_TFLITE_FULL
+
+    {
+        static std::unique_ptr<tflite::FlatBufferModel> model = nullptr;
+        static std::unique_ptr<tflite::Interpreter> interpreter = nullptr;
+        if (!model) {
+            model = tflite::FlatBufferModel::BuildFromBuffer((const char*)trained_tflite, trained_tflite_len);
+            if (!model) {
+                ei_printf("Failed to build TFLite model from buffer\n");
+                return EI_IMPULSE_TFLITE_ERROR;
+            }
+
+            tflite::ops::builtin::BuiltinOpResolver resolver;
+            tflite::InterpreterBuilder builder(*model, resolver);
+            builder(&interpreter);
+
+            if (!interpreter) {
+                ei_printf("Failed to construct interpreter\n");
+                return EI_IMPULSE_TFLITE_ERROR;
+            }
+
+            if (interpreter->AllocateTensors() != kTfLiteOk) {
+                ei_printf("AllocateTensors failed\n");
+                return EI_IMPULSE_TFLITE_ERROR;
+            }
+        }
+
+        // Obtain pointers to the model's input and output tensors.
+    #if EI_CLASSIFIER_TFLITE_INPUT_QUANTIZED == 1
+        int8_t* input = interpreter->typed_input_tensor<int8_t>(0);
+    #else
+        float* input = interpreter->typed_input_tensor<float>(0);
+    #endif
+        for (uint16_t ix = 0; ix < fmatrix->rows * fmatrix->cols; ix++) {
+    #if EI_CLASSIFIER_TFLITE_INPUT_QUANTIZED == 1
+            input[ix] = static_cast<int8_t>(round(fmatrix->buffer[ix] / EI_CLASSIFIER_TFLITE_INPUT_SCALE) + EI_CLASSIFIER_TFLITE_INPUT_ZEROPOINT);
+    #else
+            input[ix] = fmatrix->buffer[ix];
+    #endif
+        }
+
+        uint64_t ctx_start_ms = ei_read_timer_ms();
+
+        interpreter->Invoke();
+
+        uint64_t ctx_end_ms = ei_read_timer_ms();
+
+        result->timing.classification = ctx_end_ms - ctx_start_ms;
+    #if EI_CLASSIFIER_TFLITE_OUTPUT_QUANTIZED == 1
+        int8_t* out_data = interpreter->typed_output_tensor<int8_t>(0);
+    #else
+        float* out_data = interpreter->typed_output_tensor<float>(0);
+    #endif
+
+        if (debug) {
+            ei_printf("Predictions (time: %d ms.):\n", result->timing.classification);
+        }
+        for (uint32_t ix = 0; ix < EI_CLASSIFIER_LABEL_COUNT; ix++) {
+    #if EI_CLASSIFIER_TFLITE_OUTPUT_QUANTIZED == 1
+            float v = static_cast<float>(out_data[ix] - EI_CLASSIFIER_TFLITE_OUTPUT_ZEROPOINT) * EI_CLASSIFIER_TFLITE_OUTPUT_SCALE;
+    #else
+            float v = out_data[ix];
+    #endif
+            if (debug) {
+                ei_printf("%s:\t", ei_classifier_inferencing_categories[ix]);
+                ei_printf_float(v);
+                ei_printf("\n");
+            }
+            result->classification[ix].label = ei_classifier_inferencing_categories[ix];
+            result->classification[ix].value = v;
+        }
+
+        // on Linux we're not worried about free'ing
+    }
+
+#elif (EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_TENSAIFLOW)
+    {
+        uint64_t ctx_start_ms = ei_read_timer_ms();
+        int8_t *input;
+        int8_t output[EI_CLASSIFIER_LABEL_COUNT];
+
+        input = (int8_t *)ei_malloc(fmatrix->rows * fmatrix->cols);
+
+        if (!input) {
+            return EI_IMPULSE_ALLOC_FAILED;
+        }
+
+        for (size_t ix = 0; ix < fmatrix->rows * fmatrix->cols; ix++) {
+            input[ix] = static_cast<int8_t>(
+                round(fmatrix->buffer[ix] / EI_CLASSIFIER_TFLITE_INPUT_SCALE) +
+                EI_CLASSIFIER_TFLITE_INPUT_ZEROPOINT);
+        }
+
+        /* Run tensaiflow inference */
+        infer(input, output);
+
+        for (uint32_t ix = 0; ix < EI_CLASSIFIER_LABEL_COUNT; ix++) {
+            float value;
+            // Dequantize the output if it is int8
+            value = static_cast<float>(output[ix] - EI_CLASSIFIER_TFLITE_OUTPUT_ZEROPOINT) *
+                EI_CLASSIFIER_TFLITE_OUTPUT_SCALE;
+
+            if (debug) {
+                ei_printf("%s:\t", ei_classifier_inferencing_categories[ix]);
+                ei_printf_float(value);
+                ei_printf("\n");
+            }
+            result->classification[ix].label = ei_classifier_inferencing_categories[ix];
+            result->classification[ix].value = value;
+        }
+
+        result->timing.classification = ei_read_timer_ms() - ctx_start_ms;
+
+        ei_free(input);
+    }
+
 #endif
 
 #if EI_CLASSIFIER_HAS_ANOMALY == 1
@@ -859,6 +983,12 @@ extern "C" EI_IMPULSE_ERROR run_inference_i16(
         result->classification[ix].label = ei_classifier_inferencing_categories[ix];
         result->classification[ix].value = v;
     }
+
+#elif EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_TFLITE_FULL
+
+    ei_printf("ERR: run_classifier_i16 is not supported with full TensorFlow Lite\n");
+    return EI_IMPULSE_TFLITE_ERROR;
+
 #endif
 
 #if EI_CLASSIFIER_HAS_ANOMALY == 1
@@ -911,7 +1041,7 @@ extern "C" EI_IMPULSE_ERROR run_classifier(
     ei_impulse_result_t *result,
     bool debug = false)
 {
-#if EI_CLASSIFIER_TFLITE_INPUT_QUANTIZED == 1
+#if EI_CLASSIFIER_TFLITE_INPUT_QUANTIZED == 1 && EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_TFLITE
     // Shortcut for quantized image models
     if (can_run_classifier_image_quantized() == EI_IMPULSE_OK) {
         return run_classifier_image_quantized(signal, result, debug);
@@ -979,7 +1109,7 @@ extern "C" EI_IMPULSE_ERROR run_classifier(
     return run_inference(&features_matrix, result, debug);
 }
 
-#ifdef EI_CLASSIFIER_USE_QUANTIZED_DSP_BLOCK
+#if defined(EI_CLASSIFIER_USE_QUANTIZED_DSP_BLOCK) && EI_CLASSIFIER_USE_QUANTIZED_DSP_BLOCK == 1
 
 extern "C" EI_IMPULSE_ERROR run_classifier_i16(
     signal_i16_t *signal,
@@ -1140,7 +1270,7 @@ __attribute__((unused)) static EI_IMPULSE_ERROR can_run_classifier_image_quantiz
     return EI_IMPULSE_OK;
 }
 
-#if EI_CLASSIFIER_TFLITE_INPUT_QUANTIZED == 1
+#if EI_CLASSIFIER_TFLITE_INPUT_QUANTIZED == 1 && EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_TFLITE
 /**
  * Special function to run the classifier on images, only works on TFLite models (either interpreter or EON)
  * that allocates a lot less memory by quantizing in place. This only works if 'can_run_classifier_image_quantized'
@@ -1220,7 +1350,7 @@ extern "C" EI_IMPULSE_ERROR run_classifier_image_quantized(
     return EI_IMPULSE_OK;
 #endif // EI_CLASSIFIER_INFERENCING_ENGINE != EI_CLASSIFIER_TFLITE
 }
-#endif // #if EI_CLASSIFIER_TFLITE_INPUT_QUANTIZED == 1
+#endif // #if EI_CLASSIFIER_TFLITE_INPUT_QUANTIZED == 1 && EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_TFLITE
 
 #if EIDSP_SIGNAL_C_FN_POINTER == 0
 
@@ -1288,7 +1418,7 @@ __attribute__((unused)) EI_IMPULSE_ERROR run_impulse(
     return r;
 }
 
-#ifdef EI_CLASSIFIER_USE_QUANTIZED_DSP_BLOCK
+#if defined(EI_CLASSIFIER_USE_QUANTIZED_DSP_BLOCK) && EI_CLASSIFIER_USE_QUANTIZED_DSP_BLOCK == 1
 
 __attribute__((unused)) EI_IMPULSE_ERROR run_impulse_i16(
 #if defined(EI_CLASSIFIER_HAS_SAMPLER) && EI_CLASSIFIER_HAS_SAMPLER == 1

@@ -32,7 +32,7 @@
 
 #if defined(ARM_MATH_MVEI)
 
-#include "arm_vec_fft.h"
+#include "edge-impulse-sdk/CMSIS/DSP/Include/arm_vec_fft.h"
 
 static void arm_bitreversal_32_inpl_mve(
         uint32_t *pSrc,

@@ -49,15 +49,15 @@
                 variables declared in arm_const_structs.h
  */
 
-#include "arm_math_f16.h"
-#include "arm_common_tables_f16.h"
-#include "arm_const_structs_f16.h"
+#include "edge-impulse-sdk/CMSIS/DSP/Include/arm_math_f16.h"
+#include "edge-impulse-sdk/CMSIS/DSP/Include/arm_common_tables_f16.h"
+#include "edge-impulse-sdk/CMSIS/DSP/Include/arm_const_structs_f16.h"
 
 
 #if defined(ARM_MATH_MVEF) && !defined(ARM_MATH_AUTOVECTORIZE)
 
-#include "arm_vec_fft.h"
-#include "arm_mve_tables_f16.h"
+#include "edge-impulse-sdk/CMSIS/DSP/Include/arm_vec_fft.h"
+#include "edge-impulse-sdk/CMSIS/DSP/Include/arm_mve_tables_f16.h"
 
 arm_status arm_cfft_radix4by2_rearrange_twiddles_f16(arm_cfft_instance_f16 *S, int twidCoefModifier)
 {

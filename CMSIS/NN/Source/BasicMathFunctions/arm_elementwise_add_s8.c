@@ -32,7 +32,7 @@
 #include "edge-impulse-sdk/CMSIS/NN/Include/arm_nnfunctions.h"
 #include "edge-impulse-sdk/CMSIS/NN/Include/arm_nnsupportfunctions.h"
 #if defined(ARM_MATH_MVEI)
-#include "arm_helium_utils.h"
+#include "edge-impulse-sdk/CMSIS/DSP/Include/arm_helium_utils.h"
 #endif
 
 #if defined(ARM_MATH_MVEI)

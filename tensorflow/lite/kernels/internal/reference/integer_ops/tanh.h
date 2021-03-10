@@ -17,8 +17,8 @@ limitations under the License.
 
 #include <limits>
 
-#include "fixedpoint/fixedpoint.h"
-#include "tensorflow/lite/kernels/internal/common.h"
+#include "edge-impulse-sdk/third_party/gemmlowp/fixedpoint/fixedpoint.h"
+#include "edge-impulse-sdk/tensorflow/lite/kernels/internal/common.h"
 
 namespace tflite {
 namespace reference_integer_ops {

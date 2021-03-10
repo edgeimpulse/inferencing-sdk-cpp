@@ -23,6 +23,7 @@
 #ifndef _EIDSP_MEMORY_H_
 #define _EIDSP_MEMORY_H_
 
+// clang-format off
 #include <stdio.h>
 #include "../porting/ei_classifier_porting.h"
 
@@ -170,4 +171,5 @@ public:
 
 } // namespace ei
 
+// clang-format on
 #endif // _EIDSP_MEMORY_H_

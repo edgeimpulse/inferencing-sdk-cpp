@@ -30,7 +30,7 @@
 #ifndef _ARM_CONST_STRUCTS_F16_H
 #define _ARM_CONST_STRUCTS_F16_H
 
-#include "arm_math_f16.h"
+#include "edge-impulse-sdk/CMSIS/DSP/Include/arm_math_f16.h"
 #include "arm_common_tables_f16.h"
 
 #ifdef   __cplusplus

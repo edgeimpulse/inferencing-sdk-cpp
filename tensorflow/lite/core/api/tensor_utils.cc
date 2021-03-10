@@ -13,11 +13,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-#include "tensorflow/lite/core/api/tensor_utils.h"
+#include "edge-impulse-sdk/tensorflow/lite/core/api/tensor_utils.h"
 
 #include <string.h>
 
-#include "tensorflow/lite/c/common.h"
+#include "edge-impulse-sdk/tensorflow/lite/c/common.h"
 
 namespace tflite {
 

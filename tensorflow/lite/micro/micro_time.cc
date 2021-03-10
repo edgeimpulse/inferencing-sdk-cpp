@@ -25,7 +25,7 @@ limitations under the License.
 // tensorflow/lite/micro/bluepill/micro_time.cc or the mbed one on
 // tensorflow/lite/micro/mbed/micro_time.cc.
 
-#include "tensorflow/lite/micro/micro_time.h"
+#include "edge-impulse-sdk/tensorflow/lite/micro/micro_time.h"
 
 namespace tflite {
 

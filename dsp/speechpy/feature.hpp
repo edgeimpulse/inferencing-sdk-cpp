@@ -192,9 +192,9 @@ public:
     static int mfe(matrix_t *out_features, matrix_t *out_energies,
         signal_t *signal,
         uint32_t sampling_frequency,
-        float frame_length = 0.02f, float frame_stride = 0.02f, uint16_t num_filters = 40,
-        uint16_t fft_length = 512, uint32_t low_frequency = 300, uint32_t high_frequency = 0,
-        uint16_t version = 1
+        float frame_length, float frame_stride, uint16_t num_filters,
+        uint16_t fft_length, uint32_t low_frequency, uint32_t high_frequency,
+        uint16_t version
         )
     {
         int ret = 0;
@@ -333,8 +333,8 @@ public:
      */
     static int spectrogram(matrix_t *out_features,
         signal_t *signal, uint32_t sampling_frequency,
-        float frame_length = 0.02f, float frame_stride = 0.02f, uint16_t fft_length = 512,
-        uint16_t version = 1
+        float frame_length, float frame_stride, uint16_t fft_length,
+        uint16_t version
         )
     {
         int ret = 0;
@@ -418,8 +418,8 @@ public:
     static matrix_size_t calculate_mfe_buffer_size(
         size_t signal_length,
         uint32_t sampling_frequency,
-        float frame_length = 0.02f, float frame_stride = 0.02f, uint16_t num_filters = 40,
-        uint16_t version = 1)
+        float frame_length, float frame_stride, uint16_t num_filters,
+        uint16_t version)
     {
         uint16_t rows = processing::calculate_no_of_stack_frames(
             signal_length,
@@ -460,10 +460,10 @@ public:
      * @returns 0 if OK
      */
     static int mfcc(matrix_t *out_features, signal_t *signal,
-        uint32_t sampling_frequency, float frame_length = 0.02f, float frame_stride = 0.01f,
-        uint8_t num_cepstral = 13, uint16_t num_filters = 40, uint16_t fft_length = 512,
-        uint32_t low_frequency = 0, uint32_t high_frequency = 0, bool dc_elimination = true,
-        uint16_t version = 1)
+        uint32_t sampling_frequency, float frame_length, float frame_stride,
+        uint8_t num_cepstral, uint16_t num_filters, uint16_t fft_length,
+        uint32_t low_frequency, uint32_t high_frequency, bool dc_elimination,
+        uint16_t version)
     {
         if (out_features->cols != num_cepstral) {
             EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
@@ -543,8 +543,8 @@ public:
     static matrix_size_t calculate_mfcc_buffer_size(
         size_t signal_length,
         uint32_t sampling_frequency,
-        float frame_length = 0.02f, float frame_stride = 0.02f, uint16_t num_cepstral = 13,
-        uint16_t version = 1)
+        float frame_length, float frame_stride, uint16_t num_cepstral,
+        uint16_t version)
     {
         uint16_t rows = processing::calculate_no_of_stack_frames(
             signal_length,

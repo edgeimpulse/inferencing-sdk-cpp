@@ -16,13 +16,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-#include "tensorflow/lite/micro/kernels/scratch_buf_mgr.h"
+#include "edge-impulse-sdk/tensorflow/lite/micro/kernels/scratch_buf_mgr.h"
 
 #include <limits.h>
 
 #include <algorithm>
 
-#include "tensorflow/lite/micro/kernels/scratch_buffers.h"
+#include "edge-impulse-sdk/tensorflow/lite/micro/kernels/scratch_buffers.h"
 
 namespace tflite {
 namespace ops {
