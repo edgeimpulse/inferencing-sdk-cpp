@@ -71,7 +71,13 @@ uint64_t ei_read_timer_us();
  */
 void ei_serial_set_baudrate(int baudrate);
 
-void ei_printf(const char *format, ...);
+/**
+ * @brief      Connect to putchar of target
+ *
+ * @param[in]  c The chararater
+ */
+void ei_putchar(char c);
+
 /**
  * Print wrapper around printf()
  * This is used internally to print debug information.

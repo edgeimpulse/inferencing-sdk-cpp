@@ -36,6 +36,8 @@
 #define HIMAX_TIMER_TICK_1SEC    (HIMAX_TIMER_CLK_FREQ_HZ/1)
 #define HIMAX_TIMER_TICK_1MSEC   (HIMAX_TIMER_TICK_1SEC/1000)
 
+extern "C" void print_out(const char *format, va_list args);
+
 /* Private variables -------------------------------------------------------- */
 static uint64_t system_time_ms = 0;
 static uint32_t prev_tick_us = 0;
@@ -93,11 +95,17 @@ void ei_serial_set_baudrate(int baudrate)
     hx_drv_uart_initial((HX_DRV_UART_BAUDRATE_E)baudrate);
 }
 
+void ei_putchar(char c)
+{
+    /* Send char to serial output */
+    hx_drv_uart_print("%c", c);
+}
+
 __attribute__((weak)) void ei_printf(const char *format, ...) {
-    va_list myargs;
-    va_start(myargs, format);
-    vprintf(format, myargs);
-    va_end(myargs);
+    va_list args;
+    va_start(args, format);
+    print_out(format, args);
+    va_end(args);
 }
 
 __attribute__((weak)) void ei_printf_float(float f) {
