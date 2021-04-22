@@ -564,8 +564,6 @@ __attribute__((unused)) int extract_spectrogram_features(signal_t *signal, matri
 __attribute__((unused)) int extract_spectrogram_per_slice_features(signal_t *signal, matrix_t *output_matrix, void *config_ptr, const float sampling_frequency) {
     ei_dsp_config_spectrogram_t config = *((ei_dsp_config_spectrogram_t*)config_ptr);
 
-    static bool first_run = false;
-
     if (config.axes != 1) {
         EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
     }
@@ -575,11 +573,16 @@ __attribute__((unused)) int extract_spectrogram_per_slice_features(signal_t *sig
     /* Fake an extra frame_length for stack frames calculations. There, 1 frame_length is always
     subtracted and there for never used. But skip the first slice to fit the feature_matrix
     buffer */
-    if (first_run == true) {
-        signal->total_length += (size_t)(config.frame_length * (float)frequency);
-    }
+    static bool first_run = false;
 
-    first_run = true;
+    if(config.implementation_version < 2) {
+
+        if (first_run == true) {
+            signal->total_length += (size_t)(config.frame_length * (float)frequency);
+        }
+
+        first_run = true;
+    }
 
     // calculate the size of the MFE matrix
     matrix_size_t out_matrix_size =
@@ -669,8 +672,6 @@ __attribute__((unused)) int extract_mfe_features(signal_t *signal, matrix_t *out
 __attribute__((unused)) int extract_mfe_per_slice_features(signal_t *signal, matrix_t *output_matrix, void *config_ptr, const float sampling_frequency) {
     ei_dsp_config_mfe_t config = *((ei_dsp_config_mfe_t*)config_ptr);
 
-    static bool first_run = false;
-
     if (config.axes != 1) {
         EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
     }
@@ -680,11 +681,16 @@ __attribute__((unused)) int extract_mfe_per_slice_features(signal_t *signal, mat
     /* Fake an extra frame_length for stack frames calculations. There, 1 frame_length is always
     subtracted and there for never used. But skip the first slice to fit the feature_matrix
     buffer */
-    if (first_run == true) {
-        signal->total_length += (size_t)(config.frame_length * (float)frequency);
-    }
+    static bool first_run = false;
 
-    first_run = true;
+    if(config.implementation_version < 2) {
+
+        if (first_run == true) {
+            signal->total_length += (size_t)(config.frame_length * (float)frequency);
+        }
+
+        first_run = true;
+    }
 
     // calculate the size of the MFE matrix
     matrix_size_t out_matrix_size =
