@@ -24,6 +24,7 @@
 #define _EDGE_IMPULSE_RUN_CLASSIFIER_H_
 
 #include "model-parameters/model_metadata.h"
+
 #if EI_CLASSIFIER_HAS_ANOMALY == 1
 #include "model-parameters/anomaly_clusters.h"
 #endif
@@ -87,6 +88,12 @@ extern float post_process_scores[10];
 #include "tensorflow/lite/model.h"
 #include "tensorflow/lite/optional_debug_tools.h"
 #include "tflite-model/tflite-trained.h"
+
+#elif (EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_TENSORRT)
+#include <stdlib.h>
+#include "tflite-model/onnx-trained.h"
+#include "tflite/linux-jetson-nano/libeitrt.h"
+EiTrt* ei_trt_handle = NULL;
 
 #elif EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_NONE
 // noop
@@ -319,7 +326,7 @@ extern "C" EI_IMPULSE_ERROR run_classifier_continuous(signal_t *signal, ei_impul
  * Fill the result structure from an unquantized output tensor
  * (we don't support quantized here a.t.m.)
  */
-static void fill_result_struct_f32(ei_impulse_result_t *result, float *data, float *scores, float *labels, bool debug) {
+__attribute__((unused)) static void fill_result_struct_f32(ei_impulse_result_t *result, float *data, float *scores, float *labels, bool debug) {
     for (size_t ix = 0; ix < EI_CLASSIFIER_OBJECT_DETECTION_COUNT; ix++) {
 
         float score = scores[ix];
@@ -371,7 +378,7 @@ static void fill_result_struct_f32(ei_impulse_result_t *result, float *data, flo
 /**
  * Fill the result structure from a quantized output tensor
  */
-static void fill_result_struct_i8(ei_impulse_result_t *result, int8_t *data, float zero_point, float scale, bool debug) {
+__attribute__((unused)) static void fill_result_struct_i8(ei_impulse_result_t *result, int8_t *data, float zero_point, float scale, bool debug) {
     for (uint32_t ix = 0; ix < EI_CLASSIFIER_LABEL_COUNT; ix++) {
         float value = static_cast<float>(data[ix] - zero_point) * scale;
 
@@ -388,7 +395,7 @@ static void fill_result_struct_i8(ei_impulse_result_t *result, int8_t *data, flo
 /**
  * Fill the result structure from an unquantized output tensor
  */
-static void fill_result_struct_f32(ei_impulse_result_t *result, float *data, bool debug) {
+__attribute__((unused)) static void fill_result_struct_f32(ei_impulse_result_t *result, float *data, bool debug) {
     for (uint32_t ix = 0; ix < EI_CLASSIFIER_LABEL_COUNT; ix++) {
         float value = data[ix];
 
@@ -843,6 +850,53 @@ extern "C" EI_IMPULSE_ERROR run_inference(
         ei_free(input);
     }
 
+#elif (EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_TENSORRT)
+    {
+        #if EI_CLASSIFIER_TFLITE_INPUT_QUANTIZED == 1
+        #error "TensorRT requires an unquantized network"
+        #endif
+
+        static bool first_run = true;
+        static char model_file_name[128];
+
+        if (first_run) {
+            snprintf(model_file_name, 128, "/tmp/ei-%s", trained_onnx_hash);
+
+            FILE *file = fopen(model_file_name, "w");
+            if (!file) {
+                ei_printf("ERR: TensorRT init failed to open '%s'\n", model_file_name);
+                return EI_IMPULSE_TENSORRT_INIT_FAILED;
+            }
+
+            if (fwrite(trained_onnx, trained_onnx_len, 1, file) != 1) {
+                ei_printf("ERR: TensorRT init fwrite failed\n");
+                return EI_IMPULSE_TENSORRT_INIT_FAILED;
+            }
+
+            if (fclose(file) != 0) {
+                ei_printf("ERR: TensorRT init fclose failed\n");
+                return EI_IMPULSE_TENSORRT_INIT_FAILED;
+            }
+        }
+
+        float tensorrt_output[EI_CLASSIFIER_LABEL_COUNT];
+
+        // lazy initialize tensorRT context
+        if( ei_trt_handle == nullptr ) {
+            ei_trt_handle = libeitrt::create_EiTrt(model_file_name, debug);
+        }
+
+        uint64_t ctx_start_ms = ei_read_timer_ms();
+
+        libeitrt::infer(ei_trt_handle, fmatrix->buffer, tensorrt_output, EI_CLASSIFIER_LABEL_COUNT);
+        uint64_t ctx_end_ms = ei_read_timer_ms();
+        result->timing.classification = ctx_end_ms - ctx_start_ms;
+
+        for( int i = 0; i < EI_CLASSIFIER_LABEL_COUNT; ++i) {
+            result->classification[i].label = ei_classifier_inferencing_categories[i];
+            result->classification[i].value = tensorrt_output[i];
+        }
+    }
 #endif
 
 #if EI_CLASSIFIER_HAS_ANOMALY == 1
