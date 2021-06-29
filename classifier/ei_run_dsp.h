@@ -92,6 +92,10 @@ __attribute__((unused)) int extract_spectral_analysis_features(signal_t *signal,
     // convert spectral_power_edges (string) into float array
     char *spectral_ptr = spectral_str;
     while (spectral_ptr != NULL) {
+        while((*spectral_ptr) == ' ') {
+            spectral_ptr++;
+        }
+
         edges_matrix_in.buffer[edge_matrix_ix++] = atof(spectral_ptr);
 
         // find next (spectral) delimiter (or '\0' character)

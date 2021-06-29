@@ -31,6 +31,7 @@
 #include "ei_run_dsp.h"
 #include "ei_classifier_types.h"
 #include "ei_classifier_smooth.h"
+#include "ei_signal_with_axes.h"
 #if defined(EI_CLASSIFIER_HAS_SAMPLER) && EI_CLASSIFIER_HAS_SAMPLER == 1
 #include "ei_sampler.h"
 #endif
@@ -239,7 +240,17 @@ extern "C" EI_IMPULSE_ERROR run_classifier_continuous(signal_t *signal, ei_impul
             return EI_IMPULSE_DSP_ERROR;
         }
 
+#if EIDSP_SIGNAL_C_FN_POINTER
+        if (block.axes_size != EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME) {
+            ei_printf("ERR: EIDSP_SIGNAL_C_FN_POINTER can only be used when all axes are selected for DSP blocks\n");
+            return EI_IMPULSE_DSP_ERROR;
+        }
         int ret = block.extract_fn(signal, &fm, block.config, EI_CLASSIFIER_FREQUENCY);
+#else
+        SignalWithAxes swa(signal, block.axes, block.axes_size);
+        int ret = block.extract_fn(swa.get_signal(), &fm, block.config, EI_CLASSIFIER_FREQUENCY);
+#endif
+
         if (ret != EIDSP_OK) {
             ei_printf("ERR: Failed to run DSP process (%d)\n", ret);
             return EI_IMPULSE_DSP_ERROR;
@@ -1090,7 +1101,17 @@ extern "C" EI_IMPULSE_ERROR run_classifier(
 
         ei::matrix_t fm(1, block.n_output_features, features_matrix.buffer + out_features_index);
 
+#if EIDSP_SIGNAL_C_FN_POINTER
+        if (block.axes_size != EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME) {
+            ei_printf("ERR: EIDSP_SIGNAL_C_FN_POINTER can only be used when all axes are selected for DSP blocks\n");
+            return EI_IMPULSE_DSP_ERROR;
+        }
         int ret = block.extract_fn(signal, &fm, block.config, EI_CLASSIFIER_FREQUENCY);
+#else
+        SignalWithAxes swa(signal, block.axes, block.axes_size);
+        int ret = block.extract_fn(swa.get_signal(), &fm, block.config, EI_CLASSIFIER_FREQUENCY);
+#endif
+
         if (ret != EIDSP_OK) {
             ei_printf("ERR: Failed to run DSP process (%d)\n", ret);
             return EI_IMPULSE_DSP_ERROR;
@@ -1149,7 +1170,16 @@ extern "C" EI_IMPULSE_ERROR run_classifier_i16(
 
         ei::matrix_i32_t fm(1, block.n_output_features, features_matrix.buffer + out_features_index);
 
-        int ret = block.extract_fn(signal, &fm, ei_dsp_blocks[ix].config, EI_CLASSIFIER_FREQUENCY);
+#if EIDSP_SIGNAL_C_FN_POINTER
+        if (block.axes_size != EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME) {
+            ei_printf("ERR: EIDSP_SIGNAL_C_FN_POINTER can only be used when all axes are selected for DSP blocks\n");
+            return EI_IMPULSE_DSP_ERROR;
+        }
+        int ret = block.extract_fn(signal, &fm, block.config, EI_CLASSIFIER_FREQUENCY);
+#else
+        SignalWithAxesI16 swa(signal, block.axes, block.axes_size);
+        int ret = block.extract_fn(swa.get_signal(), &fm, block.config, EI_CLASSIFIER_FREQUENCY);
+#endif
 
         if (ret != EIDSP_OK) {
             ei_printf("ERR: Failed to run DSP process (%d)\n", ret);
