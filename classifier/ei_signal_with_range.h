@@ -20,8 +20,8 @@
  * SOFTWARE.
  */
 
-#ifndef _EI_CLASSIFIER_SIGNAL_WITH_AXES_H_
-#define _EI_CLASSIFIER_SIGNAL_WITH_AXES_H_
+#ifndef _EI_CLASSIFIER_SIGNAL_WITH_RANGE_H_
+#define _EI_CLASSIFIER_SIGNAL_WITH_RANGE_H_
 
 #include "edge-impulse-sdk/dsp/numpy_types.h"
 #include "edge-impulse-sdk/dsp/returntypes.hpp"
@@ -30,22 +30,22 @@
 
 using namespace ei;
 
-class SignalWithAxes {
+class SignalWithRange {
 public:
-    SignalWithAxes(signal_t *original_signal, uint8_t *axes, size_t axes_count):
-        _original_signal(original_signal), _axes(axes), _axes_count(axes_count)
+    SignalWithRange(signal_t *original_signal, uint32_t range_start, uint32_t range_end):
+        _original_signal(original_signal), _range_start(range_start), _range_end(range_end)
     {
 
     }
 
     signal_t * get_signal() {
-        if (this->_axes_count == EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME) {
+        if (this->_range_start == 0 && this->_range_end == this->_original_signal->total_length) {
             return this->_original_signal;
         }
 
-        wrapped_signal.total_length = _original_signal->total_length / EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME * _axes_count;
+        wrapped_signal.total_length = _range_end - _range_start;
 #ifdef __MBED__
-        wrapped_signal.get_data = mbed::callback(this, &SignalWithAxes::get_data);
+        wrapped_signal.get_data = mbed::callback(this, &SignalWithRange::get_data);
 #else
         wrapped_signal.get_data = [this](size_t offset, size_t length, float *out_ptr) {
             return this->get_data(offset, length, out_ptr);
@@ -55,45 +55,32 @@ public:
     }
 
     int get_data(size_t offset, size_t length, float *out_ptr) {
-        size_t length_on_original_signal = length / _axes_count * EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME;
-
-        size_t out_ptr_ix = 0;
-
-        for (size_t ix = 0; ix < length_on_original_signal; ix += EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME) {
-            for (size_t axis_ix = 0; axis_ix < this->_axes_count; axis_ix++) {
-                int r = _original_signal->get_data(ix + _axes[axis_ix], 1, &out_ptr[out_ptr_ix++]);
-                if (r != 0) {
-                    return r;
-                }
-            }
-        }
-
-        return 0;
+        return _original_signal->get_data(offset + _range_start, length, out_ptr);
     }
 
 private:
     signal_t *_original_signal;
-    uint8_t *_axes;
-    size_t _axes_count;
+    uint32_t _range_start;
+    uint32_t _range_end;
     signal_t wrapped_signal;
 };
 
-class SignalWithAxesI16 {
+class SignalWithRangeI16 {
 public:
-    SignalWithAxesI16(signal_i16_t *original_signal, uint8_t *axes, size_t axes_count):
-        _original_signal(original_signal), _axes(axes), _axes_count(axes_count)
+    SignalWithRangeI16(signal_i16_t *original_signal, uint32_t range_start, uint32_t range_end):
+        _original_signal(original_signal), _range_start(range_start), _range_end(range_end)
     {
 
     }
 
     signal_i16_t * get_signal() {
-        if (this->_axes_count == EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME) {
+        if (this->_range_start == 0 && this->_range_end == this->_original_signal->total_length) {
             return this->_original_signal;
         }
 
-        wrapped_signal.total_length = _original_signal->total_length / EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME * _axes_count;
+        wrapped_signal.total_length = _range_end - _range_start;
 #ifdef __MBED__
-        wrapped_signal.get_data = mbed::callback(this, &SignalWithAxesI16::get_data);
+        wrapped_signal.get_data = mbed::callback(this, &SignalWithRangeI16::get_data);
 #else
         wrapped_signal.get_data = [this](size_t offset, size_t length, int16_t *out_ptr) {
             return this->get_data(offset, length, out_ptr);
@@ -103,29 +90,16 @@ public:
     }
 
     int get_data(size_t offset, size_t length, int16_t *out_ptr) {
-        size_t length_on_original_signal = length / _axes_count * EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME;
-
-        size_t out_ptr_ix = 0;
-
-        for (size_t ix = 0; ix < length_on_original_signal; ix += EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME) {
-            for (size_t axis_ix = 0; axis_ix < this->_axes_count; axis_ix++) {
-                int r = _original_signal->get_data(ix + _axes[axis_ix], 1, &out_ptr[out_ptr_ix++]);
-                if (r != 0) {
-                    return r;
-                }
-            }
-        }
-
-        return 0;
+        return _original_signal->get_data(offset + _range_start, length, out_ptr);
     }
 
 private:
     signal_i16_t *_original_signal;
-    uint8_t *_axes;
-    size_t _axes_count;
+    uint32_t _range_start;
+    uint32_t _range_end;
     signal_i16_t wrapped_signal;
 };
 
 #endif // #if !EIDSP_SIGNAL_C_FN_POINTER
 
-#endif // _EI_CLASSIFIER_SIGNAL_WITH_AXES_H_
+#endif // _EI_CLASSIFIER_SIGNAL_WITH_RANGE_H_
