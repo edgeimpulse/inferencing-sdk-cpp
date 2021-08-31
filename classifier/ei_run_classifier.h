@@ -44,28 +44,12 @@
 #include "edge-impulse-sdk/tensorflow/lite/micro/micro_error_reporter.h"
 #include "edge-impulse-sdk/tensorflow/lite/micro/micro_interpreter.h"
 #include "edge-impulse-sdk/tensorflow/lite/schema/schema_generated.h"
-#include "edge-impulse-sdk/tensorflow/lite/version.h"
 #include "edge-impulse-sdk/classifier/ei_aligned_malloc.h"
 
 #include "tflite-model/tflite-trained.h"
 #if defined(EI_CLASSIFIER_HAS_TFLITE_OPS_RESOLVER) && EI_CLASSIFIER_HAS_TFLITE_OPS_RESOLVER == 1
 #include "tflite-model/tflite-resolver.h"
 #endif // EI_CLASSIFIER_HAS_TFLITE_OPS_RESOLVER
-
-#if defined(EI_CLASSIFIER_ENABLE_DETECTION_POSTPROCESS_OP)
-namespace tflite {
-namespace ops {
-namespace micro {
-extern TfLiteRegistration *Register_TFLite_Detection_PostProcess(void);
-}  // namespace micro
-}  // namespace ops
-
-extern float post_process_boxes[10 * 4 * sizeof(float)];
-extern float post_process_classes[10];
-extern float post_process_scores[10];
-
-}  // namespace tflite
-#endif
 
 static tflite::MicroErrorReporter micro_error_reporter;
 static tflite::ErrorReporter* error_reporter = &micro_error_reporter;
@@ -75,14 +59,9 @@ static tflite::ErrorReporter* error_reporter = &micro_error_reporter;
 #include "tflite-model/trained_model_compiled.h"
 #include "edge-impulse-sdk/classifier/ei_aligned_malloc.h"
 
-namespace tflite {
-extern float post_process_boxes[10 * 4 * sizeof(float)];
-extern float post_process_classes[10];
-extern float post_process_scores[10];
-} // namespace tflite
-
 #elif EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_TFLITE_FULL
 
+#include <thread>
 #include "tensorflow/lite/c/common.h"
 #include "tensorflow/lite/interpreter.h"
 #include "tensorflow/lite/kernels/register.h"
@@ -101,6 +80,25 @@ EiTrt* ei_trt_handle = NULL;
 #else
 #error "Unknown inferencing engine"
 #endif
+
+#if EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_TFLITE && defined(EI_CLASSIFIER_ENABLE_DETECTION_POSTPROCESS_OP)
+namespace tflite {
+namespace ops {
+namespace micro {
+extern TfLiteRegistration Register_TFLite_Detection_PostProcess(void);
+}  // namespace micro
+}  // namespace ops
+
+
+extern float post_process_boxes[10 * 4 * sizeof(float)];
+extern float post_process_classes[10];
+extern float post_process_scores[10];
+
+}  // namespace tflite
+
+static TfLiteRegistration post_process_op = tflite::ops::micro::Register_TFLite_Detection_PostProcess();
+
+#endif // EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_TFLITE && defined(EI_CLASSIFIER_ENABLE_DETECTION_POSTPROCESS_OP)
 
 #if ECM3532
 void*   __dso_handle = (void*) &__dso_handle;
@@ -432,14 +430,14 @@ static EI_IMPULSE_ERROR inference_tflite_setup(uint64_t *ctx_start_ms, TfLiteTen
 #endif
     uint8_t** micro_tensor_arena) {
 #if (EI_CLASSIFIER_COMPILED == 1)
-    TfLiteStatus init_status = trained_model_init(ei_aligned_malloc);
+    TfLiteStatus init_status = trained_model_init(ei_aligned_calloc);
     if (init_status != kTfLiteOk) {
         ei_printf("Failed to allocate TFLite arena (error code %d)\n", init_status);
         return EI_IMPULSE_TFLITE_ARENA_ALLOC_FAILED;
     }
 #else
     // Create an area of memory to use for input, output, and intermediate arrays.
-    uint8_t *tensor_arena = (uint8_t*)ei_aligned_malloc(16, EI_CLASSIFIER_TFLITE_ARENA_SIZE);
+    uint8_t *tensor_arena = (uint8_t*)ei_aligned_calloc(16, EI_CLASSIFIER_TFLITE_ARENA_SIZE);
     if (tensor_arena == NULL) {
         ei_printf("Failed to allocate TFLite arena (%d bytes)\n", EI_CLASSIFIER_TFLITE_ARENA_SIZE);
         return EI_IMPULSE_TFLITE_ARENA_ALLOC_FAILED;
@@ -483,7 +481,7 @@ static EI_IMPULSE_ERROR inference_tflite_setup(uint64_t *ctx_start_ms, TfLiteTen
     tflite::AllOpsResolver resolver;
 #endif
 #if defined(EI_CLASSIFIER_ENABLE_DETECTION_POSTPROCESS_OP)
-    resolver.AddCustom("TFLite_Detection_PostProcess", tflite::ops::micro::Register_TFLite_Detection_PostProcess());
+    resolver.AddCustom("TFLite_Detection_PostProcess", &post_process_op);
 #endif
 #endif // EI_CLASSIFIER_COMPILED != 1
 
@@ -727,6 +725,17 @@ extern "C" EI_IMPULSE_ERROR run_inference(
 
             if (interpreter->AllocateTensors() != kTfLiteOk) {
                 ei_printf("AllocateTensors failed\n");
+                return EI_IMPULSE_TFLITE_ERROR;
+            }
+
+            int hw_thread_count = (int)std::thread::hardware_concurrency();
+            hw_thread_count -= 1; // leave one thread free for the other application
+            if (hw_thread_count < 1) {
+                hw_thread_count = 1;
+            }
+
+            if (interpreter->SetNumThreads(hw_thread_count) != kTfLiteOk) {
+                ei_printf("SetNumThreads failed\n");
                 return EI_IMPULSE_TFLITE_ERROR;
             }
         }
