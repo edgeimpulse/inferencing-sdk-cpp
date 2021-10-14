@@ -55,11 +55,12 @@ public:
     }
 
     int get_data(size_t offset, size_t length, float *out_ptr) {
+        size_t offset_on_original_signal = offset / _axes_count * EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME;
         size_t length_on_original_signal = length / _axes_count * EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME;
 
         size_t out_ptr_ix = 0;
 
-        for (size_t ix = 0; ix < length_on_original_signal; ix += EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME) {
+        for (size_t ix = offset_on_original_signal; ix < offset_on_original_signal + length_on_original_signal; ix += EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME) {
             for (size_t axis_ix = 0; axis_ix < this->_axes_count; axis_ix++) {
                 int r = _original_signal->get_data(ix + _axes[axis_ix], 1, &out_ptr[out_ptr_ix++]);
                 if (r != 0) {
@@ -103,11 +104,12 @@ public:
     }
 
     int get_data(size_t offset, size_t length, int16_t *out_ptr) {
+        size_t offset_on_original_signal = offset / _axes_count * EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME;
         size_t length_on_original_signal = length / _axes_count * EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME;
 
         size_t out_ptr_ix = 0;
 
-        for (size_t ix = 0; ix < length_on_original_signal; ix += EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME) {
+        for (size_t ix = offset_on_original_signal; ix < offset_on_original_signal + length_on_original_signal; ix += EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME) {
             for (size_t axis_ix = 0; axis_ix < this->_axes_count; axis_ix++) {
                 int r = _original_signal->get_data(ix + _axes[axis_ix], 1, &out_ptr[out_ptr_ix++]);
                 if (r != 0) {

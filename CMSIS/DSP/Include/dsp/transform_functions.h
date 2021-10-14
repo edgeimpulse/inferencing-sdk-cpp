@@ -435,10 +435,26 @@ typedef struct
     const float32_t * pTwiddleRFFT;        /**< Twiddle factors real stage  */
   } arm_rfft_fast_instance_f32 ;
 
-arm_status arm_rfft_fast_init_f32 (
-         arm_rfft_fast_instance_f32 * S,
-         uint16_t fftLen);
-
+    // Patched by Edge Impulse, expose the specific init functions to the outside world
+    arm_status arm_rfft_fast_init_f32 (
+            arm_rfft_fast_instance_f32 * S,
+            uint16_t fftLen);
+    arm_status arm_rfft_32_fast_init_f32 (
+            arm_rfft_fast_instance_f32 * S);
+    arm_status arm_rfft_64_fast_init_f32 (
+            arm_rfft_fast_instance_f32 * S);
+    arm_status arm_rfft_128_fast_init_f32 (
+            arm_rfft_fast_instance_f32 * S);
+    arm_status arm_rfft_256_fast_init_f32 (
+            arm_rfft_fast_instance_f32 * S);
+    arm_status arm_rfft_512_fast_init_f32 (
+            arm_rfft_fast_instance_f32 * S);
+    arm_status arm_rfft_1024_fast_init_f32 (
+            arm_rfft_fast_instance_f32 * S);
+    arm_status arm_rfft_2048_fast_init_f32 (
+            arm_rfft_fast_instance_f32 * S);
+    arm_status arm_rfft_4096_fast_init_f32 (
+            arm_rfft_fast_instance_f32 * S);
 
   void arm_rfft_fast_f32(
         const arm_rfft_fast_instance_f32 * S,

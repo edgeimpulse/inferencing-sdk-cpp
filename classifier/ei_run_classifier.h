@@ -24,6 +24,9 @@
 #define _EDGE_IMPULSE_RUN_CLASSIFIER_H_
 
 #include "model-parameters/model_metadata.h"
+#if EI_CLASSIFIER_HAS_MODEL_VARIABLES == 1
+#include "model-parameters/model_variables.h"
+#endif
 
 #if EI_CLASSIFIER_HAS_ANOMALY == 1
 #include "model-parameters/anomaly_clusters.h"
