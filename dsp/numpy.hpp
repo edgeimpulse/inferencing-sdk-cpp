@@ -1238,7 +1238,11 @@ public:
             arm_sqrt_f32(var * var * var, &var);
 
             // Calculate skew = (m_3) / (variance)^(3/2)
-            output_matrix->buffer[row] = m_3 / var;
+            if (var == 0.0f) {
+                output_matrix->buffer[row] = 0.0f;
+            } else {
+                output_matrix->buffer[row] = m_3 / var;
+            }
 #else
             float sum = 0.0f;
             float mean;
@@ -1266,7 +1270,11 @@ public:
             m_2 = sqrt(m_2 * m_2 * m_2);
 
             // Calculate skew = (m_3) / (m_2)^(3/2)
-            output_matrix->buffer[row] = m_3 / m_2;
+            if (m_2 == 0.0f) {
+                output_matrix->buffer[row] = 0.0f;
+            } else {
+                output_matrix->buffer[row] = m_3 / m_2;
+            }
 #endif
         }
 
@@ -1300,7 +1308,12 @@ public:
             cmsis_arm_fourth_moment(&input_matrix->buffer[(row * input_matrix->cols)], input_matrix->cols, mean, &m_4);
 
             // Calculate Fisher kurtosis = (m_4 / variance^2) - 3
-            output_matrix->buffer[row] = (m_4 / (var * var)) - 3;
+            var = var * var;
+            if (var == 0.0f) {
+                output_matrix->buffer[row] = -3.0f;
+            } else {
+                output_matrix->buffer[row] = (m_4 / var) - 3.0f;
+            }
 #else
             // Calculate the mean
             float mean = 0.0f;
@@ -1328,7 +1341,11 @@ public:
             // Square the variance
             variance = variance * variance;
             // Calculate Fisher kurtosis = (m_4 / variance^2) - 3
-            output_matrix->buffer[row] = (m_4 / variance) - 3;
+            if (variance == 0.0f) {
+                output_matrix->buffer[row] = -3.0f;
+            } else {
+                output_matrix->buffer[row] = (m_4 / variance) - 3.0f;
+            }
 #endif
         }
 
