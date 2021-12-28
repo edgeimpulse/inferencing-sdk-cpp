@@ -87,7 +87,7 @@ uint64_t ei_read_timer_ms()
 
 uint64_t ei_read_timer_us()
 {
-    return 0;
+    return ei_read_timer_ms() * 1000;
 }
 
 void ei_serial_set_baudrate(int baudrate)

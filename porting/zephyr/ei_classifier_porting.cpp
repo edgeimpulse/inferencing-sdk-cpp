@@ -43,7 +43,7 @@ uint64_t ei_read_timer_ms() {
 }
 
 uint64_t ei_read_timer_us() {
-    return k_uptime_get()*1000;
+    return k_uptime_get() * 1000;
 }
 
 /**

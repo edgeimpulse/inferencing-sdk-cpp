@@ -55,7 +55,7 @@ uint64_t ei_read_timer_ms() {
 uint64_t ei_read_timer_us() {
 
     /* TI board hangs when trying to call callback function each micro second */
-    return 0;
+    return Timer_getMs() * 1000;
 }
 
 __attribute__((weak)) void ei_printf(const char *format, ...) {

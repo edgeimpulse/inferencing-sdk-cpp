@@ -45,11 +45,11 @@ uint64_t ei_read_timer_ms() {
 }
 
 uint64_t ei_read_timer_us() {
-    return 0;
+    return EtaCspTimerCountGetMs() * 1000;
 }
 
 __attribute__((weak)) void ei_printf(const char *format, ...) {
-    
+
     extern tUart etaUart;
     char print_buf[1024] = {0};
 
@@ -72,13 +72,13 @@ __attribute__((weak)) void *ei_malloc(size_t size) {
 }
 
 __attribute__((weak)) void *ei_calloc(size_t nitems, size_t size) {
-    
+
     uint32_t ix;
     uint8_t *ptr = (uint8_t *)pvPortMalloc(nitems * size);
 
     if(ptr) {
         for (ix = 0; ix < (nitems * size); ix++) {
-            *(ptr + ix) = 0;            
+            *(ptr + ix) = 0;
         }
     }
 
