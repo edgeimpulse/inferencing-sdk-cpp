@@ -24,6 +24,10 @@
 #define _EI_CLASSIFIER_CONFIG_H_
 
 // clang-format off
+#if EI_CLASSIFIER_TFLITE_ENABLE_SILABS_MVP == 1
+    #define EI_CLASSIFIER_TFLITE_ENABLE_CMSIS_NN      0
+#endif
+
 #ifndef EI_CLASSIFIER_TFLITE_ENABLE_CMSIS_NN
 #if defined(__MBED__)
     #include "mbed.h"

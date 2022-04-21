@@ -21,62 +21,57 @@
  */
 
 #include "../ei_classifier_porting.h"
-#if EI_PORTING_SILABS == 1
+#if EI_PORTING_ESPRESSIF == 1
 
-/* Include ----------------------------------------------------------------- */
 #include <stdarg.h>
-#include <stdio.h>
 #include <stdlib.h>
-//TODO: use only headers after migrating Thunderboard2 firmware
-#if defined(EFR32MG24B310F1536IM48) && EFR32MG24B310F1536IM48==1
-#include "sl_sleeptimer.h"
-#include "sl_stdio.h"
-#elif defined(EFR32MG12P332F1024GL125) && EFR32MG12P332F1024GL125==1
-extern "C" {
-    void sl_sleeptimer_delay_millisecond(uint16_t time_ms);
-    uint32_t sl_sleeptimer_get_tick_count(void);
-    uint32_t sl_sleeptimer_tick_to_ms(uint32_t tick);
-}
-#endif
-__attribute__((weak)) EI_IMPULSE_ERROR ei_run_impulse_check_canceled() {
+#include <stdio.h>
+// Include FreeRTOS for delay
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+
+// for millis and micros
+#include "esp_timer.h"
+
+#define EI_WEAK_FN __attribute__((weak))
+
+EI_WEAK_FN EI_IMPULSE_ERROR ei_run_impulse_check_canceled() {
     return EI_IMPULSE_OK;
+}
+
+EI_WEAK_FN EI_IMPULSE_ERROR ei_sleep(int32_t time_ms) {
+    vTaskDelay(time_ms / portTICK_RATE_MS);
+    return EI_IMPULSE_OK;
+}
+
+uint64_t ei_read_timer_ms() {
+    return esp_timer_get_time()/1000;
+}
+
+uint64_t ei_read_timer_us() {
+    return esp_timer_get_time();
+}
+
+void ei_putchar(char c)
+{
+    /* Send char to serial output */
+    putchar(c);
 }
 
 /**
- * Cancelable sleep, can be triggered with signal from other thread
+ *  Printf function uses vsnprintf and output using USB Serial
  */
-__attribute__((weak)) EI_IMPULSE_ERROR ei_sleep(int32_t time_ms) {
-    sl_sleeptimer_delay_millisecond(time_ms);
-    return EI_IMPULSE_OK;
-}
-
-uint64_t ei_read_timer_ms()
-{
-    return (uint32_t)sl_sleeptimer_tick_to_ms(sl_sleeptimer_get_tick_count());
-}
-
-uint64_t ei_read_timer_us()
-{
-    return ei_read_timer_ms() * 1000;
-}
-
-void ei_serial_set_baudrate(int baudrate)
-{
-}
-
-//TODO: after merging Thunderboard 2 firmware, use this function
-#if defined(EFR32MG24B310F1536IM48) && EFR32MG24B310F1536IM48==1
-void ei_putchar(char c)
-{
-    sl_putchar(c);
-}
-#endif
-
 __attribute__((weak)) void ei_printf(const char *format, ...) {
-    va_list myargs;
-    va_start(myargs, format);
-    vprintf(format, myargs);
-    va_end(myargs);
+    static char print_buf[1024] = { 0 };
+
+    va_list args;
+    va_start(args, format);
+    int r = vsnprintf(print_buf, sizeof(print_buf), format, args);
+    va_end(args);
+
+    if (r > 0) {
+       printf(print_buf);
+    }
 }
 
 __attribute__((weak)) void ei_printf_float(float f) {
@@ -102,4 +97,4 @@ __attribute__((weak)) void DebugLog(const char* s) {
     ei_printf("%s", s);
 }
 
-#endif // EI_PORTING_SILABS == 1
+#endif // EI_PORTING_ESPRESSIF == 1

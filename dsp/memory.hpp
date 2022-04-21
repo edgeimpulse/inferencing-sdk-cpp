@@ -25,7 +25,9 @@
 
 // clang-format off
 #include <stdio.h>
+#include <memory>
 #include "../porting/ei_classifier_porting.h"
+#include "edge-impulse-sdk/classifier/ei_aligned_malloc.h"
 
 extern size_t ei_memory_in_use;
 extern size_t ei_memory_peak_use;
@@ -35,6 +37,8 @@ extern size_t ei_memory_peak_use;
 #else
 #define ei_dsp_printf           (void)
 #endif
+
+typedef std::unique_ptr<void, void(*)(void*)> ei_unique_ptr_t;
 
 namespace ei {
 

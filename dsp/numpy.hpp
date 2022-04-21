@@ -342,21 +342,6 @@ public:
         return EIDSP_OK;
     }
 
-    static int transpose(matrix_i16_t *matrix) {
-        int r = transpose(matrix->buffer, matrix->cols, matrix->rows);
-        if (r != 0) {
-            return r;
-        }
-
-        uint16_t old_rows = matrix->rows;
-        uint16_t old_cols = matrix->cols;
-
-        matrix->rows = old_cols;
-        matrix->cols = old_rows;
-
-        return EIDSP_OK;
-    }
-
     /**
      * Transpose an array in place (from MxN to NxM)
      * @param matrix
@@ -398,40 +383,6 @@ public:
 #endif
 
         memcpy(matrix, temp_matrix.buffer, rows * columns * sizeof(float));
-
-        return EIDSP_OK;
-    }
-
-    static int transpose(EIDSP_i16 *matrix, int rows, int columns) {
-        EI_DSP_i16_MATRIX(temp_matrix, rows, columns);
-        if (!temp_matrix.buffer) {
-            EIDSP_ERR(EIDSP_OUT_OF_MEM);
-        }
-
-#if EIDSP_USE_CMSIS_DSP
-        const arm_matrix_instance_q15 i_m = {
-            static_cast<uint16_t>(columns),
-            static_cast<uint16_t>(rows),
-            matrix
-        };
-        arm_matrix_instance_q15 o_m = {
-            static_cast<uint16_t>(rows),
-            static_cast<uint16_t>(columns),
-            temp_matrix.buffer
-        };
-        arm_status status = arm_mat_trans_q15(&i_m, &o_m);
-        if (status != ARM_MATH_SUCCESS) {
-            return status;
-        }
-#else
-        for (int j = 0; j < rows; j++){
-            for (int i = 0; i < columns; i++){
-                temp_matrix.buffer[j * columns + i] = matrix[i * rows + j];
-            }
-        }
-#endif
-
-        memcpy(matrix, temp_matrix.buffer, rows * columns * sizeof(EIDSP_i16));
 
         return EIDSP_OK;
     }
@@ -1352,6 +1303,7 @@ public:
         return EIDSP_OK;
     }
 
+
     /**
      * Compute the one-dimensional discrete Fourier Transform for real input.
      * This function computes the one-dimensional n-point discrete Fourier Transform (DFT) of
@@ -1429,143 +1381,6 @@ public:
         return EIDSP_OK;
     }
 
-    /**
-     * Compute the one-dimensional discrete Fourier Transform for real input.
-     * This function computes the one-dimensional n-point discrete Fourier Transform (DFT) of
-     * a real-valued array by means of an efficient algorithm called the Fast Fourier Transform (FFT).
-     * @param src Source buffer
-     * @param src_size Size of the source buffer
-     * @param output Output buffer
-     * @param output_size Size of the output buffer, should be n_fft / 2 + 1
-     * @returns 0 if OK
-     */
-    static int rfft(const EIDSP_i16 *src, size_t src_size, EIDSP_i16 *output, size_t output_size, size_t n_fft) {
-#if EIDSP_USE_CMSIS_DSP
-        size_t n_fft_out_features = (n_fft / 2) + 1;
-        if (output_size != n_fft_out_features) {
-            EIDSP_ERR(EIDSP_BUFFER_SIZE_MISMATCH);
-        }
-
-        // truncate if needed
-        if (src_size > n_fft) {
-            src_size = n_fft;
-        }
-
-        // declare input and output arrays
-        EI_DSP_i16_MATRIX(fft_input, 1, n_fft << 1);
-
-        // copy from src to fft_input
-        memcpy(fft_input.buffer, src, src_size * sizeof(EIDSP_i16));
-        // pad to the rigth with zeros
-        memset(fft_input.buffer + src_size, 0, (n_fft - src_size) * sizeof(EIDSP_i16));
-
-        if (n_fft != 32 && n_fft != 64 && n_fft != 128 && n_fft != 256 &&
-            n_fft != 512 && n_fft != 1024 && n_fft != 2048 && n_fft != 4096) {
-            EIDSP_ERR(EIDSP_PARAMETER_INVALID); //TODO zero pad so we can use anyway`
-        } else {
-            // hardware acceleration only works for the powers above...
-            arm_rfft_instance_q15 rfft_instance;
-            arm_status status = arm_rfft_init_q15(&rfft_instance, n_fft, 0, 1);
-            if (status != ARM_MATH_SUCCESS) {
-                return (int)status;
-            }
-
-            EI_DSP_i16_MATRIX(fft_output, 1, n_fft << 1);
-            if (!fft_output.buffer) {
-                EIDSP_ERR(EIDSP_OUT_OF_MEM);
-            }
-
-            arm_rfft_q15(&rfft_instance, fft_input.buffer, fft_output.buffer);
-
-            output[0] = fft_output.buffer[0];
-            output[n_fft_out_features - 1] = fft_output.buffer[1];
-
-            size_t fft_output_buffer_ix = 2;
-            for (size_t ix = 1; ix < n_fft_out_features - 1; ix += 1) {
-                EIDSP_i16 rms_result;
-                arm_rms_q15(&fft_output.buffer[fft_output_buffer_ix], 2, &rms_result);
-                output[ix] = (EIDSP_i16)saturate((int32_t)rms_result * ((int32_t)(1.414213562f * (1 << 15))) >> 15, 16); /* sqrt(2) */
-
-                fft_output_buffer_ix += 2;
-            }
-        }
-        return EIDSP_OK;
-#else
-        return EIDSP_REQUIRES_CMSIS_DSP;
-#endif
-    }
-
-    /**
-     * Compute the one-dimensional discrete Fourier Transform for real input.
-     * This function computes the one-dimensional n-point discrete Fourier Transform (DFT) of
-     * a real-valued array by means of an efficient algorithm called the Fast Fourier Transform (FFT).
-     * @param src Source buffer
-     * @param src_size Size of the source buffer
-     * @param output Output buffer
-     * @param output_size Size of the output buffer, should be n_fft / 2 + 1
-     * @returns 0 if OK
-     */
-    static int rfft(const EIDSP_i32 *src, size_t src_size, EIDSP_i32 *output, size_t output_size, size_t n_fft) {
-#if EIDSP_USE_CMSIS_DSP
-        size_t n_fft_out_features = (n_fft / 2) + 1;
-        if (output_size != n_fft_out_features) {
-            EIDSP_ERR(EIDSP_BUFFER_SIZE_MISMATCH);
-        }
-
-        // truncate if needed
-        if (src_size > n_fft) {
-            src_size = n_fft;
-        }
-
-        // declare input and output arrays
-        EI_DSP_i32_MATRIX(fft_input, 1, n_fft << 1);
-
-        if (!fft_input.buffer) {
-            EIDSP_ERR(EIDSP_OUT_OF_MEM);
-        }
-
-        // copy from src to fft_input
-        memcpy(fft_input.buffer, src, src_size * sizeof(EIDSP_i32));
-        // pad to the rigth with zeros
-        memset(fft_input.buffer + src_size, 0, (n_fft - src_size) * sizeof(EIDSP_i32));
-
-        if (n_fft != 32 && n_fft != 64 && n_fft != 128 && n_fft != 256 &&
-            n_fft != 512 && n_fft != 1024 && n_fft != 2048 && n_fft != 4096) {
-            EIDSP_ERR(EIDSP_PARAMETER_INVALID);
-        } else {
-            // hardware acceleration only works for the powers above...
-            arm_rfft_instance_q31 rfft_instance;
-            arm_status status = arm_rfft_init_q31(&rfft_instance, n_fft, 0, 1);
-            if (status != ARM_MATH_SUCCESS) {
-                return status;
-            }
-
-            // EI_DSP_i16_MATRIX(fft_output, 1, n_fft << 1);
-            matrix_i32_t fft_output(1, n_fft << 1);
-
-            if (!fft_output.buffer) {
-                EIDSP_ERR(EIDSP_OUT_OF_MEM);
-            }
-
-            arm_rfft_q31(&rfft_instance, (EIDSP_i32 *)fft_input.buffer, (EIDSP_i32 *)fft_output.buffer);
-
-            output[0] = fft_output.buffer[0];
-            output[n_fft_out_features - 1] = fft_output.buffer[1];
-
-            size_t fft_output_buffer_ix = 2;
-            for (size_t ix = 1; ix < n_fft_out_features - 1; ix += 1) {
-                EIDSP_i32 rms_result;
-                arm_rms_q31((EIDSP_i32 *)&fft_output.buffer[fft_output_buffer_ix], 2, &rms_result);
-                output[ix] = (EIDSP_i32)saturate((int64_t)rms_result * ((int64_t)(1.414213562f * 2147483648.f)) >> 31, 32); /* sqrt(2) */
-
-                fft_output_buffer_ix += 2;
-            }
-        }
-        return EIDSP_OK;
-#else
-        return EIDSP_REQUIRES_CMSIS_DSP;
-#endif
-    }
 
     /**
      * Compute the one-dimensional discrete Fourier Transform for real input.
@@ -1652,74 +1467,6 @@ public:
         return EIDSP_OK;
     }
 
-    static int rfft(const EIDSP_i16 *src, size_t src_size, fft_complex_i16_t *output, size_t output_size, size_t n_fft) {
-#if EIDSP_USE_CMSIS_DSP
-        size_t n_fft_out_features = (n_fft / 2) + 1;
-        if (output_size != n_fft_out_features) {
-            EIDSP_ERR(EIDSP_BUFFER_SIZE_MISMATCH);
-        }
-
-        // truncate if needed
-        if (src_size > n_fft) {
-            src_size = n_fft;
-        }
-
-        // declare input and output arrays
-        EIDSP_i16 *fft_input_buffer = NULL;
-        if (src_size == n_fft) {
-            fft_input_buffer = (EIDSP_i16*)src;
-        }
-
-        EI_DSP_i16_MATRIX_B(fft_input, 1, n_fft, fft_input_buffer);
-        if (!fft_input.buffer) {
-            EIDSP_ERR(EIDSP_OUT_OF_MEM);
-        }
-
-        if (!fft_input_buffer) {
-            // copy from src to fft_input
-            memcpy(fft_input.buffer, src, src_size * sizeof(EIDSP_i16));
-            // pad to the rigth with zeros
-            memset(fft_input.buffer + src_size, 0, (n_fft - src_size) * sizeof(EIDSP_i16));
-        }
-
-        if (n_fft != 32 && n_fft != 64 && n_fft != 128 && n_fft != 256 &&
-            n_fft != 512 && n_fft != 1024 && n_fft != 2048 && n_fft != 4096) {
-                EIDSP_ERR(EIDSP_PARAMETER_INVALID); // fixed fft lib does not support arbitrary input length
-        }
-        else {
-            // hardware acceleration only works for the powers above...
-            arm_rfft_instance_q15 rfft_instance;
-            arm_status status = arm_rfft_init_q15(&rfft_instance, n_fft, 0, 1);
-            if (status != ARM_MATH_SUCCESS) {
-                return status;
-            }
-
-            EI_DSP_i16_MATRIX(fft_output, 1, n_fft << 1);
-            if (!fft_output.buffer) {
-                EIDSP_ERR(EIDSP_OUT_OF_MEM);
-            }
-
-            arm_rfft_q15(&rfft_instance, fft_input.buffer, fft_output.buffer);
-
-            output[0].r = fft_output.buffer[0];
-            output[0].i = 0.0f;
-            output[n_fft_out_features - 1].r = fft_output.buffer[1];
-            output[n_fft_out_features - 1].i = 0.0f;
-
-            size_t fft_output_buffer_ix = 2;
-            for (size_t ix = 1; ix < n_fft_out_features - 1; ix += 1) {
-                output[ix].r = fft_output.buffer[fft_output_buffer_ix];
-                output[ix].i = fft_output.buffer[fft_output_buffer_ix + 1];
-
-                fft_output_buffer_ix += 2;
-            }
-        }
-
-        return EIDSP_OK;
-#else
-        return EIDSP_REQUIRES_CMSIS_DSP;
-#endif
-    }
 
     /**
      * Return evenly spaced numbers over a specified interval.
@@ -1953,27 +1700,7 @@ public:
         return EIDSP_OK;
     }
 
-    static int signal_from_buffer_i16(EIDSP_i16 *data_i16, size_t data_size, signal_i16_t *signal)
-    {
-        signal->total_length = data_size;
-#ifdef __MBED__
-        signal->get_data = mbed::callback(&numpy::signal_get_data_i16, data_i16);
-#else
-        signal->get_data = [data_i16](size_t offset, size_t length, EIDSP_i16 *out_ptr) {
-            return numpy::signal_get_data_i16(data_i16, offset, length, out_ptr);
-        };
 #endif
-        return EIDSP_OK;
-    }
-#endif
-
-    static int signal_from_buffer_pointer_function_q15(size_t data_size, signal_i16_t *signal, int (*data_i16)(size_t, size_t, EIDSP_i16 *))
-    {
-        signal->total_length = data_size;
-        signal->get_data = data_i16;
-
-        return EIDSP_OK;
-    }
 
 #if defined ( __GNUC__ )
 #pragma GCC diagnostic push

@@ -1,5 +1,5 @@
 /* Edge Impulse inferencing library
- * Copyright (c) 2021 EdgeImpulse Inc.
+ * Copyright (c) 2022 EdgeImpulse Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,13 +21,13 @@
  */
 
 #include "../ei_classifier_porting.h"
-#if EI_PORTING_ECM3532 == 1
+#if EI_PORTING_RASPBERRY == 1
 
 #include "edge-impulse-sdk/tensorflow/lite/micro/debug_log.h"
 #include <stdio.h>
 #include <stdarg.h>
 
-// Redirect TFLite DebugLog to ei_printf
+// On mbed platforms, we set up a serial port and write to it for debug logging.
 #if defined(__cplusplus) && EI_C_LINKAGE == 1
 extern "C"
 #endif // defined(__cplusplus) && EI_C_LINKAGE == 1
@@ -35,4 +35,4 @@ void DebugLog(const char* s) {
     ei_printf("%s", s);
 }
 
-#endif // EI_PORTING_ECM3532 == 1
+#endif // EI_PORTING_RASPBERRY

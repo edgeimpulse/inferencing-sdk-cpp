@@ -519,27 +519,6 @@ typedef struct ei_signal_t {
     size_t total_length;
 } signal_t;
 
-typedef struct ei_signal_i16_t {
-    /**
-     * A function to retrieve part of the sensor signal
-     * No bytes will be requested outside of the `total_length`.
-     * @param offset The offset in the signal
-     * @param length The total length of the signal
-     * @param out_ptr An out buffer to set the signal data
-     */
-#if EIDSP_SIGNAL_C_FN_POINTER == 1
-    int (*get_data)(size_t, size_t, EIDSP_i16 *);
-#else
-#ifdef __MBED__
-    mbed::Callback<int(size_t offset, size_t length, EIDSP_i16 *out_ptr)> get_data;
-#else
-    std::function<int(size_t offset, size_t length, EIDSP_i16 *out_ptr)> get_data;
-#endif // __MBED__
-#endif // EIDSP_SIGNAL_C_FN_POINTER == 1
-
-    size_t total_length;
-} signal_i16_t;
-
 #ifdef __cplusplus
 } // namespace ei {
 #endif // __cplusplus

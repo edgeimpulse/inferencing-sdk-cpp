@@ -133,6 +133,14 @@ void ei_free(void *ptr);
 #endif
 #endif
 
+#ifndef EI_PORTING_ESPRESSIF
+#ifdef CONFIG_IDF_TARGET_ESP32
+#define EI_PORTING_ESPRESSIF      1
+#else
+#define EI_PORTING_ESPRESSIF     0
+#endif
+#endif
+
 #ifndef EI_PORTING_MBED
 #ifdef __MBED__
 #define EI_PORTING_MBED      1
@@ -154,6 +162,14 @@ void ei_free(void *ptr);
 #define EI_PORTING_SILABS      1
 #else
 #define EI_PORTING_SILABS      0
+#endif
+#endif
+
+#ifndef EI_PORTING_RASPBERRY
+#ifdef PICO_BOARD 
+#define EI_PORTING_RASPBERRY      1
+#else
+#define EI_PORTING_RASPBERRY      0
 #endif
 #endif
 

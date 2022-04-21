@@ -1,5 +1,5 @@
 /* Edge Impulse inferencing library
- * Copyright (c) 2021 EdgeImpulse Inc.
+ * Copyright (c) 2022 EdgeImpulse Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -20,45 +20,19 @@
  * SOFTWARE.
  */
 
-#ifndef _EDGE_IMPULSE_RUN_CLASSIFIER_TYPES_H_
-#define _EDGE_IMPULSE_RUN_CLASSIFIER_TYPES_H_
+#include "../ei_classifier_porting.h"
+#if EI_PORTING_ESPRESSIF == 1
 
-#include <stdint.h>
-#include "model-parameters/model_metadata.h"
+#include "edge-impulse-sdk/tensorflow/lite/micro/debug_log.h"
+#include <stdio.h>
+#include <stdarg.h>
 
-typedef struct {
-    const char *label;
-    float value;
-} ei_impulse_result_classification_t;
+// On mbed platforms, we set up a serial port and write to it for debug logging.
+#if defined(__cplusplus) && EI_C_LINKAGE == 1
+extern "C"
+#endif // defined(__cplusplus) && EI_C_LINKAGE == 1
+void DebugLog(const char* s) {
+    ei_printf("%s", s);
+}
 
-typedef struct {
-    const char *label;
-    uint32_t x;
-    uint32_t y;
-    uint32_t width;
-    uint32_t height;
-    float value;
-} ei_impulse_result_bounding_box_t;
-
-typedef struct {
-    int sampling;
-    int dsp;
-    int classification;
-    int anomaly;
-    int64_t dsp_us;
-    int64_t classification_us;
-    int64_t anomaly_us;
-} ei_impulse_result_timing_t;
-
-typedef struct {
-#if EI_CLASSIFIER_OBJECT_DETECTION == 1
-    ei_impulse_result_bounding_box_t bounding_boxes[EI_CLASSIFIER_OBJECT_DETECTION_COUNT];
-#else
-    ei_impulse_result_classification_t classification[EI_CLASSIFIER_LABEL_COUNT];
-#endif
-    float anomaly;
-    ei_impulse_result_timing_t timing;
-    int32_t label_detected;
-} ei_impulse_result_t;
-
-#endif // _EDGE_IMPULSE_RUN_CLASSIFIER_TYPES_H_
+#endif // EI_PORTING_ESPRESSIF

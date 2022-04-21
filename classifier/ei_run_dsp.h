@@ -152,123 +152,7 @@ __attribute__((unused)) int extract_spectral_analysis_features(signal_t *signal,
     return EIDSP_OK;
 }
 
-matrix_i16_t *create_edges_matrix(ei_dsp_config_spectral_analysis_t config, const float sampling_freq)
-{
-    // the spectral edges that we want to calculate
-    static matrix_i16_t edges_matrix_in(64, 1);
-    static bool matrix_created = false;
-    size_t edge_matrix_ix = 0;
 
-    if(matrix_created == false) {
-
-        char spectral_str[128] = { 0 };
-        if (strlen(config.spectral_power_edges) > sizeof(spectral_str) - 1) {
-            return NULL;
-        }
-        memcpy(spectral_str, config.spectral_power_edges, strlen(config.spectral_power_edges));
-
-        // convert spectral_power_edges (string) into float array
-        char *spectral_ptr = spectral_str;
-        while (spectral_ptr != NULL) {
-            while((*spectral_ptr) == ' ') {
-                spectral_ptr++;
-            }
-
-            float edge = (atof(spectral_ptr) / (float)(sampling_freq/2.f));
-            numpy::float_to_int16(&edge, &edges_matrix_in.buffer[edge_matrix_ix++], 1);
-
-            // find next (spectral) delimiter (or '\0' character)
-            while((*spectral_ptr != ',')) {
-                spectral_ptr++;
-                if (*spectral_ptr == '\0') break;
-            }
-
-            if (*spectral_ptr == '\0') {
-                spectral_ptr = NULL;
-            }
-            else  {
-                spectral_ptr++;
-            }
-        }
-        edges_matrix_in.rows = edge_matrix_ix;
-        matrix_created = true;
-    }
-
-    return &edges_matrix_in;
-}
-
-__attribute__((unused)) int extract_spectral_analysis_features(signal_i16_t *signal, matrix_i32_t *output_matrix, void *config_ptr, const float frequency) {
-    ei_dsp_config_spectral_analysis_t config = *((ei_dsp_config_spectral_analysis_t*)config_ptr);
-
-    int ret;
-
-    const float sampling_freq = frequency;
-
-    // input matrix from the raw signal
-    matrix_i16_t input_matrix(signal->total_length / config.axes, config.axes);
-    if (!input_matrix.buffer) {
-        EIDSP_ERR(EIDSP_OUT_OF_MEM);
-    }
-
-    signal->get_data(0, signal->total_length, (EIDSP_i16 *)&input_matrix.buffer[0]);
-
-    // scale the signal
-    ret = numpy::scale(&input_matrix, config.scale_axes);
-    if (ret != EIDSP_OK) {
-        ei_printf("ERR: Failed to scale signal (%d)\n", ret);
-        EIDSP_ERR(ret);
-    }
-
-    // transpose the matrix so we have one row per axis (nifty!)
-    ret = numpy::transpose(&input_matrix);
-    if (ret != EIDSP_OK) {
-        ei_printf("ERR: Failed to transpose matrix (%d)\n", ret);
-        EIDSP_ERR(ret);
-    }
-
-    matrix_i16_t *edges_matrix_in = create_edges_matrix(config, sampling_freq);
-
-    if(edges_matrix_in == NULL) {
-        EIDSP_ERR(EIDSP_PARAMETER_INVALID);
-    }
-
-    // calculate how much room we need for the output matrix
-    size_t output_matrix_cols = spectral::feature::calculate_spectral_buffer_size(
-        true, config.spectral_peaks_count, edges_matrix_in->rows
-    );
-    // ei_printf("output_matrix_size %hux%zu\n", input_matrix.rows, output_matrix_cols);
-    if (output_matrix->cols * output_matrix->rows != static_cast<uint32_t>(output_matrix_cols * config.axes)) {
-        EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
-    }
-
-    output_matrix->cols = output_matrix_cols;
-    output_matrix->rows = config.axes;
-
-    spectral::filter_t filter_type;
-    if (strcmp(config.filter_type, "low") == 0) {
-        filter_type = spectral::filter_lowpass;
-    }
-    else if (strcmp(config.filter_type, "high") == 0) {
-        filter_type = spectral::filter_highpass;
-    }
-    else {
-        filter_type = spectral::filter_none;
-    }
-
-    ret = spectral::feature::spectral_analysis(output_matrix, &input_matrix,
-        sampling_freq, filter_type, config.filter_cutoff, config.filter_order,
-        config.fft_length, config.spectral_peaks_count, config.spectral_peaks_threshold, edges_matrix_in);
-    if (ret != EIDSP_OK) {
-        ei_printf("ERR: Failed to calculate spectral features (%d)\n", ret);
-        EIDSP_ERR(ret);
-    }
-
-    // flatten again
-    output_matrix->cols = config.axes * output_matrix_cols;
-    output_matrix->rows = 1;
-
-    return EIDSP_OK;
-}
 
 __attribute__((unused)) int extract_raw_features(signal_t *signal, matrix_t *output_matrix, void *config_ptr, const float frequency) {
     ei_dsp_config_raw_t config = *((ei_dsp_config_raw_t*)config_ptr);
@@ -286,10 +170,20 @@ __attribute__((unused)) int extract_raw_features(signal_t *signal, matrix_t *out
         EIDSP_ERR(ret);
     }
 
-    memcpy(output_matrix->buffer, input_matrix.buffer, signal->total_length * sizeof(float));
+    // Because of rounding errors during re-sampling the output size of the block might be
+    // smaller than the input of the block. Make sure we don't write outside of the bounds
+    // of the array:
+    // https://forum.edgeimpulse.com/t/using-custom-sensors-on-raspberry-pi-4/3506/7
+    size_t els_to_copy = signal->total_length;
+    if (els_to_copy > output_matrix->rows * output_matrix->cols) {
+        els_to_copy = output_matrix->rows * output_matrix->cols;
+    }
+
+    memcpy(output_matrix->buffer, input_matrix.buffer, els_to_copy * sizeof(float));
 
     return EIDSP_OK;
 }
+
 
 __attribute__((unused)) int extract_flatten_features(signal_t *signal, matrix_t *output_matrix, void *config_ptr, const float frequency) {
     ei_dsp_config_flatten_t config = *((ei_dsp_config_flatten_t*)config_ptr);
@@ -404,7 +298,7 @@ __attribute__((unused)) int extract_mfcc_features(signal_t *signal, matrix_t *ou
         EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
     }
 
-    if(config.implementation_version != 1 && config.implementation_version != 2) {
+    if((config.implementation_version == 0) || (config.implementation_version > 3)) {
         EIDSP_ERR(EIDSP_BLOCK_VERSION_INCORRECT);
     }
 
@@ -513,7 +407,7 @@ __attribute__((unused)) int extract_mfcc_per_slice_features(signal_t *signal, ma
         EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
     }
 
-    if(config.implementation_version != 1 && config.implementation_version != 2) {
+    if((config.implementation_version == 0) || (config.implementation_version > 3)) {
         EIDSP_ERR(EIDSP_BLOCK_VERSION_INCORRECT);
     }
 

@@ -68,7 +68,7 @@ __attribute__((weak)) void ei_printf(const char *format, ...) {
 }
 
 __attribute__((weak)) void ei_printf_float(float f) {
-    ei_printf("%f", f);
+    Serial.print(f, 6);
 }
 
 __attribute__((weak)) void *ei_malloc(size_t size) {
