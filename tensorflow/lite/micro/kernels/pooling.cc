@@ -1,4 +1,4 @@
-// Patched by Edge Impulse to include reference, CMSIS-NN, ARC and MVP kernels
+// Patched by Edge Impulse to include reference and hardware-accelerated kernels
 #include "../../../../classifier/ei_classifier_config.h"
 #if 0 == 1
 /* noop */
@@ -340,10 +340,30 @@ TfLiteStatus AverageEval(TfLiteContext* context, TfLiteNode* node) {
   // Inputs and outputs share the same type, guaranteed by the converter.
   switch (input->type) {
     case kTfLiteFloat32:
+      #if EI_TFLITE_DISABLE_AVERAGE_POOL_2D_IN_F32
+      TF_LITE_KERNEL_LOG(context, "Type %s (%d) not supported.",
+                      TfLiteTypeGetName(input->type), input->type);
+      return kTfLiteError;
+      #endif
+
       AverageEvalFloat(context, node, params, data, input, output);
       break;
     case kTfLiteUInt8:
+      #if EI_TFLITE_DISABLE_AVERAGE_POOL_2D_IN_U8
+      TF_LITE_KERNEL_LOG(context, "Type %s (%d) not supported.",
+                      TfLiteTypeGetName(input->type), input->type);
+      return kTfLiteError;
+      #endif
+
+      AverageEvalQuantized(context, node, params, data, input, output);
+      break;
     case kTfLiteInt8:
+      #if EI_TFLITE_DISABLE_AVERAGE_POOL_2D_IN_I8
+      TF_LITE_KERNEL_LOG(context, "Type %s (%d) not supported.",
+                      TfLiteTypeGetName(input->type), input->type);
+      return kTfLiteError;
+      #endif
+
       AverageEvalQuantized(context, node, params, data, input, output);
       break;
     default:
@@ -368,12 +388,30 @@ TfLiteStatus MaxEval(TfLiteContext* context, TfLiteNode* node) {
 
   switch (input->type) {
     case kTfLiteFloat32:
+      #if EI_TFLITE_DISABLE_MAX_POOL_2D_IN_F32
+      TF_LITE_KERNEL_LOG(context, "Type %s (%d) not supported.",
+                      TfLiteTypeGetName(input->type), input->type);
+      return kTfLiteError;
+      #endif
+
       MaxEvalFloat(context, node, params, data, input, output);
       break;
     case kTfLiteUInt8:
+      #if EI_TFLITE_DISABLE_MAX_POOL_2D_IN_U8
+      TF_LITE_KERNEL_LOG(context, "Type %s (%d) not supported.",
+                      TfLiteTypeGetName(input->type), input->type);
+      return kTfLiteError;
+      #endif
+
       MaxEvalQuantizedUInt8(context, node, params, data, input, output);
       break;
     case kTfLiteInt8:
+      #if EI_TFLITE_DISABLE_MAX_POOL_2D_IN_I8
+      TF_LITE_KERNEL_LOG(context, "Type %s (%d) not supported.",
+                      TfLiteTypeGetName(input->type), input->type);
+      return kTfLiteError;
+      #endif
+
       MaxEvalInt8(context, node, params, data, input, output);
       break;
     default:
@@ -760,10 +798,34 @@ TfLiteStatus AverageEval(TfLiteContext* context, TfLiteNode* node) {
   // Inputs and outputs share the same type, guaranteed by the converter.
   switch (input->type) {
     case kTfLiteFloat32:
+      #if EI_TFLITE_DISABLE_AVERAGE_POOL_2D_IN_F32
+      TF_LITE_KERNEL_LOG(context, "Type %s (%d) not supported.",
+                      TfLiteTypeGetName(input->type), input->type);
+      return kTfLiteError;
+      #endif
+
       AverageEvalFloat(context, node, params, data, input, output);
       break;
     case kTfLiteUInt8:
+      #if EI_TFLITE_DISABLE_AVERAGE_POOL_2D_IN_U8
+      TF_LITE_KERNEL_LOG(context, "Type %s (%d) not supported.",
+                      TfLiteTypeGetName(input->type), input->type);
+      return kTfLiteError;
+      #endif
+
+      if (data.is_mli_applicable) {
+        EvalMli(context, params, data, input, output, AveragePooling);
+      } else {
+        AverageEvalQuantized(context, node, params, data, input, output);
+      }
+      break;
     case kTfLiteInt8:
+      #if EI_TFLITE_DISABLE_AVERAGE_POOL_2D_IN_I8
+      TF_LITE_KERNEL_LOG(context, "Type %s (%d) not supported.",
+                      TfLiteTypeGetName(input->type), input->type);
+      return kTfLiteError;
+      #endif
+
       if (data.is_mli_applicable) {
         EvalMli(context, params, data, input, output, AveragePooling);
       } else {
@@ -791,10 +853,34 @@ TfLiteStatus MaxEval(TfLiteContext* context, TfLiteNode* node) {
 
   switch (input->type) {
     case kTfLiteFloat32:
+      #if EI_TFLITE_DISABLE_MAX_POOL_2D_IN_F32
+      TF_LITE_KERNEL_LOG(context, "Type %s (%d) not supported.",
+                      TfLiteTypeGetName(input->type), input->type);
+      return kTfLiteError;
+      #endif
+
       MaxEvalFloat(context, node, params, data, input, output);
       break;
     case kTfLiteUInt8:
+      #if EI_TFLITE_DISABLE_MAX_POOL_2D_IN_U8
+      TF_LITE_KERNEL_LOG(context, "Type %s (%d) not supported.",
+                      TfLiteTypeGetName(input->type), input->type);
+      return kTfLiteError;
+      #endif
+
+      if (data.is_mli_applicable) {
+        EvalMli(context, params, data, input, output, MaxPooling);
+      } else {
+        MaxEvalQuantized(context, node, params, data, input, output);
+      }
+      break;
     case kTfLiteInt8:
+      #if EI_TFLITE_DISABLE_MAX_POOL_2D_IN_I8
+      TF_LITE_KERNEL_LOG(context, "Type %s (%d) not supported.",
+                      TfLiteTypeGetName(input->type), input->type);
+      return kTfLiteError;
+      #endif
+
       if (data.is_mli_applicable) {
         EvalMli(context, params, data, input, output, MaxPooling);
       } else {
@@ -1049,6 +1135,12 @@ TfLiteStatus AverageEval(TfLiteContext* context, TfLiteNode* node)
                        data->op_params.output),
         ARM_MATH_SUCCESS);
   } else if (data->supported == kTFLMrefF32) {
+    #if EI_TFLITE_DISABLE_AVERAGE_POOL_2D_IN_F32
+    TF_LITE_KERNEL_LOG(context, "Type %s (%d) not supported.",
+                    TfLiteTypeGetName(input->type), input->type);
+    return kTfLiteError;
+    #endif
+
     // Use TFLM reference kernel.
     tflite::PoolParams op_params;
     op_params.stride_height         = data->op_params.stride_height;
@@ -1130,6 +1222,12 @@ TfLiteStatus MaxEval(TfLiteContext* context, TfLiteNode* node)
                         data->op_params.output),
         ARM_MATH_SUCCESS);
   } else if (data->supported == kTFLMrefF32) {
+    #if EI_TFLITE_DISABLE_MAX_POOL_2D_IN_F32
+    TF_LITE_KERNEL_LOG(context, "Type %s (%d) not supported.",
+                    TfLiteTypeGetName(input->type), input->type);
+    return kTfLiteError;
+    #endif
+
     // Use TFLM reference kernel.
     tflite::PoolParams op_params;
     op_params.stride_height         = data->op_params.stride_height;
@@ -1196,7 +1294,6 @@ TfLiteRegistration Register_AVERAGE_POOL_2D() {
 }  // namespace tflite
 
 #elif EI_CLASSIFIER_TFLITE_ENABLE_ESP_NN == 1
-
 /* Copyright 2021 The TensorFlow Authors. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -1211,13 +1308,12 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
-#include "edge-impulse-sdk/tensorflow/lite/kernels/internal/reference/pooling.h"
+
 #include "edge-impulse-sdk/tensorflow/lite/c/builtin_op_data.h"
 #include "edge-impulse-sdk/tensorflow/lite/kernels/kernel_util.h"
-#include "edge-impulse-sdk/tensorflow/lite/micro/kernels/kernel_util.h"
-
-//#include "edge-impulse-sdk/tensorflow/lite/kernels/internal/tensor_ctypes.h"
 #include "edge-impulse-sdk/tensorflow/lite/kernels/padding.h"
+#include "edge-impulse-sdk/tensorflow/lite/kernels/internal/reference/pooling.h"
+#include "edge-impulse-sdk/tensorflow/lite/micro/kernels/kernel_util.h"
 
 #include <esp_nn.h>
 #include <esp_timer.h>
@@ -1428,9 +1524,21 @@ TfLiteStatus AverageEval(TfLiteContext* context, TfLiteNode* node) {
   // Inputs and outputs share the same type, guaranteed by the converter.
   switch (input->type) {
     case kTfLiteFloat32:
+      #if EI_TFLITE_DISABLE_AVERAGE_POOL_2D_IN_F32
+      TF_LITE_KERNEL_LOG(context, "Type %s (%d) not supported.",
+                      TfLiteTypeGetName(input->type), input->type);
+      return kTfLiteError;
+      #endif
+
       AverageEvalFloat(context, node, params, data, input, output);
       break;
     case kTfLiteInt8:
+      #if EI_TFLITE_DISABLE_AVERAGE_POOL_2D_IN_I8
+      TF_LITE_KERNEL_LOG(context, "Type %s (%d) not supported.",
+                      TfLiteTypeGetName(input->type), input->type);
+      return kTfLiteError;
+      #endif
+
       AverageEvalQuantized(context, node, params, data, input, output);
       break;
     default:
@@ -1458,9 +1566,21 @@ TfLiteStatus MaxEval(TfLiteContext* context, TfLiteNode* node) {
   long long start_time = esp_timer_get_time();
   switch (input->type) {
     case kTfLiteFloat32:
+      #if EI_TFLITE_DISABLE_MAX_POOL_2D_IN_F32
+      TF_LITE_KERNEL_LOG(context, "Type %s (%d) not supported.",
+                      TfLiteTypeGetName(input->type), input->type);
+      return kTfLiteError;
+      #endif
+
       MaxEvalFloat(context, node, params, data, input, output);
       break;
     case kTfLiteInt8:
+      #if EI_TFLITE_DISABLE_MAX_POOL_2D_IN_I8
+      TF_LITE_KERNEL_LOG(context, "Type %s (%d) not supported.",
+                      TfLiteTypeGetName(input->type), input->type);
+      return kTfLiteError;
+      #endif
+
       MaxEvalQuantized(context, node, params, data, input, output);
       break;
     default:
@@ -1530,7 +1650,6 @@ TfLiteRegistration Register_MAX_POOL_2D() {
 }  // namespace micro
 }  // namespace ops
 }  // namespace tflite
-
 #else
 /* Copyright 2019 The TensorFlow Authors. All Rights Reserved.
 
@@ -1701,10 +1820,30 @@ TfLiteStatus AverageEval(TfLiteContext* context, TfLiteNode* node) {
   // Inputs and outputs share the same type, guaranteed by the converter.
   switch (input->type) {
     case kTfLiteFloat32:
+      #if EI_TFLITE_DISABLE_AVERAGE_POOL_2D_IN_F32
+      TF_LITE_KERNEL_LOG(context, "Type %s (%d) not supported.",
+                      TfLiteTypeGetName(input->type), input->type);
+      return kTfLiteError;
+      #endif
+
       AverageEvalFloat(context, node, params, data, input, output);
       break;
     case kTfLiteUInt8:
+      #if EI_TFLITE_DISABLE_AVERAGE_POOL_2D_IN_U8
+      TF_LITE_KERNEL_LOG(context, "Type %s (%d) not supported.",
+                      TfLiteTypeGetName(input->type), input->type);
+      return kTfLiteError;
+      #endif
+
+      AverageEvalQuantized(context, node, params, data, input, output);
+      break;
     case kTfLiteInt8:
+      #if EI_TFLITE_DISABLE_AVERAGE_POOL_2D_IN_I8
+      TF_LITE_KERNEL_LOG(context, "Type %s (%d) not supported.",
+                      TfLiteTypeGetName(input->type), input->type);
+      return kTfLiteError;
+      #endif
+
       AverageEvalQuantized(context, node, params, data, input, output);
       break;
     default:
@@ -1729,10 +1868,30 @@ TfLiteStatus MaxEval(TfLiteContext* context, TfLiteNode* node) {
 
   switch (input->type) {
     case kTfLiteFloat32:
+      #if EI_TFLITE_DISABLE_MAX_POOL_2D_IN_F32
+      TF_LITE_KERNEL_LOG(context, "Type %s (%d) not supported.",
+                      TfLiteTypeGetName(input->type), input->type);
+      return kTfLiteError;
+      #endif
+
       MaxEvalFloat(context, node, params, data, input, output);
       break;
     case kTfLiteUInt8:
+      #if EI_TFLITE_DISABLE_MAX_POOL_2D_IN_U8
+      TF_LITE_KERNEL_LOG(context, "Type %s (%d) not supported.",
+                      TfLiteTypeGetName(input->type), input->type);
+      return kTfLiteError;
+      #endif
+
+      MaxEvalQuantized(context, node, params, data, input, output);
+      break;
     case kTfLiteInt8:
+      #if EI_TFLITE_DISABLE_MAX_POOL_2D_IN_I8
+      TF_LITE_KERNEL_LOG(context, "Type %s (%d) not supported.",
+                      TfLiteTypeGetName(input->type), input->type);
+      return kTfLiteError;
+      #endif
+
       MaxEvalQuantized(context, node, params, data, input, output);
       break;
     default:

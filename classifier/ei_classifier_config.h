@@ -68,5 +68,23 @@
 #endif // CPU_ARC
 #endif // EI_CLASSIFIER_TFLITE_ENABLE_ARC
 
+#ifndef EI_CLASSIFIER_TFLITE_ENABLE_ESP_NN
+    #if defined(ESP32)
+        #define EI_CLASSIFIER_TFLITE_ENABLE_ESP_NN      1
+    #endif // ESP32 check
+#endif
+
+// no include checks in the compiler? then just include metadata and then ops_define (optional if on EON model)
+#ifndef __has_include
+    #include "model-parameters/model_metadata.h"
+    #if (EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_TFLITE) && (EI_CLASSIFIER_COMPILED == 1)
+        #include "tflite-model/trained_model_ops_define.h"
+    #endif
+#else
+    #if __has_include("tflite-model/trained_model_ops_define.h")
+    #include "tflite-model/trained_model_ops_define.h"
+    #endif
+#endif // __has_include
+
 // clang-format on
 #endif // _EI_CLASSIFIER_CONFIG_H_
