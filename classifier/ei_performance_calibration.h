@@ -43,11 +43,6 @@ public:
         uint32_t sample_length,
         float sample_interval_ms)
     {
-        if ((void *)this == NULL) {
-            ei_printf(MEM_ERROR);
-            return;
-        }
-
         this->_detection_threshold = config->detection_threshold;
         this->_suppression_flags = config->suppression_flags;
         this->_n_labels = n_labels;
@@ -120,7 +115,7 @@ public:
         uint32_t current_top_index = 0;
 
         /* Check pointers */
-        if ((void *)this == NULL || this->_score_array == NULL || this->_running_sum == NULL) {
+        if (this->_score_array == NULL || this->_running_sum == NULL) {
             return EI_PC_RET_MEMORY_ERROR;
         }
 
