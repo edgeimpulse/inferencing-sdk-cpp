@@ -1315,7 +1315,7 @@ limitations under the License.
 #include "edge-impulse-sdk/tensorflow/lite/kernels/internal/reference/pooling.h"
 #include "edge-impulse-sdk/tensorflow/lite/micro/kernels/kernel_util.h"
 
-#include <esp_nn.h>
+#include "edge-impulse-sdk/porting/espressif/ESP-NN/include/esp_nn.h"
 #include <esp_timer.h>
 
 long long pooling_total_time = 0;
@@ -1529,7 +1529,6 @@ TfLiteStatus AverageEval(TfLiteContext* context, TfLiteNode* node) {
                       TfLiteTypeGetName(input->type), input->type);
       return kTfLiteError;
       #endif
-
       AverageEvalFloat(context, node, params, data, input, output);
       break;
     case kTfLiteInt8:
@@ -1538,7 +1537,6 @@ TfLiteStatus AverageEval(TfLiteContext* context, TfLiteNode* node) {
                       TfLiteTypeGetName(input->type), input->type);
       return kTfLiteError;
       #endif
-
       AverageEvalQuantized(context, node, params, data, input, output);
       break;
     default:
@@ -1571,7 +1569,6 @@ TfLiteStatus MaxEval(TfLiteContext* context, TfLiteNode* node) {
                       TfLiteTypeGetName(input->type), input->type);
       return kTfLiteError;
       #endif
-
       MaxEvalFloat(context, node, params, data, input, output);
       break;
     case kTfLiteInt8:
@@ -1580,7 +1577,6 @@ TfLiteStatus MaxEval(TfLiteContext* context, TfLiteNode* node) {
                       TfLiteTypeGetName(input->type), input->type);
       return kTfLiteError;
       #endif
-
       MaxEvalQuantized(context, node, params, data, input, output);
       break;
     default:

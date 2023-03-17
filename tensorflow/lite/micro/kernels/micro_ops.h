@@ -32,6 +32,7 @@ namespace tflite {
 // have their Register function declarations in the tflite namespace.
 
 TfLiteRegistration Register_ADD_N();
+TfLiteRegistration Register_BATCH_MATMUL();
 TfLiteRegistration Register_BATCH_TO_SPACE_ND();
 TfLiteRegistration Register_CAST();
 TfLiteRegistration Register_COMPLEX_ABS();
@@ -58,8 +59,10 @@ TfLiteRegistration Register_SHAPE();
 TfLiteRegistration Register_SLICE();
 TfLiteRegistration Register_SOFTMAX();
 TfLiteRegistration Register_SPACE_TO_BATCH_ND();
+TfLiteRegistration Register_SQUARED_DIFFERENCE();
 TfLiteRegistration Register_SQUEEZE();
 TfLiteRegistration Register_SVDF();
+TfLiteRegistration Register_TRANSPOSE();
 TfLiteRegistration Register_TRANSPOSE_CONV();
 TfLiteRegistration Register_ZEROS_LIKE();
 
@@ -102,6 +105,7 @@ TfLiteRegistration Register_PAD();
 TfLiteRegistration Register_PADV2();
 TfLiteRegistration Register_PRELU();
 TfLiteRegistration Register_REDUCE_MAX();
+TfLiteRegistration Register_REDUCE_MIN();
 TfLiteRegistration Register_RELU();
 TfLiteRegistration Register_RELU6();
 TfLiteRegistration Register_RESHAPE();

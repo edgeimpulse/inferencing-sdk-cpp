@@ -143,6 +143,11 @@ class MicroMutableOpResolver : public MicroOpResolver {
                       ParsePool);
   }
 
+  TfLiteStatus AddBatchMatMul() {
+    return AddBuiltin(BuiltinOperator_BATCH_MATMUL,
+                      tflite::Register_BATCH_MATMUL(), ParseBatchMatMul);
+  }
+
   TfLiteStatus AddBatchToSpaceNd() {
     return AddBuiltin(BuiltinOperator_BATCH_TO_SPACE_ND,
                       Register_BATCH_TO_SPACE_ND(), ParseBatchToSpaceNd);
@@ -394,6 +399,11 @@ class MicroMutableOpResolver : public MicroOpResolver {
                       tflite::ops::micro::Register_REDUCE_MAX(), ParseReducer);
   }
 
+  TfLiteStatus AddReduceMin() {
+     return AddBuiltin(BuiltinOperator_REDUCE_MIN,
+                       tflite::ops::micro::Register_REDUCE_MIN(), ParseReducer);
+   }
+
   TfLiteStatus AddRelu() {
     return AddBuiltin(BuiltinOperator_RELU, tflite::ops::micro::Register_RELU(),
                       ParseRelu);
@@ -476,6 +486,11 @@ class MicroMutableOpResolver : public MicroOpResolver {
                       tflite::ops::micro::Register_SPLIT_V(), ParseSplitV);
   }
 
+  TfLiteStatus AddSquaredDifference() {
+    return AddBuiltin(BuiltinOperator_SQUARED_DIFFERENCE, Register_SQUARED_DIFFERENCE(),
+                      ParseSquaredDifference);
+  }
+
   TfLiteStatus AddSqueeze() {
     return AddBuiltin(BuiltinOperator_SQUEEZE, Register_SQUEEZE(),
                       ParseSqueeze);
@@ -514,6 +529,11 @@ class MicroMutableOpResolver : public MicroOpResolver {
   TfLiteStatus AddTanh() {
     return AddBuiltin(BuiltinOperator_TANH, tflite::ops::micro::Register_TANH(),
                       ParseTanh);
+  }
+
+  TfLiteStatus AddTranspose() {
+    return AddBuiltin(BuiltinOperator_TRANSPOSE,
+                      tflite::Register_TRANSPOSE(), ParseTranspose);
   }
 
   TfLiteStatus AddTransposeConv() {

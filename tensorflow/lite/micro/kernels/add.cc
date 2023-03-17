@@ -527,7 +527,7 @@ limitations under the License.
 #include "edge-impulse-sdk/tensorflow/lite/micro/memory_helpers.h"
 
 #include <esp_timer.h>
-#include <esp_nn.h>
+#include "edge-impulse-sdk/porting/espressif/ESP-NN/include/esp_nn.h"
 
 long long add_total_time = 0;
 

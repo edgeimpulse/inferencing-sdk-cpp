@@ -1418,7 +1418,7 @@ limitations under the License.
 
 #include "freertos/FreeRTOS.h"
 #include <esp_timer.h>
-#include <esp_nn.h>
+#include "edge-impulse-sdk/porting/espressif/ESP-NN/include/esp_nn.h"
 
 long long dc_total_time = 0;
 
@@ -1661,7 +1661,6 @@ TfLiteStatus Eval(TfLiteContext* context, TfLiteNode* node) {
                       TfLiteTypeGetName(input->type), input->type);
       return kTfLiteError;
       #endif
-
       tflite::reference_ops::DepthwiseConv(
           DepthwiseConvParamsFloat(params, data.op_data),
           tflite::micro::GetTensorShape(input),
@@ -1679,7 +1678,6 @@ TfLiteStatus Eval(TfLiteContext* context, TfLiteNode* node) {
                       TfLiteTypeGetName(input->type), input->type);
       return kTfLiteError;
       #endif
-
       EvalQuantizedPerChannel(context, node, params, data, input, filter, bias,
                               output);
       break;
@@ -1689,7 +1687,6 @@ TfLiteStatus Eval(TfLiteContext* context, TfLiteNode* node) {
                       TfLiteTypeGetName(input->type), input->type);
       return kTfLiteError;
       #endif
-
       //EvalQuantized(context, node, params, &data, input, filter, bias, output);
       reference_ops::DepthwiseConv(
           DepthwiseConvParamsQuantized(params, data.op_data),

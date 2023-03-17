@@ -27,6 +27,7 @@ AllOpsResolver::AllOpsResolver() {
   AddArgMax();
   AddArgMin();
   AddAveragePool2D();
+  AddBatchMatMul();
   AddBatchToSpaceNd();
   AddCeil();
   AddComplexAbs();
@@ -41,6 +42,7 @@ AllOpsResolver::AllOpsResolver() {
   AddEqual();
   AddEthosU();
   AddExp();
+  AddExpandDims();
   AddFloor();
   AddFullyConnected();
 #ifndef TF_LITE_STATIC_MEMORY
@@ -74,6 +76,7 @@ AllOpsResolver::AllOpsResolver() {
   AddQuantize();
   AddReal();
   AddReduceMax();
+  AddReduceMin();
   AddRelu();
   AddRelu6();
   AddReshape();
@@ -94,12 +97,14 @@ AllOpsResolver::AllOpsResolver() {
   AddSplitV();
   AddSqrt();
   AddSquare();
+  AddSquaredDifference();
   AddSqueeze();
   AddStridedSlice();
   AddSub();
   AddSum();
   AddSvdf();
   AddTanh();
+  AddTranspose();
   AddTransposeConv();
   AddUnpack();
 }

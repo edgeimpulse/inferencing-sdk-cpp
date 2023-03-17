@@ -1388,7 +1388,7 @@ limitations under the License.
 
 #include "freertos/FreeRTOS.h"
 #include <esp_timer.h>
-#include <esp_nn.h>
+#include "edge-impulse-sdk/porting/espressif/ESP-NN/include/esp_nn.h"
 
 long long conv_total_time = 0;
 
@@ -1627,7 +1627,6 @@ TfLiteStatus Eval(TfLiteContext* context, TfLiteNode* node) {
                       TfLiteTypeGetName(input->type), input->type);
       return kTfLiteError;
       #endif
-
       tflite::reference_ops::Conv(
           ConvParamsFloat(params, data.op_data),
           tflite::micro::GetTensorShape(input),
@@ -1647,7 +1646,6 @@ TfLiteStatus Eval(TfLiteContext* context, TfLiteNode* node) {
                       TfLiteTypeGetName(input->type), input->type);
       return kTfLiteError;
       #endif
-
       EvalQuantizedPerChannel(context, node, params, data, input, filter,
                               bias, output);
       break;
@@ -1658,7 +1656,6 @@ TfLiteStatus Eval(TfLiteContext* context, TfLiteNode* node) {
                       TfLiteTypeGetName(input->type), input->type);
       return kTfLiteError;
       #endif
-
       //EvalQuantized
       reference_ops::Conv(ConvParamsQuantized(params, data.op_data),
                           tflite::micro::GetTensorShape(input),
@@ -1679,7 +1676,7 @@ TfLiteStatus Eval(TfLiteContext* context, TfLiteNode* node) {
                          TfLiteTypeGetName(input->type), input->type);
       return kTfLiteError;
   }
-
+  
   long long time_this_instance = esp_timer_get_time() - start_time;
   conv_total_time += time_this_instance;
   //printf("time this instance: %llu\n", time_this_instance / 1000);
