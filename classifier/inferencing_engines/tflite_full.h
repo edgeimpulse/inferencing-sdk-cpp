@@ -21,26 +21,17 @@
 #if (EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_TFLITE_FULL)
 
 #include "model-parameters/model_metadata.h"
-#if EI_CLASSIFIER_HAS_MODEL_VARIABLES == 1
-#include "model-parameters/model_variables.h"
-#endif
 
 #include <thread>
-#include "tensorflow/lite/c/common.h"
-#include "tensorflow/lite/interpreter.h"
-#include "tensorflow/lite/kernels/register.h"
-#include "tensorflow/lite/model.h"
-#include "tensorflow/lite/optional_debug_tools.h"
+#include "tensorflow-lite/tensorflow/lite/c/common.h"
+#include "tensorflow-lite/tensorflow/lite/interpreter.h"
+#include "tensorflow-lite/tensorflow/lite/kernels/register.h"
+#include "tensorflow-lite/tensorflow/lite/model.h"
+#include "tensorflow-lite/tensorflow/lite/optional_debug_tools.h"
+#include "edge-impulse-sdk/tensorflow/lite/kernels/tree_ensemble_classifier.h"
 #include "edge-impulse-sdk/classifier/ei_fill_result_struct.h"
 #include "edge-impulse-sdk/classifier/ei_model_types.h"
 #include "edge-impulse-sdk/classifier/inferencing_engines/tflite_helper.h"
-
-// Subset of things required from ei_impulse_t to invoke TFLite model
-typedef struct {
-    uint32_t block_id;
-    const uint8_t *model_arr;
-    size_t model_arr_size;
-} ei_nn_tflite_full_t;
 
 typedef struct {
     std::unique_ptr<tflite::FlatBufferModel> model;
@@ -52,12 +43,13 @@ std::map<uint32_t, ei_tflite_state_t*> ei_tflite_instances;
 /**
  * Construct a tflite interpreter (creates it if needed)
  */
-static EI_IMPULSE_ERROR get_interpreter(const ei_nn_tflite_full_t *config, tflite::Interpreter ** interpreter) {
+static EI_IMPULSE_ERROR get_interpreter(ei_learning_block_config_tflite_graph_t *block_config, tflite::Interpreter **interpreter) {
     // not in the map yet...
-    if (!ei_tflite_instances.count(config->block_id)) {
+    if (!ei_tflite_instances.count(block_config->block_id)) {
+        ei_config_tflite_graph_t *graph_config = (ei_config_tflite_graph_t*)block_config->graph_config;
         ei_tflite_state_t *new_state = new ei_tflite_state_t();
 
-        auto new_model = tflite::FlatBufferModel::BuildFromBuffer((const char*)config->model_arr, config->model_arr_size);
+        auto new_model = tflite::FlatBufferModel::BuildFromBuffer((const char*)graph_config->model, graph_config->model_size);
         new_state->model = std::move(new_model);
         if (!new_state->model) {
             ei_printf("Failed to build TFLite model from buffer\n");
@@ -65,6 +57,10 @@ static EI_IMPULSE_ERROR get_interpreter(const ei_nn_tflite_full_t *config, tflit
         }
 
         tflite::ops::builtin::BuiltinOpResolver resolver;
+#if EI_CLASSIFIER_HAS_TREE_ENSEMBLE_CLASSIFIER
+        resolver.AddCustom("TreeEnsembleClassifier",
+            tflite::ops::custom::Register_TREE_ENSEMBLE_CLASSIFIER());
+#endif
         tflite::InterpreterBuilder builder(*new_state->model, resolver);
         builder(&new_state->interpreter);
 
@@ -89,21 +85,21 @@ static EI_IMPULSE_ERROR get_interpreter(const ei_nn_tflite_full_t *config, tflit
             return EI_IMPULSE_TFLITE_ERROR;
         }
 
-        ei_tflite_instances.insert(std::make_pair(config->block_id, new_state));
+        ei_tflite_instances.insert(std::make_pair(block_config->block_id, new_state));
     }
 
-    auto tflite_state = ei_tflite_instances[config->block_id];
+    auto tflite_state = ei_tflite_instances[block_config->block_id];
     *interpreter = tflite_state->interpreter.get();
     return EI_IMPULSE_OK;
 }
 
 extern "C" EI_IMPULSE_ERROR run_nn_inference_from_dsp(
-    const ei_nn_tflite_full_t *config,
+    ei_learning_block_config_tflite_graph_t *block_config,
     signal_t *signal,
     matrix_t *output_matrix)
 {
     tflite::Interpreter *interpreter;
-    auto interpreter_ret = get_interpreter(config, &interpreter);
+    auto interpreter_ret = get_interpreter(block_config, &interpreter);
     if (interpreter_ret != EI_IMPULSE_OK) {
         return interpreter_ret;
     }
@@ -118,7 +114,7 @@ extern "C" EI_IMPULSE_ERROR run_nn_inference_from_dsp(
         return EI_IMPULSE_OUTPUT_TENSOR_WAS_NULL;
     }
 
-    EI_IMPULSE_ERROR input_res = fill_input_tensor_from_signal(signal, input);
+    auto input_res = fill_input_tensor_from_signal(signal, input);
     if (input_res != EI_IMPULSE_OK) {
         return input_res;
     }
@@ -129,7 +125,7 @@ extern "C" EI_IMPULSE_ERROR run_nn_inference_from_dsp(
         return EI_IMPULSE_TFLITE_ERROR;
     }
 
-    EI_IMPULSE_ERROR output_res = fill_output_matrix_from_tensor(output, output_matrix);
+    auto output_res = fill_output_matrix_from_tensor(output, output_matrix);
     if (output_res != EI_IMPULSE_OK) {
         return output_res;
     }
@@ -139,26 +135,23 @@ extern "C" EI_IMPULSE_ERROR run_nn_inference_from_dsp(
     return EI_IMPULSE_OK;
 }
 
-extern "C" EI_IMPULSE_ERROR run_nn_inference(
+EI_IMPULSE_ERROR run_nn_inference(
     const ei_impulse_t *impulse,
     ei::matrix_t *fmatrix,
     ei_impulse_result_t *result,
+    void *config_ptr,
     bool debug = false)
 {
+    ei_learning_block_config_tflite_graph_t *block_config = (ei_learning_block_config_tflite_graph_t*)config_ptr;
 
-    const ei_nn_tflite_full_t config = {
-        0xFFFFFFFF, // block ID (we don't pass this in yet, so just put it here)
-        impulse->model_arr,
-        impulse->model_arr_size
-    };
     tflite::Interpreter *interpreter;
-    auto interpreter_ret = get_interpreter(&config, &interpreter);
+    auto interpreter_ret = get_interpreter(block_config, &interpreter);
     if (interpreter_ret != EI_IMPULSE_OK) {
         return interpreter_ret;
     }
 
     TfLiteTensor *input = interpreter->input_tensor(0);
-    TfLiteTensor *output = interpreter->output_tensor(impulse->tflite_output_data_tensor);
+    TfLiteTensor *output = interpreter->output_tensor(block_config->output_data_tensor);
 
     if (!input) {
         return EI_IMPULSE_INPUT_TENSOR_WAS_NULL;
@@ -189,8 +182,8 @@ extern "C" EI_IMPULSE_ERROR run_nn_inference(
         ei_printf("Predictions (time: %d ms.):\n", result->timing.classification);
     }
 
-    TfLiteTensor *scores_tensor = interpreter->output_tensor(impulse->tflite_output_score_tensor);
-    TfLiteTensor *labels_tensor = interpreter->output_tensor(impulse->tflite_output_labels_tensor);
+    TfLiteTensor *scores_tensor = interpreter->output_tensor(block_config->output_score_tensor);
+    TfLiteTensor *labels_tensor = interpreter->output_tensor(block_config->output_labels_tensor);
 
     EI_IMPULSE_ERROR fill_res = fill_result_struct_from_output_tensor_tflite(
         impulse, output, labels_tensor, scores_tensor, result, debug);
@@ -205,17 +198,30 @@ extern "C" EI_IMPULSE_ERROR run_nn_inference(
 }
 
 __attribute__((unused)) int extract_tflite_features(signal_t *signal, matrix_t *output_matrix, void *config_ptr, const float frequency) {
-    ei_dsp_config_tflite_t config = *((ei_dsp_config_tflite_t*)config_ptr);
 
-    const ei_nn_tflite_full_t nn_config = {
-        config.block_id, // block_id
-        config.model, // model_arr
-        config.model_size // model_arr_size
+    ei_dsp_config_tflite_t *dsp_config = (ei_dsp_config_tflite_t*)config_ptr;
+
+    ei_config_tflite_graph_t ei_config_tflite_graph_0 = {
+        .implementation_version = 1,
+        .model = dsp_config->model,
+        .model_size = dsp_config->model_size,
+        .arena_size = dsp_config->arena_size
     };
-    EI_IMPULSE_ERROR x = run_nn_inference_from_dsp(&nn_config, signal, output_matrix);
-    if (x != EI_IMPULSE_OK) {
-        ei_printf("run_nn_inference_from_dsp failed with code %d\n", x);
-        EIDSP_ERR(EIDSP_INFERENCE_ERROR);
+
+    ei_learning_block_config_tflite_graph_t ei_learning_block_config = {
+        .implementation_version = 1,
+        .block_id = dsp_config->block_id,
+        .object_detection = false,
+        .object_detection_last_layer = EI_CLASSIFIER_LAST_LAYER_UNKNOWN,
+        .output_data_tensor = 0,
+        .output_labels_tensor = 255,
+        .output_score_tensor = 255,
+        .graph_config = &ei_config_tflite_graph_0
+    };
+
+    auto x = run_nn_inference_from_dsp(&ei_learning_block_config, signal, output_matrix);
+    if (x != 0) {
+        return x;
     }
 
     return EIDSP_OK;

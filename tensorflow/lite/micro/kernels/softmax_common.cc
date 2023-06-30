@@ -36,7 +36,7 @@ TfLiteStatus CalculateSoftmaxParams(TfLiteContext* context,
     if (input->type == kTfLiteInt16) {
       #if EI_TFLITE_DISABLE_SOFTMAX_IN_I16
       TF_LITE_KERNEL_LOG(context, "Type %s (%d) not supported.",
-                      TfLiteTypeGetName(input->type), input->type);
+                         TfLiteTypeGetName(input->type), input->type);
       return kTfLiteError;
       #endif
 
@@ -46,7 +46,7 @@ TfLiteStatus CalculateSoftmaxParams(TfLiteContext* context,
     } else {  // input->type == kTfLiteInt8
       #if EI_TFLITE_DISABLE_SOFTMAX_IN_I8
       TF_LITE_KERNEL_LOG(context, "Type %s (%d) not supported.",
-                      TfLiteTypeGetName(input->type), input->type);
+                         TfLiteTypeGetName(input->type), input->type);
       return kTfLiteError;
       #endif
 
@@ -81,7 +81,7 @@ TfLiteStatus CalculateSoftmaxParams(TfLiteContext* context,
       QuantizeMultiplier(input_scale_beta_rescale, &op_data->input_multiplier,
                          &input_left_shift);
       op_data->input_left_shift = input_left_shift;
-    } else { // input->type == kTfLiteInt8
+    } else { // kTfLiteInt8
       #if EI_TFLITE_DISABLE_SOFTMAX_IN_I8
       TF_LITE_KERNEL_LOG(context, "Type %s (%d) not supported.",
                       TfLiteTypeGetName(input->type), input->type);

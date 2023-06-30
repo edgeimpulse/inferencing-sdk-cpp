@@ -282,8 +282,6 @@ public:
         int n_out = (input.size() * up);
         n_out = n_out / down + (n_out % down == 0 ? 0 : 1);
 
-        int half_len = (window.size() - 1) / 2;
-
         fvec h = window;
         scale(h, float(up));
 

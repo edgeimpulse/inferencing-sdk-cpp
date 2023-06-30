@@ -21,13 +21,9 @@
 #if (EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_TENSAIFLOW)
 
 #include "model-parameters/model_metadata.h"
-#if EI_CLASSIFIER_HAS_MODEL_VARIABLES == 1
-#include "model-parameters/model_variables.h"
-#endif
-
 #include "edge-impulse-sdk/porting/ei_classifier_porting.h"
-#include "model-parameters/dsp_blocks.h"
 #include "edge-impulse-sdk/classifier/ei_fill_result_struct.h"
+#include "edge-impulse-sdk/classifier/ei_run_dsp.h"
 
 #include "mcu.h"
 
@@ -45,8 +41,8 @@ extern "C" void get_data(const void *impulse_arg, int8_t *in_buf_0, uint16_t in_
     ei_impulse_t *impulse = (ei_impulse_t *) impulse_arg;
 
     if ((impulse->sensor == EI_CLASSIFIER_SENSOR_CAMERA) &&
-        ((ei_dsp_blocks_size == 1) ||
-        (ei_dsp_blocks[0].extract_fn == extract_image_features))) {
+        ((impulse->dsp_blocks_size == 1) ||
+        (impulse->dsp_blocks[0].extract_fn == extract_image_features))) {
 
         memcpy(in_buf_0, processed_features, impulse->nn_input_frame_size);
     }
@@ -76,8 +72,12 @@ EI_IMPULSE_ERROR run_nn_inference(
     const ei_impulse_t *impulse,
     ei::matrix_t *fmatrix,
     ei_impulse_result_t *result,
+    void *config_ptr,
     bool debug = false)
 {
+    ei_learning_block_config_tflite_graph_t *block_config = (ei_learning_block_config_tflite_graph_t*)config_ptr;
+    ei_config_tensaiflow_graph_t *graph_config = (ei_config_tensaiflow_graph_t*)block_config->graph_config;
+
     if (impulse->object_detection) {
         ei_printf("ERR: Object detection models are not supported with TensaiFlow\n");
         return EI_IMPULSE_UNSUPPORTED_INFERENCING_ENGINE;
@@ -97,15 +97,15 @@ EI_IMPULSE_ERROR run_nn_inference(
     for (uint32_t ix = 0; ix < impulse->label_count; ix++) {
         float value;
         // Dequantize the output if it is int8
-        value = static_cast<float>(infer_result[ix] - impulse->tflite_output_zeropoint) *
-            impulse->tflite_output_scale;
+        value = static_cast<float>(infer_result[ix] - graph_config->output_zeropoint) *
+            graph_config->output_scale;
 
         if (debug) {
-            ei_printf("%s:\t", ei_classifier_inferencing_categories[ix]);
+            ei_printf("%s:\t", impulse->categories[ix]);
             ei_printf_float(value);
             ei_printf("\n");
         }
-        result->classification[ix].label = ei_classifier_inferencing_categories[ix];
+        result->classification[ix].label = impulse->categories[ix];
         result->classification[ix].value = value;
     }
 
@@ -122,8 +122,11 @@ EI_IMPULSE_ERROR run_nn_inference_image_quantized(
     const ei_impulse_t *impulse,
     signal_t *signal,
     ei_impulse_result_t *result,
+    void *config_ptr,
     bool debug = false)
 {
+    ei_learning_block_config_tflite_graph_t *block_config = (ei_learning_block_config_tflite_graph_t*)config_ptr;
+    ei_config_tensaiflow_graph_t *graph_config = (ei_config_tensaiflow_graph_t*)block_config->graph_config;
 
     uint64_t ctx_start_us;
     uint64_t dsp_start_us = ei_read_timer_us();
@@ -132,7 +135,8 @@ EI_IMPULSE_ERROR run_nn_inference_image_quantized(
     processed_features = (int8_t *) features_matrix.buffer;
 
     // run DSP process and quantize automatically
-    int ret = extract_image_features_quantized(impulse, signal, &features_matrix, ei_dsp_blocks[0].config, impulse->frequency);
+    int ret = extract_image_features_quantized(signal, &features_matrix, impulse->dsp_blocks[0].config, graph_config->input_scale, graph_config->input_zeropoint,
+        impulse->frequency, impulse->learning_blocks[0].image_scaling);
     if (ret != EIDSP_OK) {
         ei_printf("ERR: Failed to run DSP process (%d)\n", ret);
         return EI_IMPULSE_DSP_ERROR;
@@ -148,7 +152,7 @@ EI_IMPULSE_ERROR run_nn_inference_image_quantized(
     if (debug) {
         ei_printf("Features (%d ms.): ", result->timing.dsp);
         for (size_t ix = 0; ix < features_matrix.cols; ix++) {
-            ei_printf_float((features_matrix.buffer[ix] - impulse->tflite_input_zeropoint) * impulse->tflite_input_scale);
+            ei_printf_float((features_matrix.buffer[ix] - graph_config->input_zeropoint) * graph_config->input_scale);
             ei_printf(" ");
         }
         ei_printf("\n");
@@ -169,7 +173,7 @@ EI_IMPULSE_ERROR run_nn_inference_image_quantized(
             case EI_CLASSIFIER_LAST_LAYER_FOMO: {
                 #if EI_CLASSIFIER_TFLITE_OUTPUT_QUANTIZED == 1
                     fill_res = fill_result_struct_i8_fomo(impulse, result, infer_result,
-                        impulse->tflite_output_zeropoint, impulse->tflite_output_scale,
+                        graph_config->output_zeropoint, graph_config->output_scale,
                         impulse->fomo_output_size, impulse->fomo_output_size);
                 #else
                     ei_printf("ERR: TensaiFlow does not support float32 inference\n");
@@ -187,7 +191,7 @@ EI_IMPULSE_ERROR run_nn_inference_image_quantized(
     else {
         #if EI_CLASSIFIER_TFLITE_OUTPUT_QUANTIZED == 1
             fill_res = fill_result_struct_i8(impulse, result, infer_result,
-                impulse->tflite_output_zeropoint, impulse->tflite_output_scale, debug);
+                graph_config->output_zeropoint, graph_config->output_scale, debug);
         #else
             ei_printf("ERR: TensaiFlow does not support float32 inference\n");
             return EI_IMPULSE_UNSUPPORTED_INFERENCING_ENGINE;

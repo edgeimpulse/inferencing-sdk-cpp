@@ -27,21 +27,7 @@
 
 #include "edge-impulse-sdk/porting/ei_classifier_porting.h"
 
-// for the release we'll put an actual studio version here
-#ifndef EI_CLASSIFIER_STUDIO_VERSION
-#define EI_CLASSIFIER_STUDIO_VERSION 2
-#endif
-
-#if EI_CLASSIFIER_STUDIO_VERSION < 3
-#include "model-parameters/dsp_blocks.h"
-#endif
-
-#if EI_CLASSIFIER_HAS_MODEL_VARIABLES == 1
-#include "model-parameters/model_variables.h"
-#endif
-
 #if EI_CLASSIFIER_HAS_ANOMALY == 1
-#include "model-parameters/anomaly_clusters.h"
 #include "inferencing_engines/anomaly.h"
 #endif
 
@@ -50,18 +36,15 @@
 #endif
 
 #if (EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_TFLITE) && (EI_CLASSIFIER_COMPILED != 1)
-#include "tflite-model/tflite-trained.h"
 #include "edge-impulse-sdk/classifier/inferencing_engines/tflite_micro.h"
 #elif EI_CLASSIFIER_COMPILED == 1
 #include "edge-impulse-sdk/classifier/inferencing_engines/tflite_eon.h"
 #elif EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_TFLITE_FULL
 #include "edge-impulse-sdk/classifier/inferencing_engines/tflite_full.h"
-#include "tflite-model/tflite-trained.h"
 #elif EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_TFLITE_TIDL
 #include "edge-impulse-sdk/classifier/inferencing_engines/tflite_tidl.h"
 #elif (EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_TENSORRT)
 #include "edge-impulse-sdk/classifier/inferencing_engines/tensorrt.h"
-#include "tflite-model/onnx-trained.h"
 #elif EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_TENSAIFLOW
 #include "edge-impulse-sdk/classifier/inferencing_engines/tensaiflow.h"
 #elif EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_DRPAI
@@ -70,11 +53,15 @@
 #include "edge-impulse-sdk/classifier/inferencing_engines/akida.h"
 #elif EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_ONNX_TIDL
 #include "edge-impulse-sdk/classifier/inferencing_engines/onnx_tidl.h"
+#elif EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_MEMRYX
+#include "edge-impulse-sdk/classifier/inferencing_engines/memryx.h"
 #elif EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_NONE
 // noop
 #else
 #error "Unknown inferencing engine"
 #endif
+
+#include "model-parameters/model_variables.h"
 
 #if ECM3532
 void*   __dso_handle = (void*) &__dso_handle;
@@ -98,7 +85,7 @@ namespace {
 /* Function prototypes ----------------------------------------------------- */
 extern "C" EI_IMPULSE_ERROR run_inference(const ei_impulse_t *impulse, ei::matrix_t *fmatrix, ei_impulse_result_t *result, bool debug);
 extern "C" EI_IMPULSE_ERROR run_classifier_image_quantized(const ei_impulse_t *impulse, signal_t *signal, ei_impulse_result_t *result, bool debug);
-static EI_IMPULSE_ERROR can_run_classifier_image_quantized(const ei_impulse_t *impulse);
+static EI_IMPULSE_ERROR can_run_classifier_image_quantized(const ei_impulse_t *impulse, ei_learning_block_t block_ptr);
 
 /* Private variables ------------------------------------------------------- */
 
@@ -109,6 +96,50 @@ static RecognizeEvents *avg_scores = NULL;
 
 /* These functions (up to Public functions section) are not exposed to end-user,
 therefore changes are allowed. */
+
+#if EI_CLASSIFIER_LOAD_IMAGE_SCALING
+static const float torch_mean[] = { 0.485, 0.456, 0.406 };
+static const float torch_std[] = { 0.229, 0.224, 0.225 };
+
+static EI_IMPULSE_ERROR scale_fmatrix(ei_learning_block_t *block, ei::matrix_t *fmatrix) {
+    if (block->image_scaling == EI_CLASSIFIER_IMAGE_SCALING_TORCH) {
+        // @todo; could we write some faster vector math here?
+        for (size_t ix = 0; ix < fmatrix->rows * fmatrix->cols; ix += 3) {
+            fmatrix->buffer[ix + 0] = (fmatrix->buffer[ix + 0] - torch_mean[0]) / torch_std[0];
+            fmatrix->buffer[ix + 1] = (fmatrix->buffer[ix + 1] - torch_mean[1]) / torch_std[1];
+            fmatrix->buffer[ix + 2] = (fmatrix->buffer[ix + 2] - torch_mean[2]) / torch_std[2];
+        }
+    }
+    else if (block->image_scaling == EI_CLASSIFIER_IMAGE_SCALING_0_255) {
+        int scale_res = numpy::scale(fmatrix, 255.0f);
+        if (scale_res != EIDSP_OK) {
+            ei_printf("ERR: Failed to scale matrix (%d)\n", scale_res);
+            return EI_IMPULSE_DSP_ERROR;
+        }
+    }
+
+    return EI_IMPULSE_OK;
+}
+
+static EI_IMPULSE_ERROR unscale_fmatrix(ei_learning_block_t *block, ei::matrix_t *fmatrix) {
+    if (block->image_scaling == EI_CLASSIFIER_IMAGE_SCALING_TORCH) {
+        // @todo; could we write some faster vector math here?
+        for (size_t ix = 0; ix < fmatrix->rows * fmatrix->cols; ix += 3) {
+            fmatrix->buffer[ix + 0] = (fmatrix->buffer[ix + 0] * torch_std[0]) + torch_mean[0];
+            fmatrix->buffer[ix + 1] = (fmatrix->buffer[ix + 1] * torch_std[1]) + torch_mean[1];
+            fmatrix->buffer[ix + 2] = (fmatrix->buffer[ix + 2] * torch_std[2]) + torch_mean[2];
+        }
+    }
+    else if (block->image_scaling == EI_CLASSIFIER_IMAGE_SCALING_0_255) {
+        int scale_res = numpy::scale(fmatrix, 1 / 255.0f);
+        if (scale_res != EIDSP_OK) {
+            ei_printf("ERR: Failed to scale matrix (%d)\n", scale_res);
+            return EI_IMPULSE_DSP_ERROR;
+        }
+    }
+    return EI_IMPULSE_OK;
+}
+#endif
 
 /**
  * @brief      Do inferencing over the processed feature matrix
@@ -126,21 +157,29 @@ extern "C" EI_IMPULSE_ERROR run_inference(
     ei_impulse_result_t *result,
     bool debug = false)
 {
-#if (EI_CLASSIFIER_INFERENCING_ENGINE != EI_CLASSIFIER_NONE && EI_CLASSIFIER_INFERENCING_ENGINE != EI_CLASSIFIER_DRPAI)
-    EI_IMPULSE_ERROR nn_res = run_nn_inference(impulse, fmatrix, result, debug);
-    if (nn_res != EI_IMPULSE_OK) {
-        return nn_res;
-    }
+    for (size_t ix = 0; ix < impulse->learning_blocks_size; ix++) {
+        ei_learning_block_t block = impulse->learning_blocks[ix];
+
+#if EI_CLASSIFIER_LOAD_IMAGE_SCALING
+        EI_IMPULSE_ERROR scale_res = scale_fmatrix(&block, fmatrix);
+        if (scale_res != EI_IMPULSE_OK) {
+            return scale_res;
+        }
 #endif
 
-#if EI_CLASSIFIER_HAS_ANOMALY == 1
-    if (impulse->has_anomaly) {
-        EI_IMPULSE_ERROR anomaly_res = inference_anomaly_invoke(impulse, fmatrix, result, debug);
-        if (anomaly_res != EI_IMPULSE_OK) {
-            return anomaly_res;
+        EI_IMPULSE_ERROR res = block.infer_fn(impulse, fmatrix, result, block.config, debug);
+        if (res != EI_IMPULSE_OK) {
+            return res;
         }
-    }
+
+#if EI_CLASSIFIER_LOAD_IMAGE_SCALING
+        // undo scaling
+        scale_res = unscale_fmatrix(&block, fmatrix);
+        if (scale_res != EI_IMPULSE_OK) {
+            return scale_res;
+        }
 #endif
+    }
 
     if (ei_run_impulse_check_canceled() == EI_IMPULSE_CANCELED) {
         return EI_IMPULSE_CANCELED;
@@ -167,7 +206,8 @@ extern "C" EI_IMPULSE_ERROR process_impulse(const ei_impulse_t *impulse,
 
 #if (EI_CLASSIFIER_TFLITE_INPUT_QUANTIZED == 1 && (EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_TFLITE || EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_TENSAIFLOW || EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_ONNX_TIDL)) || EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_DRPAI
     // Shortcut for quantized image models
-    if (can_run_classifier_image_quantized(impulse) == EI_IMPULSE_OK) {
+    ei_learning_block_t block = impulse->learning_blocks[0];
+    if (can_run_classifier_image_quantized(impulse, block) == EI_IMPULSE_OK) {
         return run_classifier_image_quantized(impulse, signal, result, debug);
     }
 #endif
@@ -366,7 +406,7 @@ extern "C" EI_IMPULSE_ERROR process_impulse_continuous(const ei_impulse_t *impul
 #if EI_CLASSIFIER_CALIBRATION_ENABLED
         if (impulse->sensor == EI_CLASSIFIER_SENSOR_MICROPHONE) {
             if((void *)avg_scores != NULL && enable_maf == true) {
-                if (enable_maf && !ei_calibration.is_configured) {
+                if (enable_maf && !impulse->calibration.is_configured) {
                     // perfcal is not configured, print msg first time
                     static bool has_printed_msg = false;
 
@@ -420,139 +460,10 @@ extern "C" EI_IMPULSE_ERROR process_impulse_continuous(const ei_impulse_t *impul
 
 }
 
-#if EI_CLASSIFIER_STUDIO_VERSION < 3
-/**
- * @brief      Construct impulse from macros - for run_classifer compatibility
- */
-extern "C" const ei_impulse_t ei_construct_impulse()
-{
-
-const ei_impulse_t impulse =
-    {
-    .project_id = EI_CLASSIFIER_PROJECT_ID,
-    .project_owner = EI_CLASSIFIER_PROJECT_OWNER,
-    .project_name = EI_CLASSIFIER_PROJECT_NAME,
-
-    .deploy_version = EI_CLASSIFIER_PROJECT_DEPLOY_VERSION,
-    .nn_input_frame_size = EI_CLASSIFIER_NN_INPUT_FRAME_SIZE,
-    .raw_sample_count = EI_CLASSIFIER_RAW_SAMPLE_COUNT,
-    .raw_samples_per_frame = EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME,
-    .dsp_input_frame_size = (EI_CLASSIFIER_RAW_SAMPLE_COUNT * EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME),
-
-    .input_width = EI_CLASSIFIER_INPUT_WIDTH,
-    .input_height = EI_CLASSIFIER_INPUT_HEIGHT,
-    .input_frames = EI_CLASSIFIER_INPUT_FRAMES,
-
-    .interval_ms = EI_CLASSIFIER_INTERVAL_MS,
-    .label_count = EI_CLASSIFIER_LABEL_COUNT,
-    .has_anomaly = EI_CLASSIFIER_HAS_ANOMALY,
-    .frequency = EI_CLASSIFIER_FREQUENCY,
-    .dsp_blocks_size = ei_dsp_blocks_size,
-    .dsp_blocks = ei_dsp_blocks,
-
-#if EI_CLASSIFIER_OBJECT_DETECTION == 1
-    .object_detection = true,
-    .object_detection_count = EI_CLASSIFIER_OBJECT_DETECTION_COUNT,
-    .object_detection_threshold = EI_CLASSIFIER_OBJECT_DETECTION_THRESHOLD,
-    .object_detection_last_layer = EI_CLASSIFIER_OBJECT_DETECTION_LAST_LAYER,
-    .tflite_output_labels_tensor = EI_CLASSIFIER_TFLITE_OUTPUT_LABELS_TENSOR,
-    .tflite_output_score_tensor = EI_CLASSIFIER_TFLITE_OUTPUT_SCORE_TENSOR,
-    .tflite_output_data_tensor = EI_CLASSIFIER_TFLITE_OUTPUT_DATA_TENSOR,
-#else
-    .object_detection = false,
-    .object_detection_count = 0,
-    .object_detection_threshold = 0.0,
-    .object_detection_last_layer = EI_CLASSIFIER_LAST_LAYER_UNKNOWN,
-    .tflite_output_labels_tensor = 0,
-    .tflite_output_score_tensor = 0,
-    .tflite_output_data_tensor = 0,
-#endif
-
-#ifdef EI_CLASSIFIER_NN_OUTPUT_COUNT
-    .tflite_output_features_count = EI_CLASSIFIER_NN_OUTPUT_COUNT,
-    .fomo_output_size = static_cast<uint32_t>(sqrt(EI_CLASSIFIER_NN_OUTPUT_COUNT / (EI_CLASSIFIER_LABEL_COUNT + 1 /* background */))),
-#else
-    .tflite_output_features_count = 0,
-    .fomo_output_size = 0,
-#endif
-
-#if (EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_TFLITE) && (EI_CLASSIFIER_COMPILED != 1)
-    .tflite_arena_size = EI_CLASSIFIER_TFLITE_ARENA_SIZE,
-#else
-    .tflite_arena_size = 0,
-#endif
-
-#if ((EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_TFLITE) || (EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_TFLITE_FULL)) && (EI_CLASSIFIER_COMPILED != 1)
-    .model_arr = trained_tflite,
-    .model_arr_size = trained_tflite_len,
-#elif (EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_TENSORRT)
-    .model_arr = trained_onnx,
-    .model_arr_size = trained_onnx_len,
-#else
-    .model_arr = 0,
-    .model_arr_size = 0,
-#endif
-
-#if (EI_CLASSIFIER_INFERENCING_ENGINE != EI_CLASSIFIER_NONE)
-    .tflite_input_datatype = EI_CLASSIFIER_TFLITE_INPUT_DATATYPE,
-    .tflite_input_quantized = EI_CLASSIFIER_TFLITE_INPUT_QUANTIZED,
-    .tflite_input_scale = EI_CLASSIFIER_TFLITE_INPUT_SCALE,
-    .tflite_input_zeropoint = EI_CLASSIFIER_TFLITE_INPUT_ZEROPOINT,
-    .tflite_output_datatype = EI_CLASSIFIER_TFLITE_OUTPUT_DATATYPE,
-    .tflite_output_quantized = EI_CLASSIFIER_TFLITE_OUTPUT_QUANTIZED,
-    .tflite_output_scale = EI_CLASSIFIER_TFLITE_OUTPUT_SCALE,
-    .tflite_output_zeropoint = EI_CLASSIFIER_TFLITE_OUTPUT_ZEROPOINT,
-    .inferencing_engine = EI_CLASSIFIER_INFERENCING_ENGINE,
-    .compiled = EI_CLASSIFIER_COMPILED,
-    .has_tflite_ops_resolver = EI_CLASSIFIER_HAS_TFLITE_OPS_RESOLVER,
-#else
-    .tflite_input_datatype = 0,
-    .tflite_input_quantized = 0,
-    .tflite_input_scale = 0,
-    .tflite_input_zeropoint = 0,
-    .tflite_output_datatype = 0,
-    .tflite_output_quantized = 0,
-    .tflite_output_scale = 0,
-    .tflite_output_zeropoint = 0,
-    .inferencing_engine = 0,
-    .compiled = 0,
-    .has_tflite_ops_resolver = 0,
-#endif
-
-    .sensor = EI_CLASSIFIER_SENSOR,
-#ifdef EI_CLASSIFIER_FUSION_AXES_STRING
-    .fusion_string = EI_CLASSIFIER_FUSION_AXES_STRING,
-#else
-    .fusion_string = "null",
-#endif
-
-    .slice_size = (EI_CLASSIFIER_RAW_SAMPLE_COUNT / EI_CLASSIFIER_SLICES_PER_MODEL_WINDOW),
-    .slices_per_model_window = EI_CLASSIFIER_SLICES_PER_MODEL_WINDOW,
-
-#if (EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_TFLITE) && (EI_CLASSIFIER_COMPILED == 1)
-    .model_input = &trained_model_input,
-    .model_output = &trained_model_output,
-    .model_init = &trained_model_init,
-    .model_invoke = &trained_model_invoke,
-    .model_reset = &trained_model_reset,
-#else
-    .model_input = NULL,
-    .model_output = NULL,
-    .model_init =  NULL,
-    .model_invoke = NULL,
-    .model_reset = NULL,
-#endif
-    .categories = ei_classifier_inferencing_categories
-    };
-    return impulse;
-}
-
-#endif
-
 /**
  * Check if the current impulse could be used by 'run_classifier_image_quantized'
  */
-__attribute__((unused)) static EI_IMPULSE_ERROR can_run_classifier_image_quantized(const ei_impulse_t *impulse) {
+__attribute__((unused)) static EI_IMPULSE_ERROR can_run_classifier_image_quantized(const ei_impulse_t *impulse, ei_learning_block_t block_ptr) {
 
     if (impulse->inferencing_engine != EI_CLASSIFIER_TFLITE
         && impulse->inferencing_engine != EI_CLASSIFIER_TENSAIFLOW
@@ -566,8 +477,13 @@ __attribute__((unused)) static EI_IMPULSE_ERROR can_run_classifier_image_quantiz
         return EI_IMPULSE_ONLY_SUPPORTED_FOR_IMAGES;
     }
 
+        // Check if we have tflite graph
+    if (block_ptr.infer_fn != run_nn_inference) {
+        return EI_IMPULSE_ONLY_SUPPORTED_FOR_IMAGES;
+    }
+
         // Check if we have a quantized NN Input layer (input is always quantized for DRP-AI)
-    if (impulse->tflite_input_quantized != 1) {
+    if (impulse->quantized != 1) {
         return EI_IMPULSE_ONLY_SUPPORTED_FOR_IMAGES;
     }
 
@@ -592,15 +508,9 @@ extern "C" EI_IMPULSE_ERROR run_classifier_image_quantized(
     ei_impulse_result_t *result,
     bool debug = false)
 {
-    EI_IMPULSE_ERROR verify_res = can_run_classifier_image_quantized(impulse);
-    if (verify_res != EI_IMPULSE_OK) {
-        return verify_res;
-    }
-
     memset(result, 0, sizeof(ei_impulse_result_t));
 
-    return run_nn_inference_image_quantized(impulse, signal, result, debug);
-
+    return run_nn_inference_image_quantized(impulse, signal, result, impulse->learning_blocks[0].config, debug);
 }
 
 #endif // #if EI_CLASSIFIER_TFLITE_INPUT_QUANTIZED == 1 && (EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_TFLITE || EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_TENSAIFLOW || EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_DRPAI)
@@ -621,13 +531,8 @@ extern "C" void run_classifier_init()
 
 #if EI_CLASSIFIER_CALIBRATION_ENABLED
 
-#if EI_CLASSIFIER_STUDIO_VERSION < 3
-        const ei_impulse_t impulse = ei_construct_impulse();
-#else
-       const ei_impulse_t impulse = ei_default_impulse;
-#endif
-
-    const ei_model_performance_calibration_t *calibration = &ei_calibration;
+    const ei_impulse_t impulse = ei_default_impulse;
+    const ei_model_performance_calibration_t *calibration = &impulse.calibration;
 
     if(calibration != NULL) {
         avg_scores = new RecognizeEvents(calibration,
@@ -645,7 +550,7 @@ __attribute__((unused)) void run_classifier_init(const ei_impulse_t *impulse)
     ei_dsp_clear_continuous_audio_state();
 
 #if EI_CLASSIFIER_CALIBRATION_ENABLED
-    const ei_model_performance_calibration_t *calibration = &ei_calibration;
+    const ei_model_performance_calibration_t *calibration = &impulse->calibration;
 
     if(calibration != NULL) {
         avg_scores = new RecognizeEvents(calibration,
@@ -677,11 +582,7 @@ extern "C" EI_IMPULSE_ERROR run_classifier_continuous(
     bool debug = false,
     bool enable_maf = true)
 {
-#if EI_CLASSIFIER_STUDIO_VERSION < 3
-        const ei_impulse_t impulse = ei_construct_impulse();
-#else
-       const ei_impulse_t impulse = ei_default_impulse;
-#endif
+    const ei_impulse_t impulse = ei_default_impulse;
     return process_impulse_continuous(&impulse, signal, result, debug, enable_maf);
 }
 
@@ -718,11 +619,7 @@ extern "C" EI_IMPULSE_ERROR run_classifier(
     ei_impulse_result_t *result,
     bool debug = false)
 {
-#if EI_CLASSIFIER_STUDIO_VERSION < 3
-        const ei_impulse_t impulse = ei_construct_impulse();
-#else
-       const ei_impulse_t impulse = ei_default_impulse;
-#endif
+    const ei_impulse_t impulse = ei_default_impulse;
     return process_impulse(&impulse, signal, result, debug);
 }
 
@@ -740,7 +637,6 @@ __attribute__((unused)) EI_IMPULSE_ERROR run_classifier(
     ei_impulse_result_t *result,
     bool debug = false)
 {
-    ei_printf("%s\n", impulse->project_name);
     return process_impulse(impulse, signal, result, debug);
 }
 
@@ -770,11 +666,7 @@ __attribute__((unused)) EI_IMPULSE_ERROR run_impulse(
 #endif
         bool debug = false) {
 
-#if EI_CLASSIFIER_STUDIO_VERSION < 3
-        const ei_impulse_t impulse = ei_construct_impulse();
-#else
-       const ei_impulse_t impulse = ei_default_impulse;
-#endif
+    const ei_impulse_t impulse = ei_default_impulse;
 
     float *x = (float*)calloc(impulse.dsp_input_frame_size, sizeof(float));
     if (!x) {

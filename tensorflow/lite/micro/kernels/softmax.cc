@@ -304,11 +304,11 @@ static void* Init(TfLiteContext* context, const char* buffer, size_t length) {
 void SoftmaxQuantized(TfLiteContext* context, const TfLiteEvalTensor* input,
                       TfLiteEvalTensor* output, const NodeData* data) {
   if (input->type == kTfLiteInt8) {
-      #if EI_TFLITE_DISABLE_SOFTMAX_IN_I8
-      TF_LITE_KERNEL_LOG(context, "Type %s (%d) not supported.",
-                      TfLiteTypeGetName(input->type), input->type);
-      return;
-      #endif
+    #if EI_TFLITE_DISABLE_SOFTMAX_IN_I8
+    TF_LITE_KERNEL_LOG(context, "Type %s (%d) not supported.",
+                    TfLiteTypeGetName(input->type), input->type);
+    return;
+    #endif
 
     if (output->type == kTfLiteInt16) {
       #if EI_TFLITE_DISABLE_SOFTMAX_OUT_I16
@@ -540,9 +540,9 @@ namespace {
 void SoftmaxQuantized(const TfLiteEvalTensor* input, TfLiteEvalTensor* output,
                       const SoftmaxParams& op_data) {
   if (input->type == kTfLiteInt8) {
-    #if EI_TFLITE_DISABLE_SOFTMAX_IN_I8
-    return;
-    #endif
+      #if EI_TFLITE_DISABLE_SOFTMAX_IN_I8
+      return;
+      #endif
 
     if (output->type == kTfLiteInt16) {
       #if EI_TFLITE_DISABLE_SOFTMAX_OUT_I16

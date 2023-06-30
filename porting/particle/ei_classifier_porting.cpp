@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 EdgeImpulse Inc.
+ * Copyright (c) 2023 EdgeImpulse Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,21 +16,11 @@
  */
 
 #include "../ei_classifier_porting.h"
-#if EI_PORTING_ZEPHYR == 1
+#if EI_PORTING_PARTICLE == 1
 
-#include <version.h>
-// Zpehyr 3.1.x and newer uses different include scheme
-#if (KERNEL_VERSION_MAJOR > 3) || ((KERNEL_VERSION_MAJOR == 3) && (KERNEL_VERSION_MINOR >= 1))
-#include <zephyr/kernel.h>
-#include <zephyr/drivers/uart.h>
-#else
-#include <zephyr.h>
-#include <drivers/uart.h>
-#endif
-#include <stdio.h>
+#include <Particle.h>
+#include <stdarg.h>
 #include <stdlib.h>
-
-extern const struct device *uart;
 
 #define EI_WEAK_FN __attribute__((weak))
 
@@ -39,27 +29,35 @@ EI_WEAK_FN EI_IMPULSE_ERROR ei_run_impulse_check_canceled() {
 }
 
 EI_WEAK_FN EI_IMPULSE_ERROR ei_sleep(int32_t time_ms) {
-    k_msleep(time_ms);
+    delay(time_ms);
     return EI_IMPULSE_OK;
 }
 
 uint64_t ei_read_timer_ms() {
-    return k_uptime_get();
+    return millis();
 }
 
 uint64_t ei_read_timer_us() {
-    return k_uptime_get() * 1000;
+    return micros();
+}
+
+void ei_serial_set_baudrate(int baudrate)
+{
+
+}
+
+EI_WEAK_FN void ei_putchar(char c)
+{
+    Serial.write(c);
 }
 
 EI_WEAK_FN char ei_getchar()
 {
-    uint8_t rcv_char = 0;
-    if(uart_fifo_read(uart, &rcv_char, 1) == 1) {
-        return rcv_char;
+    char ch = 0;
+    if (Serial.available() > 0) {
+	    ch = Serial.read();
     }
-    else {
-        return 0;
-    }
+    return ch;
 }
 
 /**
@@ -73,13 +71,13 @@ __attribute__((weak)) void ei_printf(const char *format, ...) {
     int r = vsnprintf(print_buf, sizeof(print_buf), format, args);
     va_end(args);
 
-    if(r > 0) {
-        printf("%s", print_buf);
+    if (r > 0) {
+        Serial.write(print_buf);
     }
 }
 
 __attribute__((weak)) void ei_printf_float(float f) {
-    printf("%f", f);
+    Serial.print(f, 6);
 }
 
 __attribute__((weak)) void *ei_malloc(size_t size) {
@@ -98,7 +96,7 @@ __attribute__((weak)) void ei_free(void *ptr) {
 extern "C"
 #endif
 __attribute__((weak)) void DebugLog(const char* s) {
-    printf("%s", s);
+    ei_printf("%s", s);
 }
 
-#endif // #if EI_PORTING_ZEPHYR == 1
+#endif // EI_PORTING_PARTICLE == 1

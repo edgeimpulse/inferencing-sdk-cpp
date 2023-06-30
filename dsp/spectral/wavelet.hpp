@@ -146,15 +146,22 @@ class wavelet {
         features.push_back(entropy);
     }
 
+    static float get_percentile_from_sorted(const fvec &sorted, float percentile)
+    {
+        // adding 0.5 is a trick to get rounding out of C flooring behavior during cast
+        size_t index = (size_t) ((percentile * (sorted.size()-1)) + 0.5);
+        return sorted[index];
+    }
+
     static void calculate_statistics(const fvec &y, fvec &features, float mean)
     {
         fvec sorted = y;
         std::sort(sorted.begin(), sorted.end());
-        features.push_back(sorted[sorted.size() * 0.05]);
-        features.push_back(sorted[sorted.size() * 0.25]);
-        features.push_back(sorted[sorted.size() * 0.75]);
-        features.push_back(sorted[sorted.size() * 0.95]);
-        features.push_back(sorted[sorted.size() * 0.5]);
+        features.push_back(get_percentile_from_sorted(sorted,0.05));
+        features.push_back(get_percentile_from_sorted(sorted,0.25));
+        features.push_back(get_percentile_from_sorted(sorted,0.75));
+        features.push_back(get_percentile_from_sorted(sorted,0.95));
+        features.push_back(get_percentile_from_sorted(sorted,0.5));
 
         matrix_t x(1, y.size(), const_cast<float *>(y.data()));
         matrix_t out(1, 1);

@@ -45,10 +45,6 @@
 #endif
 
 #include "model-parameters/model_metadata.h"
-#if EI_CLASSIFIER_HAS_MODEL_VARIABLES == 1
-#include "model-parameters/model_variables.h"
-#endif
-#include <akida-model/akida_model.h>
 #include "edge-impulse-sdk/porting/ei_classifier_porting.h"
 #include "edge-impulse-sdk/classifier/ei_fill_result_struct.h"
 #include "edge-impulse-sdk/tensorflow/lite/kernels/internal/reference/softmax.h"
@@ -58,6 +54,7 @@
 #include <iomanip>
 #include <limits>
 #include <math.h>
+#include <algorithm>
 #include "pybind11/embed.h"
 #include "pybind11/numpy.h"
 #include "pybind11/stl.h"
@@ -75,8 +72,11 @@ static bool akida_initialized = false;
 static std::vector<size_t> input_shape;
 static tflite::RuntimeShape softmax_shape;
 static tflite::SoftmaxParams dummy_params;
+static int model_input_bits = 0;
+static float scale;
+static int down_scale;
 
-bool init_akida(bool debug)
+bool init_akida(const uint8_t *model_arr, size_t model_arr_size, bool debug)
 {
     py::module_ sys;
     py::list path;
@@ -110,7 +110,7 @@ bool init_akida(bool debug)
 
     // deploy akida model file into temporary file
     std::ofstream model_file(model_file_path, std::ios::out | std::ios::binary);
-    model_file.write(reinterpret_cast<const char*>(akida_model_fbz), akida_model_fbz_len);
+    model_file.write(reinterpret_cast<const char*>(model_arr), model_arr_size);
     if(model_file.bad()) {
         ei_printf("ERR: failed to unpack model ile into %s\n", model_file_path);
         model_file.close();
@@ -136,6 +136,32 @@ bool init_akida(bool debug)
     }
     // extend input by (N, ...) - hardcoded to (1, ...)
     input_shape.insert(input_shape.begin(), (size_t)1);
+
+    // get model input_bits
+    std::vector<py::object> layers = model.attr("layers").cast<std::vector<py::object>>();
+    auto input_layer = layers[0];
+    model_input_bits = input_layer.attr("input_bits").cast<int>();
+    if((model_input_bits != 8) && (model_input_bits != 4)) {
+        ei_printf("ERR: Unsupported input_bits. Expected 4 or 8 got %d\n", model_input_bits);
+        return false;
+    }
+
+    // initialize scale coefficients
+    if(model_input_bits == 8) {
+        scale = 255;
+        down_scale = 1;
+    }
+    else if(model_input_bits == 4) {
+        // these values are recommended by BrainChip
+        scale = 15;
+        down_scale = 16;
+    }
+
+    if(debug) {
+        ei_printf("INFO: Model input_bits: %d\n", model_input_bits);
+        ei_printf("INFO: Scale: %f\n", scale);
+        ei_printf("INFO: Down scale: %d\n", down_scale);
+    }
 
 #if (defined(EI_CLASSIFIER_USE_AKIDA_HARDWARE) && (EI_CLASSIFIER_USE_AKIDA_HARDWARE == 1))
     // get list of available devices
@@ -213,14 +239,19 @@ EI_IMPULSE_ERROR run_nn_inference(
     const ei_impulse_t *impulse,
     ei::matrix_t *fmatrix,
     ei_impulse_result_t *result,
+    void *config_ptr,
     bool debug = false)
 {
+    ei_learning_block_config_tflite_graph_t *block_config = ((ei_learning_block_config_tflite_graph_t*)config_ptr);
+    ei_config_tflite_graph_t *graph_config = ((ei_config_tflite_graph_t*)block_config->graph_config);
+    EI_IMPULSE_ERROR fill_res = EI_IMPULSE_OK;
+
     // init Python embedded interpreter (should be called once!)
     static py::scoped_interpreter guard{};
 
     // check if we've initialized the interpreter and device?
     if (akida_initialized == false) {
-        if(init_akida(debug) == false) {
+        if(init_akida(graph_config->model, graph_config->model_size, debug) == false) {
             return EI_IMPULSE_AKIDA_ERROR;
         }
         akida_initialized = true;
@@ -237,19 +268,31 @@ EI_IMPULSE_ERROR run_nn_inference(
      * For images BW shape is (width, height, 1)
      * For Audio shape is (width, height, 1) - spectrogram
      * TODO: test with other ML models/data types
+     * For details see:
+     * https://pybind11.readthedocs.io/en/stable/advanced/pycpp/numpy.html#direct-access
      */
     auto r = input_data.mutable_unchecked<4>();
+    float temp;
     for (py::ssize_t x = 0; x < r.shape(1); x++) {
         for (py::ssize_t y = 0; y < r.shape(2); y++) {
             for(py::ssize_t z = 0; z < r.shape(3); z++) {
-                r(0, x, y, z) = (uint8_t)(fmatrix->buffer[x * r.shape(2) * r.shape(3) + y * r.shape(3) + z] * 255.0);
+                temp = (fmatrix->buffer[x * r.shape(2) * r.shape(3) + y * r.shape(3) + z] * scale);
+                temp = std::max(0.0f, std::min(temp, 255.0f));
+                r(0, x, y, z) = (uint8_t)(temp / down_scale);
             }
         }
     }
 
     // Run inference on AKD1000
     uint64_t ctx_start_us = ei_read_timer_us();
-    py::array_t<float> potentials = model_predict(input_data);
+    py::array_t<float> potentials;
+    try {
+        potentials = model_predict(input_data);
+    }
+    catch (py::error_already_set &e) {
+        ei_printf("ERR: Inference error:\n%s\n", e.what());
+        return EI_IMPULSE_AKIDA_ERROR;
+    }
     // TODO: 'forward' is returning int8 or int32, but EI SDK supports int8 or float32 only
     // py::array_t<float> potentials = model_forward(input_data);
     uint64_t ctx_end_us = ei_read_timer_us();
@@ -311,12 +354,12 @@ EI_IMPULSE_ERROR run_nn_inference(
     if (impulse->object_detection) {
         switch (impulse->object_detection_last_layer) {
             case EI_CLASSIFIER_LAST_LAYER_FOMO: {
-                fill_result_struct_f32_fomo(
+                fill_res = fill_result_struct_f32_fomo(
                     impulse,
                     result,
                     potentials_v.data(),
-                    impulse->input_width / 8,
-                    impulse->input_height / 8);
+                    impulse->fomo_output_size,
+                    impulse->fomo_output_size);
                 break;
             }
             case EI_CLASSIFIER_LAST_LAYER_SSD: {
@@ -337,10 +380,10 @@ EI_IMPULSE_ERROR run_nn_inference(
         }
     }
     else {
-        fill_result_struct_f32(impulse, result, potentials_v.data(), debug);
+        fill_res = fill_result_struct_f32(impulse, result, potentials_v.data(), debug);
     }
 
-    return EI_IMPULSE_OK;
+    return fill_res;
 }
 
 #endif // EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_AKIDA

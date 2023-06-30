@@ -19,6 +19,7 @@
 #define _EDGE_IMPULSE_RUN_CLASSIFIER_TYPES_H_
 
 #include <stdint.h>
+// needed for standalone C example
 #include "model-parameters/model_metadata.h"
 
 #ifndef EI_CLASSIFIER_MAX_OBJECT_DETECTION_COUNT
