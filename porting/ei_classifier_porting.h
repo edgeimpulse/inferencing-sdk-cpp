@@ -128,6 +128,14 @@ void ei_free(void *ptr);
 #endif
 #endif
 
+#ifndef EI_PORTING_ZEPHYR
+#if defined(__ZEPHYR__)
+#define EI_PORTING_ZEPHYR      1
+#else
+#define EI_PORTING_ZEPHYR      0
+#endif
+#endif
+
 #ifndef EI_PORTING_ECM3532
 #ifdef ECM3532
 #define EI_PORTING_ECM3532      1
@@ -137,7 +145,7 @@ void ei_free(void *ptr);
 #endif
 
 #ifndef EI_PORTING_ESPRESSIF
-#if defined(CONFIG_IDF_TARGET_ESP32) && EI_PORTING_ARDUINO == 0
+#if defined(CONFIG_IDF_TARGET_ESP32) && EI_PORTING_ARDUINO == 0 && EI_PORTING_ZEPHYR == 0
 #define EI_PORTING_ESPRESSIF      1
 #else
 #define EI_PORTING_ESPRESSIF     0
@@ -153,7 +161,7 @@ void ei_free(void *ptr);
 #endif
 
 #ifndef EI_PORTING_POSIX
-#if defined (__unix__) || (defined (__APPLE__) && defined (__MACH__))
+#if EI_PORTING_ZEPHYR == 0 && defined (__unix__) || (defined (__APPLE__) && defined (__MACH__))
 #define EI_PORTING_POSIX      1
 #else
 #define EI_PORTING_POSIX      0
@@ -173,14 +181,6 @@ void ei_free(void *ptr);
 #define EI_PORTING_RASPBERRY      1
 #else
 #define EI_PORTING_RASPBERRY      0
-#endif
-#endif
-
-#ifndef EI_PORTING_ZEPHYR
-#if defined(__ZEPHYR__)
-#define EI_PORTING_ZEPHYR      1
-#else
-#define EI_PORTING_ZEPHYR      0
 #endif
 #endif
 
