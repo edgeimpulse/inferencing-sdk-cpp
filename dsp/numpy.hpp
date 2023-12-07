@@ -2453,10 +2453,10 @@ public:
         return c;
     }
 
-    __attribute__((unused)) static fvec arrange(float start, float end, float step) {
+    __attribute__((unused)) static fvec arange(float start, float end, float step) {
         assert(start < end);
         assert(step > 0);
-        fvec v((size_t)((end - start) / step));
+        fvec v(::round((end - start) / step));
         for (size_t i = 0; i < v.size(); i++) {
             v[i] = start + i * step;
         }

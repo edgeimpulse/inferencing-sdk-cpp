@@ -98,6 +98,13 @@ public:
             zi = zi_vec.data();
         }
 
+        void update(const float *coeff_, const float *zi_)
+        {
+            coeff = coeff_;
+            zi_vec.assign(zi_, zi_ + (num_sections * 2));
+            zi = zi_vec.data();
+        }
+
         /**
          * @brief IIR filters in second-order sections.
          * This is the counterpart of scipy.signal.sosfilt .
