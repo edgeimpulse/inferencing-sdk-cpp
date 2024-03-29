@@ -171,10 +171,15 @@ TfLiteStatus Eval(TfLiteContext* context, TfLiteNode* node) {
 }  // namespace
 
 TfLiteRegistration* Register_TREE_ENSEMBLE_CLASSIFIER() {
-
   static TfLiteRegistration r = {
-      tree_ensemble_classifier::Init, nullptr,
-      tree_ensemble_classifier::Prepare, tree_ensemble_classifier::Eval};
+          tree_ensemble_classifier::Init,
+          nullptr,
+          tree_ensemble_classifier::Prepare,
+          tree_ensemble_classifier::Eval,
+          /*profiling_string=*/nullptr,
+          /*builtin_code=*/0,
+          /*custom_name=*/nullptr,
+          /*version=*/0};
   return &r;
 }
 

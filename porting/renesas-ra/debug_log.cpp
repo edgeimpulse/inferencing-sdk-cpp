@@ -16,7 +16,7 @@
  */
 
 #include "../ei_classifier_porting.h"
-#if EI_PORTING_RENESASRA65 == 1
+#if ((EI_PORTING_RENESASRA65 == 1) || (EI_PORTING_RENESASRA8D1 == 1))
 
 #include "edge-impulse-sdk/tensorflow/lite/micro/debug_log.h"
 #include <stdio.h>
