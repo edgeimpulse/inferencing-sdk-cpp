@@ -86,7 +86,6 @@ public:
 
     struct sosfilt {
         const float *coeff; // 6 * num_sections coefficients
-        float* zi;
         fvec zi_vec; // 2 * num_sections initial conditions
         size_t num_sections;
 
@@ -95,14 +94,12 @@ public:
               zi_vec(zi_, zi_ + (num_sections_ * 2)),
               num_sections(num_sections_)
         {
-            zi = zi_vec.data();
         }
 
         void update(const float *coeff_, const float *zi_)
         {
             coeff = coeff_;
             zi_vec.assign(zi_, zi_ + (num_sections * 2));
-            zi = zi_vec.data();
         }
 
         /**
@@ -116,7 +113,7 @@ public:
         {
             assert(num_sections > 0);
 
-            iir2(input, output, size, coeff, coeff + 3, zi);
+            iir2(input, output, size, coeff, coeff + 3, zi_vec.data());
 
             for (size_t sect = 1; sect < num_sections; sect++) {
                 iir2(
@@ -125,15 +122,15 @@ public:
                     size,
                     coeff + sect * 6,
                     coeff + sect * 6 + 3,
-                    zi + sect * 2);
+                    zi_vec.data() + sect * 2);
             }
         }
 
         void init(float x0)
         {
             for (size_t sect = 0; sect < num_sections; sect++) {
-                zi[sect * 2] *= x0;
-                zi[sect * 2 + 1] *= x0;
+                zi_vec[sect * 2] *= x0;
+                zi_vec[sect * 2 + 1] *= x0;
             }
         }
     };
