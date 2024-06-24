@@ -86,6 +86,7 @@ public:
 
     struct sosfilt {
         const float *coeff; // 6 * num_sections coefficients
+        float* zi;
         fvec zi_vec; // 2 * num_sections initial conditions
         size_t num_sections;
 
@@ -129,8 +130,8 @@ public:
         void init(float x0)
         {
             for (size_t sect = 0; sect < num_sections; sect++) {
-                zi_vec[sect * 2] *= x0;
-                zi_vec[sect * 2 + 1] *= x0;
+                zi_vec.data()[sect * 2] *= x0;
+                zi_vec.data()[sect * 2 + 1] *= x0;
             }
         }
     };
