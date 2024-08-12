@@ -7,3 +7,4 @@ utensor.lib
 utensor/libutensor.a
 *.o
 *.d
+.DS_Store
