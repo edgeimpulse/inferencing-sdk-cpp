@@ -96,12 +96,15 @@ TfLiteRegistration Register_PRELU();
 TfLiteRegistration Register_QUANTIZE();
 TfLiteRegistration Register_READ_VARIABLE();
 TfLiteRegistration Register_REAL();
+TfLiteRegistration Register_REDUCE_ANY();
+TfLiteRegistration Register_REDUCE_ALL();
 TfLiteRegistration Register_REDUCE_MAX();
 TfLiteRegistration Register_REDUCE_MIN();
 TfLiteRegistration Register_RELU();
 TfLiteRegistration Register_RELU6();
 TfLiteRegistration Register_RESIZE_BILINEAR();
 TfLiteRegistration Register_RFFT2D();
+TfLiteRegistration Register_SCATTER_ND();
 #ifndef TF_LITE_STATIC_MEMORY
 TfLiteRegistration Register_SELECT();
 TfLiteRegistration Register_SELECT_V2();

@@ -91,6 +91,8 @@ AllOpsResolver::AllOpsResolver() {
   AddQuantize();
   AddReal();
   AddReadVariable();
+  AddReduceAny();
+  AddReduceAll();
   AddReduceMax();
   AddReduceMin();
   AddRelu();
@@ -101,6 +103,7 @@ AllOpsResolver::AllOpsResolver() {
   AddRfft2D();
   AddRound();
   AddRsqrt();
+  AddScatterNd();
 #ifndef TF_LITE_STATIC_MEMORY
   AddSelect();
   AddSelectV2();

@@ -458,6 +458,10 @@ TfLiteStatus ParseOpDataTfLite(const Operator* op, BuiltinOperator op_type,
       return ParseRsqrt(op, error_reporter, allocator, builtin_data);
     }
 
+    case BuiltinOperator_SCATTER_ND: {
+      return ParseScatterNd(op, error_reporter, allocator, builtin_data);
+    }
+
     case BuiltinOperator_SELECT_V2: {
       return ParseSelectV2(op, error_reporter, allocator, builtin_data);
     }
@@ -868,7 +872,6 @@ TfLiteStatus ParseOpDataTfLite(const Operator* op, BuiltinOperator op_type,
     case BuiltinOperator_NON_MAX_SUPPRESSION_V5:
     case BuiltinOperator_RELU_N1_TO_1:
     case BuiltinOperator_RELU_0_TO_1:
-    case BuiltinOperator_SCATTER_ND:
     case BuiltinOperator_SELECT:
     case BuiltinOperator_SLICE:
     case BuiltinOperator_TILE:
@@ -2018,6 +2021,14 @@ TfLiteStatus ParseRound(const Operator*, ErrorReporter*, BuiltinDataAllocator*,
 // switch-case in ParseOpData because this function is used as part of the
 // selective registration for the OpResolver implementation in micro.
 TfLiteStatus ParseRsqrt(const Operator*, ErrorReporter*, BuiltinDataAllocator*,
+                        void**) {
+  return kTfLiteOk;
+}
+
+// We have this parse function instead of directly returning kTfLiteOk from the
+// switch-case in ParseOpData because this function is used as part of the
+// selective registration for the OpResolver implementation in micro.
+TfLiteStatus ParseScatterNd(const Operator*, ErrorReporter*, BuiltinDataAllocator*,
                         void**) {
   return kTfLiteOk;
 }
