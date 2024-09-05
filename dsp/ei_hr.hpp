@@ -68,7 +68,7 @@ public:
 
         int out_idx = 0;
         size_t hrv_count = 0;
-        for(size_t i = 0; i < signal->total_length; i += floats_per_inc) {
+        for (size_t i = 0; i <= signal->total_length - floats_per_inc; i += floats_per_inc) {
             // TODO ask for smaller increments and bp them into place
             // Copy into the end of the buffer
             matrix_t temp(ppg.win_inc_samples, ppg.axes);
@@ -96,8 +96,8 @@ public:
     hr_class(ei_dsp_config_hr_t* config, float frequency)
         : ppg(frequency,
               config->axes,
-              frequency * 8, // TODO variable window
-              frequency * 2, // TODO variable overlap
+              int(frequency * config->hr_win_size_s),
+              int(frequency * 2), // TODO variable overlap
               config->filter_preset,
               config->acc_resting_std,
               config->sensitivity,
@@ -124,6 +124,10 @@ public:
             // delete is overloaded to use ei_free
             delete hrv;
         }
+    }
+
+    float get_last_hr() {
+        return ppg._res.hr;
     }
 
     // Boilerplate below here

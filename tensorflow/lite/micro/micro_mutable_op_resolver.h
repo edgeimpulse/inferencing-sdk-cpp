@@ -599,6 +599,16 @@ class MicroMutableOpResolver : public MicroOpResolver {
                       ParseTanh);
   }
 
+  TfLiteStatus AddTile() {
+    return AddBuiltin(BuiltinOperator_TILE, tflite::Register_TILE(),
+                      ParseTile);
+  }
+
+  TfLiteStatus AddTopkV2() {
+    return AddBuiltin(BuiltinOperator_TOPK_V2, tflite::Register_TOPK_V2(),
+                      ParseTopk);
+  }
+
   TfLiteStatus AddTransposeConv() {
     return AddBuiltin(BuiltinOperator_TRANSPOSE_CONV,
                       tflite::Register_TRANSPOSE_CONV(), ParseTransposeConv);

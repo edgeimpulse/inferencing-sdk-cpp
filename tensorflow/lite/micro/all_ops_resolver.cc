@@ -125,6 +125,8 @@ AllOpsResolver::AllOpsResolver() {
   AddSum();
   AddSvdf();
   AddTanh();
+  AddTile();
+  AddTopkV2();
   AddTranspose();
   AddTransposeConv();
   AddTreeEnsembleClassifier();
