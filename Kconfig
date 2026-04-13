@@ -1,0 +1,5 @@
+menu "Edge Impulse Inference for ESP32"
+    config EI_DISABLE_HW_ACCEL
+        bool "Disable Hardware Acceleration"
+        default n
+endmenu
