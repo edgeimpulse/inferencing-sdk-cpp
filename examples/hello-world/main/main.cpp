@@ -1,22 +1,17 @@
 
-#include "sdkconfig.h"
+#include "classifier/ei_print_results.h"
+#include "classifier/ei_run_classifier.h"
+#include "dsp/numpy.hpp"
+#include "ei_classifier_porting.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-
-
-#include "ei_classifier_porting.h"
-#include "classifier/ei_run_classifier.h"
-#include "classifier/ei_print_results.h"
-#include "dsp/numpy.hpp"
 #include "model-parameters/model_metadata.h"
 #include "offline_audio_sample.h"
-
+#include "sdkconfig.h"
 
 static int16_t offline_audio[EI_CLASSIFIER_RAW_SAMPLE_COUNT];
 
-
-static int get_signal_data(size_t offset, size_t length, float *out_ptr)
-{
+static int get_signal_data(size_t offset, size_t length, float* out_ptr) {
     static uint32_t callback_counter = 0;
 
     if ((offset + length) > EI_CLASSIFIER_RAW_SAMPLE_COUNT) {
@@ -31,8 +26,7 @@ static int get_signal_data(size_t offset, size_t length, float *out_ptr)
     return ei::numpy::int16_to_float(&offline_audio[offset], out_ptr, length);
 }
 
-static void fill_offline_audio(void)
-{
+static void fill_offline_audio(void) {
     for (size_t i = 0; i < EI_CLASSIFIER_RAW_SAMPLE_COUNT; i++) {
         offline_audio[i] = 0;
     }
@@ -42,8 +36,7 @@ static void fill_offline_audio(void)
         for (size_t i = 0; i < EI_CLASSIFIER_RAW_SAMPLE_COUNT; i++) {
             offline_audio[i] = kOfflineKeywordSample[start + i];
         }
-    }
-    else {
+    } else {
         size_t start = (EI_CLASSIFIER_RAW_SAMPLE_COUNT - kOfflineKeywordSampleLength) / 2;
         for (size_t i = 0; i < kOfflineKeywordSampleLength; i++) {
             offline_audio[start + i] = kOfflineKeywordSample[i];
@@ -51,14 +44,10 @@ static void fill_offline_audio(void)
     }
 }
 
-
-extern "C" int app_main()
-{
-    ei_printf(
-        "Hello from Edge Impulse Device SDK.\r\n"
-        "Compiled on %s %s\r\n",
-        __DATE__,
-        __TIME__);
+extern "C" int app_main() {
+    ei_printf("Hello from Edge Impulse Device SDK.\r\n"
+              "Compiled on %s %s\r\n",
+              __DATE__, __TIME__);
     ei_printf("Running keyword spotting from offline data (AT bypassed).\r\n");
 
     fill_offline_audio();
@@ -67,7 +56,7 @@ extern "C" int app_main()
     signal.total_length = EI_CLASSIFIER_RAW_SAMPLE_COUNT;
     signal.get_data = &get_signal_data;
 
-    ei_impulse_result_t result = { 0 };
+    ei_impulse_result_t result = {0};
 
     ei_printf("Model: %s\r\n", EI_CLASSIFIER_PROJECT_NAME);
     ei_printf("Labels: %d\r\n", EI_CLASSIFIER_LABEL_COUNT);
@@ -77,8 +66,7 @@ extern "C" int app_main()
         EI_IMPULSE_ERROR err = run_classifier(&signal, &result, false);
         if (err != EI_IMPULSE_OK) {
             ei_printf("ERR: run_classifier failed (%d)\r\n", err);
-        }
-        else {
+        } else {
             ei_print_results(&ei_default_impulse, &result);
         }
 
