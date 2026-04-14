@@ -26,3 +26,6 @@ endif()
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(hello-world)
+
+add_definitions(-DEI_CLASSIFIER_TFLITE_ENABLE_ESP_NN=0)
+add_definitions(-DEIDSP_USE_ESP_DSP=0)
