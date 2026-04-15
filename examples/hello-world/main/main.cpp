@@ -1,15 +1,18 @@
 
-#include "classifier/ei_print_results.h"
-#include "classifier/ei_run_classifier.h"
-#include "dsp/numpy.hpp"
-#include "ei_classifier_porting.h"
+#include "edge-impulse-sdk/classifier/ei_print_results.h"
+#include "edge-impulse-sdk/classifier/ei_run_classifier.h"
+#include "edge-impulse-sdk/dsp/numpy.hpp"
+#include "edge-impulse-sdk/porting/ei_classifier_porting.h"
+#include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "model-parameters/model_metadata.h"
 #include "offline_audio_sample.h"
 #include "sdkconfig.h"
 
-static int16_t offline_audio[EI_CLASSIFIER_RAW_SAMPLE_COUNT];
+static const char* TAG = "hello-world";
+
+static int16_t offline_audio[EI_CLASSIFIER_RAW_SAMPLE_COUNT]{};
 
 static int get_signal_data(size_t offset, size_t length, float* out_ptr) {
     static uint32_t callback_counter = 0;
@@ -44,32 +47,27 @@ static void fill_offline_audio(void) {
     }
 }
 
-extern "C" int app_main() {
-    ei_printf("Hello from Edge Impulse Device SDK.\r\n"
-              "Compiled on %s %s\r\n",
-              __DATE__, __TIME__);
-    ei_printf("Running keyword spotting from offline data (AT bypassed).\r\n");
+extern "C" void app_main() {
+#if CONFIG_EI_DISABLE_HW_ACCEL
+    ESP_LOGW(TAG, "Hardware acceleration is disabled for this build. This may cause the classifier "
+                  "to run significantly slower than expected.");
+#endif
 
     fill_offline_audio();
 
-    signal_t signal;
+    signal_t signal{};
     signal.total_length = EI_CLASSIFIER_RAW_SAMPLE_COUNT;
     signal.get_data = &get_signal_data;
 
-    ei_impulse_result_t result = {0};
+    ei_impulse_result_t result{};
 
-    ei_printf("Model: %s\r\n", EI_CLASSIFIER_PROJECT_NAME);
-    ei_printf("Labels: %d\r\n", EI_CLASSIFIER_LABEL_COUNT);
-    ei_printf("Running inference every 3 seconds...\r\n");
+    ESP_LOGI(TAG, "Model: %s", EI_CLASSIFIER_PROJECT_NAME);
+    ESP_LOGI(TAG, "Labels: %d", EI_CLASSIFIER_LABEL_COUNT);
 
-    while (1) {
-        EI_IMPULSE_ERROR err = run_classifier(&signal, &result, false);
-        if (err != EI_IMPULSE_OK) {
-            ei_printf("ERR: run_classifier failed (%d)\r\n", err);
-        } else {
-            ei_print_results(&ei_default_impulse, &result);
-        }
-
-        ei_sleep(3000);
+    EI_IMPULSE_ERROR err = run_classifier(&signal, &result, false);
+    if (err != EI_IMPULSE_OK) {
+        ESP_LOGE(TAG, "run_classifier failed (%d)", err);
+    } else {
+        ei_print_results(&ei_default_impulse, &result);
     }
 }

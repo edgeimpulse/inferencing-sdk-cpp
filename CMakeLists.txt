@@ -1,15 +1,7 @@
+cmake_minimum_required(VERSION 3.16)
+
 set(EI_COMPONENT_DIR ${CMAKE_CURRENT_LIST_DIR})
 set(EI_SDK_FOLDER ${EI_COMPONENT_DIR}/src/edge-impulse-sdk)
-
-if(NOT CMAKE_BUILD_EARLY_EXPANSION)
-if(CONFIG_EI_DISABLE_HW_ACCEL)
-    add_definitions(-DEI_CLASSIFIER_TFLITE_ENABLE_ESP_NN=0)
-    add_definitions(-DEIDSP_USE_ESP_DSP=0)
-else()
-    add_definitions(-DEI_CLASSIFIER_TFLITE_ENABLE_ESP_NN=1)
-    add_definitions(-DEIDSP_USE_ESP_DSP=1)
-endif()
-endif()
 
 set(include_dirs
     ${EI_SDK_FOLDER}
@@ -41,16 +33,26 @@ idf_component_register(SRCS ${SOURCE_FILES}
                        INCLUDE_DIRS ${include_dirs}
                        REQUIRES esp_timer)
 
-target_compile_options(${COMPONENT_LIB} PRIVATE -std=gnu++17)
-idf_build_set_property(COMPILE_OPTIONS "-fdiagnostics-color=always" APPEND)
-idf_build_set_property(COMPILE_OPTIONS "-Wno-unused-variable" APPEND)
-idf_build_set_property(COMPILE_OPTIONS "-Wno-maybe-uninitialized" APPEND)
-idf_build_set_property(COMPILE_OPTIONS "-Wno-error=format=" APPEND)
-idf_build_set_property(COMPILE_OPTIONS "-Wno-unused-but-set-parameter" APPEND)
-idf_build_set_property(COMPILE_OPTIONS "-Wno-error=nonnull-compare" APPEND)
-idf_build_set_property(COMPILE_OPTIONS "-Wno-error=stringop-truncation" APPEND)
-idf_build_set_property(COMPILE_OPTIONS "-Wno-error=uninitialized" APPEND)
-idf_build_set_property(COMPILE_OPTIONS "-Wno-stringop-truncation" APPEND)
-idf_build_set_property(COMPILE_OPTIONS "-Wno-deprecated-declarations" APPEND)
-idf_build_set_property(COMPILE_OPTIONS "-fno-if-conversion" APPEND)
-idf_build_set_property(COMPILE_OPTIONS "-Wno-error=stringop-overflow=" APPEND)                       
+
+if(CONFIG_EI_DISABLE_HW_ACCEL)
+    target_compile_definitions(${COMPONENT_LIB} PUBLIC
+        EI_CLASSIFIER_TFLITE_ENABLE_ESP_NN=0
+        EIDSP_USE_ESP_DSP=0
+    )
+else()
+    target_compile_definitions(${COMPONENT_LIB} PUBLIC
+        EI_CLASSIFIER_TFLITE_ENABLE_ESP_NN=1
+        EIDSP_USE_ESP_DSP=1
+    )
+endif()
+
+target_compile_features(${COMPONENT_LIB} PUBLIC cxx_std_17)
+target_compile_options(${COMPONENT_LIB} PRIVATE
+     -Wno-error=missing-field-initializers
+     -Wno-error=unused-function
+     -Wno-maybe-uninitialized
+     -Wno-missing-field-initializers
+     -Wno-unused-function
+     -Wno-unused-variable
+     -Wno-deprecated-declarations
+)
