@@ -1,11 +1,19 @@
-version: 0.1.0
+version: "0.1.0-rc1"
 description: EdgeImpulse Inference SDK for ESP32 packaged as an ESP-IDF 
   component.
+license: BSD-3-Clause-Clear
 url: https://github.com/ozanoner/edgeimpulse-inferencing-sdk-cpp
 repository: https://github.com/ozanoner/edgeimpulse-inferencing-sdk-cpp.git
 documentation: 
   https://github.com/ozanoner/edgeimpulse-inferencing-sdk-cpp#readme
 issues: https://github.com/ozanoner/edgeimpulse-inferencing-sdk-cpp/issues
+maintainers:
+  - Ozan Oner <ozan.oner@gmail.com>
+tags:
+  - edge-impulse
+  - inference
+  - machine-learning
+  - tinyml
 
 files:
   exclude:
@@ -14,9 +22,10 @@ files:
   - docs/**/*
   - test/**/*
   - test_app/**/*
+  - tmp/**/*
 
 dependencies:
   # Required IDF version
-  idf: '>=5.5'
+  idf: '>=5.5,<6.0'
   espressif/esp-dsp: ^1.8.0
   espressif/esp-nn: ^1.2.1

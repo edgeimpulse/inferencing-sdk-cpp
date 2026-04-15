@@ -12,8 +12,8 @@ Changes that affect the ESP32 integration should keep the following files aligne
 
 - `README.md`
 - `idf_component.yml`
-- `component.mk`
 - `.github/workflows/upload_component.yml`
+- `.github/workflows/upload_component_staging.yml`
 
 If you need to change the underlying shared SDK sources, keep the fork-specific packaging adjustments minimal and avoid unnecessary divergence from upstream.
 
@@ -23,7 +23,7 @@ Before opening a pull request:
 
 - Make sure the change is scoped to a clear problem.
 - Update user-facing documentation when install steps, registry metadata, or behavior changes.
-- Keep legacy GNU Make support in `component.mk` in sync with any source layout changes, since the component still ships that file.
+- Do not bump component versions, create release tags, or change release intent unless the maintainer explicitly asks for it.
 - Prefer small, reviewable changes over large repo-wide rewrites.
 
 ## Development Notes
@@ -33,21 +33,34 @@ This repository vendors third-party code and multiple platform ports. Be deliber
 In particular:
 
 - ESP-IDF component metadata lives in `idf_component.yml`.
-- Registry publishing is handled by GitHub Actions on version tags.
-- The legacy ESP-IDF GNU Make integration is defined in `component.mk`.
-- Espressif-specific SDK ports are under `src/porting/espressif/`.
+- Staging uploads are triggered manually with `.github/workflows/upload_component_staging.yml`.
+- Production uploads are handled by `.github/workflows/upload_component.yml` on stable version tags.
+- Espressif-specific SDK ports are under `src/edge-impulse-sdk/porting/espressif/`.
 
 ## Release Process
 
-Maintainers should use the following process to publish a new component version. Assuming the new version is `vX.Y.Z`:
+Releases are handled by the repository maintainer.
 
-1. Update the version in `idf_component.yml` to `X.Y.Z`.
-2. Review `README.md`, `idf_component.yml`, and `.github/workflows/upload_component.yml` to make sure the registry metadata still matches the intended published component.
-3. Commit the release changes.
-4. Create an annotated tag named `vX.Y.Z`.
-5. Push the branch and the tag to GitHub.
-6. The `upload_component.yml` workflow will upload the tagged version to the Espressif Component Registry using the `IDF_COMPONENT_API_TOKEN` repository secret.
-7. Verify the published version on the registry page and create a GitHub release if you want release notes attached to the tag.
+Contributors should not prepare or publish releases unless explicitly asked to do so.
+
+When a release is needed, the maintainer should use the following process.
+
+Use plain component versions such as `X.Y.Z` and prerelease versions such as `X.Y.Z-rc1`.
+
+For example:
+
+- component version: `X.Y.Z-rc1`
+- matching Git tag: `vX.Y.Z-rc1`
+
+1. Update the version in `idf_component.yml` to a prerelease such as `X.Y.Z-rc1`.
+2. Review `README.md`, `idf_component.yml`, `.github/workflows/upload_component_staging.yml`, and `.github/workflows/upload_component.yml` to make sure the registry metadata still matches the intended published component.
+3. Push the release-prep branch and run the `upload_component_staging.yml` workflow manually.
+4. Verify the uploaded prerelease on the staging registry page and test consuming it from the staging registry.
+5. When the prerelease looks correct, update `idf_component.yml` to the stable version `X.Y.Z`.
+6. Commit the stable release changes on the default branch.
+7. Create an annotated tag whose version matches the component version, such as `vX.Y.Z`.
+8. The `upload_component.yml` workflow will upload the tagged version to the production registry using GitHub OIDC.
+9. Verify the published version on the production registry page and create a GitHub release if you want release notes attached to the tag.
 
 ## Reporting Problems
 

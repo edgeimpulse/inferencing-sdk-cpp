@@ -1,0 +1,30 @@
+name: Upload component to staging registry
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Validate the upload without publishing a version
+        required: false
+        default: false
+        type: boolean
+jobs:
+  upload_components:
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Upload component to the staging registry
+        uses: espressif/upload-components-ci-action@v2
+        with:
+          components: |
+            edgeimpulse-inference-sdk: .
+          namespace: ozanoner
+          registry_url: https://components-staging.espressif.com/
+          dry_run: ${{ inputs.dry_run }}

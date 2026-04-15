@@ -1,5 +1,3 @@
-[![Component Registry](https://components.espressif.com/components/ozanoner/edgeimpulse-inference-sdk/badge.svg)](https://components.espressif.com/components/ozanoner/edgeimpulse-inference-sdk)
-
 # EdgeImpulse Inference SDK for ESP32
 
 ## Overview
@@ -23,7 +21,22 @@ This repo is primarily a packaging fork. It is useful when your ESP-IDF project 
 
 ## Installation
 
-Add the component from the IDF Component Registry:
+### Staging prerelease
+
+Use the staging registry while validating prerelease uploads:
+
+```yaml
+dependencies:
+  ozanoner/edgeimpulse-inference-sdk:
+    version: "0.1.0-rc1"
+    registry_url: https://components-staging.espressif.com
+```
+
+This repository uses plain component versions such as `0.1.0` and prerelease versions such as `0.1.0-rc1`.
+
+### Production release
+
+After the stable release is published, add the component from the IDF Component Registry:
 
 ```bash
 idf.py add-dependency "ozanoner/edgeimpulse-inference-sdk"
@@ -36,9 +49,26 @@ dependencies:
   ozanoner/edgeimpulse-inference-sdk: "^0.1.0"
 ```
 
+For maintainers, prereleases should use matching Git tags such as `v0.1.0-rc1`.
+
 ## Using the Component
 
 This component packages the shared SDK only. Your application still needs the model-specific files exported from Edge Impulse, such as the generated model sources, model parameters, and the application code that calls `run_classifier()`.
+
+The core integration point matches the local examples:
+
+```cpp
+#include "edge-impulse-sdk/classifier/ei_run_classifier.h"
+
+signal_t signal{};
+signal.total_length = EI_CLASSIFIER_RAW_SAMPLE_COUNT;
+signal.get_data = &get_signal_data;
+
+ei_impulse_result_t result{};
+EI_IMPULSE_ERROR err = run_classifier(&signal, &result, false);
+```
+
+See `examples/hello-world` and `examples/hello-world-img` for complete ESP-IDF applications that wire the classifier into offline audio and image sample pipelines.
 
 
 ## Local Example Builds
@@ -91,7 +121,8 @@ Notes:
 
 ## References
 
-- Component Registry: https://components.espressif.com/components/ozanoner/edgeimpulse-inference-sdk
+- Staging registry: https://components-staging.espressif.com/
+- Production registry: https://components.espressif.com/
 - Fork repository: https://github.com/ozanoner/edgeimpulse-inferencing-sdk-cpp
 - Upstream SDK: https://github.com/edgeimpulse/inferencing-sdk-cpp
 - ESP-IDF Getting Started: https://docs.espressif.com/projects/esp-idf/en/latest/get-started/
