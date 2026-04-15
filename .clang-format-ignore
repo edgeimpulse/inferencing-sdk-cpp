@@ -1,0 +1,3 @@
+./src/
+**/model-parameters/**
+**/tflite-model/**
