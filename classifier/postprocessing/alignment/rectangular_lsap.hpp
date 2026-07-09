@@ -40,6 +40,11 @@ pseudocode described in pages 1685-1686 of:
 Author: PM Larsen
 */
 
+#pragma once
+
+#include <stddef.h>
+#include <stdint.h>
+
 #include <cmath>
 #include <vector>
 #include <numeric>
@@ -242,7 +247,7 @@ static int solve(intptr_t nr, intptr_t nc, double* cost, bool maximize,
 extern "C" {
 #endif
 
-int
+static inline int
 solve_rectangular_linear_sum_assignment(intptr_t nr, intptr_t nc,
                                         double* input_cost, bool maximize,
                                         int64_t* a, int64_t* b)

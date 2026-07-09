@@ -45,8 +45,10 @@
 #include "edge-impulse-sdk/classifier/postprocessing/ei_postprocessing_common.h"
 
 #if EI_CLASSIFIER_OBJECT_TRACKING_ENABLED == 1
-#include "edge-impulse-sdk/classifier/postprocessing/ei_object_tracking.h"
-#endif // EI_CLASSIFIER_OBJECT_TRACKING_ENABLED == 1
+    #include "edge-impulse-sdk/classifier/postprocessing/ei_object_tracking.h"
+#elif EI_CLASSIFIER_OBJECT_TRACKING_SORT_ENABLED == 1
+    #include "edge-impulse-sdk/classifier/postprocessing/ei_object_tracking_sort.h"
+#endif
 
 #if EI_CLASSIFIER_CALIBRATION_ENABLED == 1
 #include "edge-impulse-sdk/classifier/postprocessing/ei_performance_calibration.h"
@@ -177,7 +179,36 @@ EI_IMPULSE_ERROR get_thresholds_postprocessing(const ei_postprocessing_block_t *
             }
         });
     }
-#endif // EI_CLASSIFIER_OBJECT_TRACKING_ENABLED == 1
+#elif EI_CLASSIFIER_OBJECT_TRACKING_SORT_ENABLED == 1
+    if (pp_block->init_fn == init_object_tracking) {
+        ei_object_tracking_sort_config_t *config = (ei_object_tracking_sort_config_t*)pp_block->config;
+
+        out_thresholds.push_back({
+            "object_tracking", /* type */
+            "max_age", /* name */
+            static_cast<float>(config->max_age), /* value */
+            [config](float v) {
+                config->max_age = static_cast<uint32_t>(v);
+            }
+        });
+        out_thresholds.push_back({
+            "object_tracking", /* type */
+            "min_hits", /* name */
+            static_cast<float>(config->min_hits), /* value */
+            [config](float v) {
+                config->min_hits = static_cast<uint16_t>(v);
+            }
+        });
+        out_thresholds.push_back({
+            "object_tracking", /* type */
+            "iou_threshold", /* name */
+            config->iou_threshold, /* value */
+            [config](float v) {
+                config->iou_threshold = v;
+            }
+        });
+    }
+#endif // EI_CLASSIFIER_OBJECT_TRACKING_SORT_ENABLED == 1
 
 #if EI_CLASSIFIER_CALIBRATION_ENABLED == 1
     if (pp_block->init_fn == init_perfcal) {

@@ -41,8 +41,10 @@
 #include "edge-impulse-sdk/classifier/postprocessing/ei_performance_calibration.h"
 #endif
 
-#if EI_CLASSIFIER_OBJECT_TRACKING_ENABLED
+#if EI_CLASSIFIER_OBJECT_TRACKING_ENABLED == 1
 #include "edge-impulse-sdk/classifier/postprocessing/ei_object_tracking.h"
+#elif EI_CLASSIFIER_OBJECT_TRACKING_SORT_ENABLED == 1
+#include "edge-impulse-sdk/classifier/postprocessing/ei_object_tracking_sort.h"
 #endif
 
 #if EI_CLASSIFIER_OBJECT_COUNTING_ENABLED

@@ -146,6 +146,14 @@ typedef struct {
 
 typedef struct {
     uint16_t implementation_version;
+    uint32_t max_age;
+    uint16_t min_hits;
+    float iou_threshold;
+    bool use_iou;
+} ei_object_tracking_sort_config_t;
+
+typedef struct {
+    uint16_t implementation_version;
     std::vector<std::tuple<int, int, int, int>> segments;
 } ei_object_counting_config_t;
 

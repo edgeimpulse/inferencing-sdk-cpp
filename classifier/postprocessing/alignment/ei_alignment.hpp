@@ -1,3 +1,37 @@
+/* The Clear BSD License
+ *
+ * Copyright (c) 2026 EdgeImpulse Inc.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the disclaimer
+ * below) provided that the following conditions are met:
+ *
+ *   * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ *   * Redistributions in binary form must reproduce the above copyright
+ *   notice, this list of conditions and the following disclaimer in the
+ *   documentation and/or other materials provided with the distribution.
+ *
+ *   * Neither the name of the copyright holder nor the names of its
+ *   contributors may be used to endorse or promote products derived from this
+ *   software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE GRANTED BY
+ * THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND
+ * CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+ * PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ */
+
 #pragma once
 
 #include <vector>
@@ -15,7 +49,7 @@ __attribute__((unused)) static bool compare_tuples(std::tuple<int, int, float> a
     return std::get<2>(a) < std::get<2>(b);
 }
 
-float intersection_over_union(const ei_impulse_result_bounding_box_t bbox1, const ei_impulse_result_bounding_box_t bbox2) {
+static inline float intersection_over_union(const ei_impulse_result_bounding_box_t bbox1, const ei_impulse_result_bounding_box_t bbox2) {
     uint32_t x_left = std::max(bbox1.x, bbox2.x);
     uint32_t y_top = std::max(bbox1.y, bbox2.y);
     uint32_t x_right = std::min(bbox1.x + bbox1.width, bbox2.x + bbox2.width);
@@ -32,7 +66,7 @@ float intersection_over_union(const ei_impulse_result_bounding_box_t bbox1, cons
     return static_cast<float>(intersection_area) / static_cast<float>(bbox1_area + bbox2_area - intersection_area);
 }
 
-float centroid_euclidean_distance(const ei_impulse_result_bounding_box_t bbox1, const ei_impulse_result_bounding_box_t bbox2) {
+static inline float centroid_euclidean_distance(const ei_impulse_result_bounding_box_t bbox1, const ei_impulse_result_bounding_box_t bbox2) {
     float x1 = bbox1.x + bbox1.width / 2.0f;
     float y1 = bbox1.y + bbox1.height / 2.0f;
     float x2 = bbox2.x + bbox2.width / 2.0f;

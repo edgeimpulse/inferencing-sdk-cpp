@@ -97,7 +97,7 @@ void ei_print_results(ei_impulse_handle_t *impulse_handle, ei_impulse_result_t *
                     (unsigned int)bb.height);
         }
     }
-#if EI_CLASSIFIER_OBJECT_TRACKING_ENABLED == 1
+#if EI_CLASSIFIER_OBJECT_TRACKING_ENABLED == 1 || EI_CLASSIFIER_OBJECT_TRACKING_SORT_ENABLED == 1
     else if (impulse->results_type == EI_CLASSIFIER_TYPE_OBJECT_TRACKING) {
         ei_printf("#Object tracking results:\n");
         for (uint32_t ix = 0; ix < result.postprocessed_output.object_tracking_output.open_traces_count; ix++) {
