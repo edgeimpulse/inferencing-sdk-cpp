@@ -330,7 +330,7 @@ EI_IMPULSE_ERROR process_freeform_f32(ei_impulse_handle_t *handle,
             return EI_IMPULSE_FREEFORM_OUTPUT_SIZE_MISMATCH;
         }
 
-        memcpy(freeform_output.buffer, raw_output_mtx->buffer, raw_output_mtx->rows * raw_output_mtx->cols * sizeof(float));
+        memcpy(freeform_output.buffer, raw_output_mtx->buffer, freeform_output.rows * freeform_output.cols * sizeof(float));
     }
 
     return EI_IMPULSE_OK;
