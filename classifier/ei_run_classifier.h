@@ -87,6 +87,8 @@
 #include "edge-impulse-sdk/classifier/inferencing_engines/vlm_connector.h"
 #elif EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_NORDIC_AXON
 #include "edge-impulse-sdk/classifier/inferencing_engines/nordic_axon.h"
+#elif EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_QAIC
+#include "edge-impulse-sdk/classifier/inferencing_engines/onnx_qaic.h"
 #elif EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_NONE
 // noop
 #else

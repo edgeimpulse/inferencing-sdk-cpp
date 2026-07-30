@@ -64,6 +64,7 @@
 #define EI_CLASSIFIER_CEVA_NPN                   15
 #define EI_CLASSIFIER_NORDIC_AXON                16
 #define EI_CLASSIFIER_VLM_CONNECTOR              17
+#define EI_CLASSIFIER_QAIC                       18
 
 #define EI_CLASSIFIER_SENSOR_UNKNOWN             255
 #define EI_CLASSIFIER_SENSOR_MICROPHONE          1
@@ -304,6 +305,19 @@ typedef struct {
     size_t model_size;
     size_t arena_size;
 } ei_config_tflite_graph_t;
+
+/** Configuration for the qaic.h */
+typedef struct {
+    const unsigned char *model;
+    size_t model_size;
+    const char *model_filename;
+    const char *provider_options;
+    const char *onnx_define_symbol;
+    uint32_t device_id;
+    uint32_t aic_num_cores;
+    bool aic_hw;
+    bool convert_to_fp16;
+} ei_qaic_model_config_t;
 
 /** Configuration for the tflite_eon.h */
 typedef struct {
