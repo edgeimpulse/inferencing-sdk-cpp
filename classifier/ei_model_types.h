@@ -348,13 +348,16 @@ typedef struct {
 typedef struct {
     uint16_t implementation_version;
     uint32_t block_id;
-    const char* prompt;
+    const char* user_prompt;
+    const char* system_prompt;
+    const char* response_schema;
     const char** class_descriptions;
     const char* model;
     const char* model_download_url;
     uint32_t max_tokens;
     float temperature;
     const char* server_url;
+    const char* labeling_method;
 } ei_learning_block_config_vlm_connection_t;
 
 typedef struct {
