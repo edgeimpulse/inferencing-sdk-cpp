@@ -47,6 +47,7 @@
 #include "edge-impulse-sdk/classifier/ei_aligned_malloc.h"
 #include "edge-impulse-sdk/classifier/ei_model_types.h"
 #include "edge-impulse-sdk/classifier/inferencing_engines/tflite_helper.h"
+#include "edge-impulse-sdk/porting/ei_classifier_porting.h"
 
 #if defined(EI_CLASSIFIER_HAS_TFLITE_OPS_RESOLVER) && EI_CLASSIFIER_HAS_TFLITE_OPS_RESOLVER == 1
 #include "tflite-model/tflite-resolver.h"
@@ -88,6 +89,33 @@
 #define DEFINE_SECTION(x) __attribute__((section(x)))
 #endif
 
+#ifdef EI_CLASSIFIER_ALLOCATION_STATIC
+#ifndef EI_WEAK_FN
+#define EI_WEAK_FN __attribute__((weak))
+#endif
+
+/**
+ * @brief Get the static tensor arena memory and its actual size.
+ *
+ * @param[out] actual_size Pointer to a size_t variable where the actual size of the 
+ * provided static arena (in bytes) will be stored.
+ * @return ei_unique_ptr_t A smart pointer holding the memory address of the static arena,
+ * bound with a no-op deleter to protect static lifespans.
+ */
+EI_WEAK_FN ei_unique_ptr_t ei_get_static_tensor_arena(size_t *actual_size)
+{
+#if defined (EI_TENSOR_ARENA_LOCATION)
+    static uint8_t tensor_arena[EI_CLASSIFIER_TFLITE_LARGEST_ARENA_SIZE] ALIGN(16) DEFINE_SECTION(STRINGIZE_VALUE_OF(EI_TENSOR_ARENA_LOCATION));
+#else
+    static uint8_t tensor_arena[EI_CLASSIFIER_TFLITE_LARGEST_ARENA_SIZE] ALIGN(16);
+#endif
+    if (actual_size != nullptr)
+        *actual_size = EI_CLASSIFIER_TFLITE_LARGEST_ARENA_SIZE;
+	// Assign a no-op lambda to the "free" function in case of static arena
+    return ei_unique_ptr_t(tensor_arena, [](void *){});
+}
+#endif
+
 /**
  * Setup the TFLite runtime
  *
@@ -111,15 +139,14 @@ static EI_IMPULSE_ERROR inference_tflite_setup(
     *ctx_start_us = ei_read_timer_us();
 
     ei_config_tflite_graph_t *graph_config = (ei_config_tflite_graph_t*)block_config->graph_config;
+    size_t actual_arena_size = graph_config->arena_size;
 
 #ifdef EI_CLASSIFIER_ALLOCATION_STATIC
-    // Assign a no-op lambda to the "free" function in case of static arena
-#if defined (EI_TENSOR_ARENA_LOCATION)
-    static uint8_t tensor_arena[EI_CLASSIFIER_TFLITE_LARGEST_ARENA_SIZE] ALIGN(16) DEFINE_SECTION(STRINGIZE_VALUE_OF(EI_TENSOR_ARENA_LOCATION));
-#else
-    static uint8_t tensor_arena[EI_CLASSIFIER_TFLITE_LARGEST_ARENA_SIZE] ALIGN(16);
-#endif
-    p_tensor_arena = ei_unique_ptr_t(tensor_arena, [](void*){});
+    p_tensor_arena = ei_get_static_tensor_arena(&actual_arena_size);
+    if (actual_arena_size < graph_config->arena_size) {
+        ei_printf("Static TFLite arena is smaller then (%zu bytes)\n", graph_config->arena_size);
+        return EI_IMPULSE_TFLITE_ARENA_ALLOC_FAILED;
+    }
 #else
     // Create an area of memory to use for input, output, and intermediate arrays.
     uint8_t *tensor_arena = (uint8_t*)ei_aligned_calloc(16, graph_config->arena_size);
@@ -171,12 +198,12 @@ static EI_IMPULSE_ERROR inference_tflite_setup(
     tflite::MicroProfiler *profiler = new tflite::MicroProfiler;
 
     tflite::MicroInterpreter *interpreter = new tflite::MicroInterpreter(
-        model, resolver, tensor_arena, graph_config->arena_size, nullptr, profiler);
+        model, resolver, (uint8_t *)p_tensor_arena.get(), actual_arena_size, nullptr, profiler);
 
     *micro_profiler = (void*)profiler;
 #else
     tflite::MicroInterpreter *interpreter = new tflite::MicroInterpreter(
-        model, resolver, tensor_arena, graph_config->arena_size, nullptr, nullptr);
+        model, resolver, (uint8_t *)p_tensor_arena.get(), actual_arena_size, nullptr, nullptr);
 
     micro_profiler = nullptr;
 #endif

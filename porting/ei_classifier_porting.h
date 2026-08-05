@@ -38,6 +38,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include "edge-impulse-sdk/dsp/returntypes.h"
+#include "edge-impulse-sdk/dsp/memory.hpp"
 
 #if defined(__cplusplus) && EI_C_LINKAGE == 1
 extern "C" {
@@ -256,6 +257,35 @@ void *ei_calloc(size_t nitems, size_t size);
  * @param[in] ptr Pointer to the memory to free
  */
 void ei_free(void *ptr);
+
+/**
+ * @brief Get the user-defined static tensor arena memory and its actual size.
+ *
+ * This weak interface allows application designers or hardware vendors to override
+ * the default tensor arena location. It provides a clean dependency injection pattern
+ * to host the arena in specialized memory regions (e.g., CCMRAM, non-cacheable SRAM)
+ * or to align the buffer boundary for MPU (Memory Protection Unit) configurations.
+ *
+ * @note After overriding this function, you can freely apply hardware-specific configurations
+ * (such as disabling/enabling D-Cache or setting MPU regions) directly to your 
+ * custom static buffer in the application layer.
+ *
+ * @code
+ * #define SO_BIG_SIZE (1024 * 1024 * 5)
+ * static uint8_t my_tensor_arena[SO_BIG_SIZE];
+ * ei_unique_ptr_t ei_get_static_tensor_arena(uint32_t *actual_size)
+ * {
+ *     if (actual_size != nullptr)
+ *         *actual_size = SO_BIG_SIZE;
+ *     return ei_unique_ptr_t(my_tensor_arena, [](void*){});
+ * }
+ * @endcode
+ *
+ * @param[out] actual_size Pointer to a size_t variable where the actual size of the 
+ * provided static arena (in bytes) will be stored.
+ * @return ei_unique_ptr_t A smart pointer holding the memory address of the static arena.
+ */
+ei_unique_ptr_t ei_get_static_tensor_arena(size_t *actual_size);
 
 /** @} */
 
