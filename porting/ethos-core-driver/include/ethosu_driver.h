@@ -1,5 +1,6 @@
 /*
- * SPDX-FileCopyrightText: Copyright 2019-2024 Arm Limited and/or its affiliates <open-source-office@arm.com>
+ * SPDX-FileCopyrightText: Copyright 2019-2025 Arm Limited and/or its affiliates <open-source-office@arm.com>
+ * SPDX-FileCopyrightText: Copyright 2025 Alif Semiconductor
  * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the License); you may
@@ -36,9 +37,9 @@ extern "C" {
  * Defines
  ******************************************************************************/
 
-#define ETHOSU_DRIVER_VERSION_MAJOR 0  ///< Driver major version
-#define ETHOSU_DRIVER_VERSION_MINOR 16 ///< Driver minor version
-#define ETHOSU_DRIVER_VERSION_PATCH 0  ///< Driver patch version
+#define ETHOSU_DRIVER_VERSION_MAJOR 1 ///< Driver major version
+#define ETHOSU_DRIVER_VERSION_MINOR 0 ///< Driver minor version
+#define ETHOSU_DRIVER_VERSION_PATCH 0 ///< Driver patch version
 
 #define ETHOSU_SEMAPHORE_WAIT_FOREVER (UINT64_MAX)
 
@@ -86,8 +87,6 @@ struct ethosu_driver
     size_t fast_memory_size;
     uint32_t power_request_counter;
     bool reserved;
-    uint8_t basep_flush_mask;
-    uint8_t basep_invalidate_mask;
 };
 
 struct ethosu_driver_version
@@ -115,29 +114,26 @@ enum ethosu_request_clients
 void ethosu_irq_handler(struct ethosu_driver *drv);
 
 /**
- * Flush/clean the data cache by address and size.
- * NOTE: It is not recommended to implement this, but let the application code
- *       make sure that any data needed by the NPU is flushed before invoking
- *       an inference.
+ * Flush/clean the data cache
  *
- * Addresses passed to this function must be 32 byte aligned.
+ * Addresses passed to this function must be aligned to cache line size.
  *
- * @param p         32 byte aligned address
- * @param bytes     Size of memory block in bytes
+ * @param base_addr         Array of 32 byte aligned base addresses
+ * @param base_addr_size    Array with size per each base addr entry
+ * @param num_base_addr     Number of base addr entries
  */
-void ethosu_flush_dcache(uint32_t *p, size_t bytes);
+void ethosu_flush_dcache(const uint64_t *base_addr, const size_t *base_addr_size, int num_base_addr);
 
 /**
- * Invalidate the data cache by address and size.
- * NOTE: The driver will only call this for the scratch/tensor arena base
- *       pointer.
+ * Invalidate the data cache
  *
- * Addresses passed to this function must be 32 byte aligned.
+ * Addresses passed to this function must be aligned to cache line size.
  *
- * @param p         32 byte aligned address
- * @param bytes     Size in bytes
+ * @param base_addr         Array of 32 byte aligned base addresses
+ * @param base_addr_size    Array with size per each base addr entry
+ * @param num_base_addr     Number of base addr entries
  */
-void ethosu_invalidate_dcache(uint32_t *p, size_t bytes);
+void ethosu_invalidate_dcache(const uint64_t *base_addr, const size_t *base_addr_size, int num_base_addr);
 
 /**
  * Minimal mutex implementation for baremetal applications. See
@@ -228,18 +224,21 @@ void ethosu_inference_end(struct ethosu_driver *drv, void *user_arg);
  */
 uint64_t ethosu_address_remap(uint64_t address, int index);
 
+/**
+ * Select configuration for region access.
+ *
+ * Default implementation uses NPU_QCONFIG and NPU_REGIONCFG_n defines.
+ *
+ * @param address   Address of region.
+ * @param index     -1 command stream, 0-n base address index
+ *
+ * @return Configuration to use
+ */
+unsigned int ethosu_config_select(uint64_t address, int index);
+
 /******************************************************************************
  * Prototypes
  ******************************************************************************/
-
-/**
- * Set cache mask for cache flush/clean and invalidation per base pointer.
- *
- * @param drv               Pointer to driver handle
- * @param flush_mask        Base pointer cache flush mask (bit 0 == basep 0)
- * @param invalidate_mask   Base pointer cache invalidation mask (bit 0 == basep 0)
- */
-void ethosu_set_basep_cache_mask(struct ethosu_driver *drv, uint8_t flush_mask, uint8_t invalidate_mask);
 
 /**
  * Initialize the Ethos-U driver.

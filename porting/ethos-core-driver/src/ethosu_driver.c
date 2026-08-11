@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright 2019-2024 Arm Limited and/or its affiliates <open-source-office@arm.com>
+ * SPDX-FileCopyrightText: Copyright 2019-2025 Arm Limited and/or its affiliates <open-source-office@arm.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the License); you may
@@ -31,7 +31,7 @@
 #elif defined(ETHOSU85)
 #include "ethosu_config_u85.h"
 #else
-#error "Missing device type macro"
+#error Missing device type macro
 #endif
 
 #include <assert.h>
@@ -128,23 +128,52 @@ static struct ethosu_driver *registered_drivers = NULL;
  ******************************************************************************/
 
 /*
- * Flush/clean the data cache by address and size. Passing NULL as p argument
- * expects the whole cache to be flushed.
+ * Flush/clean the data cache
  */
-void __attribute__((weak)) ethosu_flush_dcache(uint32_t *p, size_t bytes)
+void __attribute__((weak))
+ethosu_flush_dcache(const uint64_t *base_addr, const size_t *base_addr_size, int num_base_addr)
 {
-    UNUSED(p);
-    UNUSED(bytes);
+    /*
+     * for (int i = 0; i < num_base_addr; i++)
+     * {
+     *     // Check alignment to cache line size
+     *     if (base_addr[i] & MASK_32_BYTE_ALIGN) != 0)
+     *     {
+     *         LOG_ERR("Base addr %d: 0x%" PRIx64 "not aligned to 32 bytes", i, base_addr[i]);
+     *         return;
+     *     }
+     *     flush_dcache((uint32_t *)(uintptr_t)base_addr[i], base_addr_size[i]);
+     * }
+     */
+    UNUSED(base_addr);
+    UNUSED(base_addr_size);
+    UNUSED(num_base_addr);
 }
 
 /*
- * Invalidate the data cache by address and size. Passing NULL as p argument
- * expects the whole cache to be invalidated.
+ * Invalidate the data cache
  */
-void __attribute__((weak)) ethosu_invalidate_dcache(uint32_t *p, size_t bytes)
+void __attribute__((weak))
+ethosu_invalidate_dcache(const uint64_t *base_addr, const size_t *base_addr_size, int num_base_addr)
 {
-    UNUSED(p);
-    UNUSED(bytes);
+    /*
+     * On 32bit systems, to avoid sign expansion, each base_addr must be cast
+     * like this ((uint32_t *)(uintptr_t)base_addr[idx])
+     *
+     * for (int i = 0; i < num_base_addr; i++)
+     * {
+     *     // Check alignment to cache line size
+     *     if (base_addr[i] & MASK_32_BYTE_ALIGN) != 0)
+     *     {
+     *         LOG_ERR("Base addr %d: 0x%" PRIx64 "not aligned to 32 bytes", i, base_addr[i]);
+     *         return;
+     *     }
+     *     invalidate_dcache((uint32_t *)(uintptr_t)base_addr[i], base_addr_size[i]);
+     * }
+     */
+    UNUSED(base_addr);
+    UNUSED(base_addr_size);
+    UNUSED(num_base_addr);
 }
 
 /******************************************************************************
@@ -336,29 +365,8 @@ static int handle_command_stream(struct ethosu_driver *drv, const uint8_t *cmd_s
         }
     }
 
-    // DEPRECATION WARNING:
-    // It is advised against letting the driver handle flushing/cleaning of the cache, as this will
-    // be done for every invokation. It is up to the application code to ensure cache coherency
-    // before invoking an inference.
-    //
-    // The cache flush call below will flush/clean every base pointer marked in the flush mask.
-    // Typically only the scratch tensor contains RW data shared between the CPU and NPU, and needs
-    // to be flushed/cleaned before invoking an inference.
-    //
-    // It is recommended to not implement/override the default empty ethosu_flush_dcache() weak
-    // function.
-    //
-    // NOTE: It is required that any base pointer marked for cache flush/clean is aligned to the
-    // cache line size.
-
-    // Flush/clean the cache for base pointers marked in the mask
-    for (int i = 0; i < drv->job.num_base_addr; i++)
-    {
-        if (drv->basep_flush_mask & (1 << i))
-        {
-            ethosu_flush_dcache((uint32_t *)(uintptr_t)drv->job.base_addr[i], drv->job.base_addr_size[i]);
-        }
-    }
+    // Flush/clean the data cache
+    ethosu_flush_dcache(drv->job.base_addr, drv->job.base_addr_size, drv->job.num_base_addr);
 
     // Request power gating disabled during inference run
     if (ethosu_request_power(drv))
@@ -387,6 +395,7 @@ void __attribute__((weak)) ethosu_irq_handler(struct ethosu_driver *drv)
     // for semaphore, but before NPU is reset.
     if (drv->job.result == ETHOSU_JOB_RESULT_TIMEOUT)
     {
+        (void)ethosu_dev_handle_interrupt(&drv->dev);
         return;
     }
 
@@ -398,12 +407,6 @@ void __attribute__((weak)) ethosu_irq_handler(struct ethosu_driver *drv)
 /******************************************************************************
  * Functions API
  ******************************************************************************/
-
-void ethosu_set_basep_cache_mask(struct ethosu_driver *drv, uint8_t flush_mask, uint8_t invalidate_mask)
-{
-    drv->basep_flush_mask      = flush_mask;
-    drv->basep_invalidate_mask = invalidate_mask;
-}
 
 int ethosu_init(struct ethosu_driver *drv,
                 void *const base_address,
@@ -443,10 +446,6 @@ int ethosu_init(struct ethosu_driver *drv,
     drv->fast_memory           = (uintptr_t)fast_memory;
     drv->fast_memory_size      = fast_memory_size;
     drv->power_request_counter = 0;
-
-    // Set default cache flush/clean and invalidate base pointer masks to invalidate the scratch
-    // base pointer where Vela for TFLM is placing the scratch buffer (tensor arena)
-    ethosu_set_basep_cache_mask(drv, (1 << SCRATCH_BASE_ADDR_INDEX), (1 << SCRATCH_BASE_ADDR_INDEX));
 
     // Initialize the device and set requested security state and privilege mode
     if (!ethosu_dev_init(&drv->dev, base_address, secure_enable, privilege_enable))
@@ -557,17 +556,6 @@ int ethosu_wait(struct ethosu_driver *drv, bool block)
         }
         // fall through
     case ETHOSU_JOB_DONE:
-        // Invalidate cache for base pointers marked to be invalidated, typically the
-        // scratch tensor base pointer containing the tensor arena.
-        // NOTE: Requires the base pointers to be cache line size aligned.
-        for (int i = 0; i < drv->job.num_base_addr; i++)
-        {
-            if (drv->basep_invalidate_mask & (1 << i))
-            {
-                ethosu_invalidate_dcache((uint32_t *)(uintptr_t)drv->job.base_addr[i], drv->job.base_addr_size[i]);
-            }
-        }
-
         // Wait for interrupt in blocking mode. In non-blocking mode
         // the interrupt has already triggered
         ret = ethosu_semaphore_take(drv->semaphore, ETHOSU_SEMAPHORE_WAIT_INFERENCE);
@@ -586,6 +574,9 @@ int ethosu_wait(struct ethosu_driver *drv, bool block)
                 ethosu_semaphore_take(drv->semaphore, ETHOSU_SEMAPHORE_WAIT_INFERENCE);
             }
         }
+
+        // Invalidate cache
+        ethosu_invalidate_dcache(drv->job.base_addr, drv->job.base_addr_size, drv->job.num_base_addr);
 
         // Inference done callback - always called even in case of timeout
         ethosu_inference_end(drv, drv->job.user_arg);

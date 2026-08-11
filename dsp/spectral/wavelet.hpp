@@ -49,10 +49,15 @@ inline float dot(const float *x, const float *y, size_t sz)
     return sum;
 }
 
-inline void histo(const fvec &x, size_t nbins, fvec &h, bool normalize = false)
+inline bool histo(const fvec &x, size_t nbins, fvec &h, bool normalize = false)
 {
     float min = *std::min_element(x.begin(), x.end());
     float max = *std::max_element(x.begin(), x.end());
+
+    if ((max - min) <= 0.0f) {
+        return false;
+    }
+
     float step = (max - min) / nbins;
     h.resize(nbins);
     for (size_t i = 0; i < x.size(); i++) {
@@ -67,6 +72,8 @@ inline void histo(const fvec &x, size_t nbins, fvec &h, bool normalize = false)
             h[i] /= s;
         }
     }
+
+    return true;
 }
 
 class wavelet {
@@ -143,7 +150,11 @@ class wavelet {
     static void calculate_entropy(const fvec &y, fvec &features)
     {
         fvec h;
-        histo(y, 100, h, true);
+        const bool ok = histo(y, 100, h, true);
+        if (!ok) {
+            features.push_back(0.0f);
+            return;
+        }
         // entropy = -sum(prob * log(prob)
         float entropy = 0.0f;
         for (size_t i = 0; i < h.size(); i++) {

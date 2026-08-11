@@ -35,7 +35,18 @@
 #include "../ei_classifier_porting.h"
 #if EI_PORTING_ZEPHYR == 1
 
-#include <version.h>
+#if defined(__has_include)
+    #if __has_include(<zephyr/version.h>)
+        #include <zephyr/version.h>
+    #elif __has_include(<version.h>)
+        #include <version.h>
+    #else
+        #error "Could not find Zephyr version header"
+    #endif
+#else
+    #include <zephyr/version.h> //assume latest version of Zephyr if __has_include is not available
+#endif
+
 // Zpehyr 3.1.x and newer uses different include scheme
 #if (KERNEL_VERSION_MAJOR > 3) || ((KERNEL_VERSION_MAJOR == 3) && (KERNEL_VERSION_MINOR >= 1))
 #include <zephyr/kernel.h>

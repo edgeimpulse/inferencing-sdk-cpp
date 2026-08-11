@@ -7,9 +7,18 @@ set(EI_SDK_FOLDER ../../)
 
 include(${EI_SDK_FOLDER}/cmake/utils.cmake)
 
+if(CMAKE_HOST_WIN32)
+    if(NOT DEFINED CMAKE_OBJECT_PATH_MAX)
+        set(CMAKE_OBJECT_PATH_MAX 250 CACHE STRING "Max object file path length")
+        message(STATUS "CMAKE_OBJECT_PATH_MAX was not defined; set to 250 for Windows host builds")
+    else()
+        message(STATUS "CMAKE_OBJECT_PATH_MAX already defined as ${CMAKE_OBJECT_PATH_MAX}; leaving as-is")
+    endif()
+endif()
+
 if(DEFINED CONFIG_EDGE_IMPULSE_SDK) # using the edge-impulse-sdk-zephyr module
     zephyr_library_named(edge-impulse-sdk)
-    
+
     if("${BOARD}" MATCHES "esp32")
         zephyr_compile_definitions(
             asm=__asm__                           # needed for ESP-NN headers
@@ -25,7 +34,7 @@ if(DEFINED CONFIG_EDGE_IMPULSE_SDK) # using the edge-impulse-sdk-zephyr module
         )
 
         zephyr_include_directories(${EI_ESP_INCLUDES})
-        
+
         RECURSIVE_FIND_FILE_EXCLUDE_DIR(CPP_EI_SOURCE_FILES "${EI_SDK_FOLDER}" "CMSIS" "*.cpp")
         RECURSIVE_FIND_FILE_EXCLUDE_DIR(CC_EI_SOURCE_FILES "${EI_SDK_FOLDER}" "CMSIS" "*.cc")
         RECURSIVE_FIND_FILE_EXCLUDE_DIR(C_EI_SOURCE_FILES "${EI_SDK_FOLDER}" "CMSIS" "*.c")
@@ -99,5 +108,3 @@ else()  # use edge-impulse-sdk as a c++ to be intergated directly into the proje
 
     target_sources(app PRIVATE ${EI_SOURCE_FILES})
 endif(DEFINED CONFIG_EDGE_IMPULSE_SDK)
-
-

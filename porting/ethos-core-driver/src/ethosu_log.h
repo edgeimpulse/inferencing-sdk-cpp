@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright 2021-2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
+ * SPDX-FileCopyrightText: Copyright 2021, 2023, 2025 Arm Limited and/or its affiliates <open-source-office@arm.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the License); you may
@@ -45,38 +45,45 @@
 #define ETHOSU_LOG_ENABLE 1
 #endif
 
+#define LOG_COMMON_NOP(s, f, ...)                                                                                      \
+    if (0)                                                                                                             \
+    (void)fprintf(s, "%s" f, "", ##__VA_ARGS__)
+
 #if ETHOSU_LOG_ENABLE
 #define LOG_COMMON(s, f, ...) (void)fprintf(s, f, ##__VA_ARGS__)
 #else
-#define LOG_COMMON(s, f, ...)
+#define LOG_COMMON(s, f, ...) LOG_COMMON_NOP(s, f, ##__VA_ARGS__)
 #endif
 
 // Log formatting
-#define LOG(f, ...) LOG_COMMON(stdout, f, ##__VA__ARGS__)
+#define LOG(f, ...) LOG_COMMON(stdout, f, ##__VA_ARGS__)
 
 #if ETHOSU_LOG_SEVERITY >= ETHOSU_LOG_ERR
-#define LOG_ERR(f, ...)                                                                                                \
-    LOG_COMMON(stderr, "E: " f " (%s:%d)\n", ##__VA_ARGS__, strrchr("/" __FILE__, '/') + 1, __LINE__)
+#ifdef __FILE_NAME__
+#define LOG_ERR(f, ...) LOG_COMMON(stderr, "E: %s:%d: " f "\n", __FILE_NAME__, __LINE__, ##__VA_ARGS__)
 #else
-#define LOG_ERR(f, ...)
+#define LOG_ERR(f, ...) LOG_COMMON(stderr, "E: %s:%d: " f "\n", strrchr("/" __FILE__, '/') + 1, __LINE__, ##__VA_ARGS__)
+#endif
+#else
+#define LOG_ERR(f, ...) LOG_COMMON_NOP(stderr, f, ##__VA_ARGS__)
 #endif
 
 #if ETHOSU_LOG_SEVERITY >= ETHOSU_LOG_WARN
 #define LOG_WARN(f, ...) LOG_COMMON(stdout, "W: " f "\n", ##__VA_ARGS__)
 #else
-#define LOG_WARN(f, ...)
+#define LOG_WARN(f, ...) LOG_COMMON_NOP(stdout, f, ##__VA_ARGS__)
 #endif
 
 #if ETHOSU_LOG_SEVERITY >= ETHOSU_LOG_INFO
 #define LOG_INFO(f, ...) LOG_COMMON(stdout, "I: " f "\n", ##__VA_ARGS__)
 #else
-#define LOG_INFO(f, ...)
+#define LOG_INFO(f, ...) LOG_COMMON_NOP(stdout, f, ##__VA_ARGS__)
 #endif
 
 #if ETHOSU_LOG_SEVERITY >= ETHOSU_LOG_DEBUG
 #define LOG_DEBUG(f, ...) LOG_COMMON(stdout, "D: %s(): " f "\n", __FUNCTION__, ##__VA_ARGS__)
 #else
-#define LOG_DEBUG(f, ...)
+#define LOG_DEBUG(f, ...) LOG_COMMON_NOP(stdout, f, ##__VA_ARGS__)
 #endif
 
 #endif
