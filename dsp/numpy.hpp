@@ -136,6 +136,33 @@ static constexpr float quantized_values_one_zero[] = { (0.0f / 1.0f), (1.0f / 10
 
 class numpy {
 public:
+    /** Own a software RFFT plan for sequential calls within one DSP operation.
+     * The plan includes mutable scratch space and must not be shared concurrently.
+     * Hardware FFT paths do not allocate a software plan.
+     */
+    class rfft_plan {
+    public:
+        rfft_plan() = default;
+        rfft_plan(const rfft_plan&) = delete;
+        rfft_plan& operator=(const rfft_plan&) = delete;
+        ~rfft_plan() { reset(); }
+
+    private:
+        friend class numpy;
+        kiss_fftr_cfg cfg = nullptr;
+        size_t points = 0;
+        size_t bytes = 0;
+
+        void reset() {
+            if (cfg) {
+                ei_dsp_free(cfg, bytes);
+                cfg = nullptr;
+            }
+            points = 0;
+            bytes = 0;
+        }
+    };
+
 
     static float sqrt(float x) {
 #if EIDSP_USE_HW_MATH
@@ -521,7 +548,7 @@ public:
         return EIDSP_OK;
     }
 
-    static int dct_transform(float vector[], size_t len)
+    static int dct_transform(float vector[], size_t len, rfft_plan *plan = nullptr)
     {
         const size_t fft_data_out_size = (len / 2 + 1) * sizeof(ei::fft_complex_t);
         const size_t fft_data_in_size = len * sizeof(float);
@@ -549,7 +576,7 @@ public:
             fft_data_in[halfLen] = vector[len - 1];
         }
 
-        int r = ei::numpy::rfft(fft_data_in, len, fft_data_out, (len / 2 + 1), len);
+        int r = ei::numpy::rfft(fft_data_in, len, fft_data_out, (len / 2 + 1), len, plan);
         if (r != 0) {
             ei_dsp_free(fft_data_in, fft_data_in_size);
             ei_dsp_free(fft_data_out, fft_data_out_size);
@@ -580,12 +607,12 @@ public:
      * @param N number of items in input and output array
      * @returns EIDSP_OK if OK
      */
-    static int dct2(float *input, size_t N, DCT_NORMALIZATION_MODE normalization = DCT_NORMALIZATION_NONE) {
+    static int dct2(float *input, size_t N, DCT_NORMALIZATION_MODE normalization = DCT_NORMALIZATION_NONE, rfft_plan *plan = nullptr) {
         if (N == 0) {
             return EIDSP_OK;
         }
 
-        int ret = dct_transform(input, N);
+        int ret = dct_transform(input, N, plan);
         if (ret != EIDSP_OK) {
             EIDSP_ERR(ret);
         }
@@ -611,8 +638,9 @@ public:
      * @returns EIDSP_OK if OK
      */
     static int dct2(matrix_t *matrix, DCT_NORMALIZATION_MODE normalization = DCT_NORMALIZATION_NONE) {
+        rfft_plan plan;
         for (size_t row = 0; row < matrix->rows; row++) {
-            int r = dct2(matrix->buffer + (row * matrix->cols), matrix->cols, normalization);
+            int r = dct2(matrix->buffer + (row * matrix->cols), matrix->cols, normalization, &plan);
             if (r != EIDSP_OK) {
                 return r;
             }
@@ -1324,7 +1352,7 @@ public:
      * @param output_size Size of the output buffer, should be n_fft / 2 + 1
      * @returns 0 if OK
      */
-    static int rfft(const float *src, size_t src_size, float *output, size_t output_size, size_t n_fft) {
+    static int rfft(const float *src, size_t src_size, float *output, size_t output_size, size_t n_fft, rfft_plan *plan = nullptr) {
         size_t n_fft_out_features = (n_fft / 2) + 1;
         if (output_size != n_fft_out_features) {
             EIDSP_ERR(EIDSP_BUFFER_SIZE_MISMATCH);
@@ -1334,7 +1362,7 @@ public:
         auto ptr = EI_MAKE_TRACKED_POINTER(fft_output, n_fft_out_features);
         EI_ERR_AND_RETURN_ON_NULL(fft_output, EIDSP_OUT_OF_MEM);
 
-        int ret = rfft(src, src_size, fft_output, n_fft_out_features, n_fft);
+        int ret = rfft(src, src_size, fft_output, n_fft_out_features, n_fft, plan);
         if (ret != EIDSP_OK) {
             return ret;
         }
@@ -1357,7 +1385,7 @@ public:
      * @param output_size Size of the output buffer, should be n_fft / 2 + 1
      * @returns 0 if OK
      */
-    static int rfft(const float *src, size_t src_size, fft_complex_t *output, size_t output_size, size_t n_fft) {
+    static int rfft(const float *src, size_t src_size, fft_complex_t *output, size_t output_size, size_t n_fft, rfft_plan *plan = nullptr) {
         size_t n_fft_out_features = (n_fft / 2) + 1;
         if (output_size != n_fft_out_features) {
             EIDSP_ERR(EIDSP_BUFFER_SIZE_MISMATCH);
@@ -1384,7 +1412,7 @@ public:
         auto res = ei::fft::hw_r2c_fft(fft_input.buffer, output, n_fft);
         if (handle_fft_hw_failure(res, n_fft)) {
             // fallback to software
-            return software_rfft(fft_input.buffer, output, n_fft, n_fft_out_features);
+            return software_rfft(fft_input.buffer, output, n_fft, n_fft_out_features, plan);
         }
 
         return EIDSP_OK;
@@ -1784,23 +1812,33 @@ public:
         return EIDSP_OK;
     }
 
-    static int software_rfft(float *fft_input, fft_complex_t *output, size_t n_fft, size_t n_fft_out_features)
+    static int software_rfft(float *fft_input, fft_complex_t *output, size_t n_fft, size_t n_fft_out_features, rfft_plan *plan = nullptr)
     {
     #if EIDSP_INCLUDE_KISSFFT || !defined(EIDSP_INCLUDE_KISSFFT)
-        // create fftr context
-        size_t kiss_fftr_mem_length;
-
-        kiss_fftr_cfg cfg = kiss_fftr_alloc(n_fft, 0, NULL, NULL, &kiss_fftr_mem_length);
-        if (!cfg) {
-            EIDSP_ERR(EIDSP_OUT_OF_MEM);
+        if (plan && plan->cfg && plan->points != n_fft) {
+            plan->reset();
         }
-
-        ei_dsp_register_alloc(kiss_fftr_mem_length, cfg);
+        size_t kiss_fftr_mem_length = 0;
+        kiss_fftr_cfg cfg = plan ? plan->cfg : nullptr;
+        if (!cfg) {
+            cfg = kiss_fftr_alloc(n_fft, 0, NULL, NULL, &kiss_fftr_mem_length);
+            if (!cfg) {
+                EIDSP_ERR(EIDSP_OUT_OF_MEM);
+            }
+            ei_dsp_register_alloc(kiss_fftr_mem_length, cfg);
+            if (plan) {
+                plan->cfg = cfg;
+                plan->points = n_fft;
+                plan->bytes = kiss_fftr_mem_length;
+            }
+        }
 
         // execute the rfft operation
         kiss_fftr(cfg, fft_input, (kiss_fft_cpx*)output);
 
-        ei_dsp_free(cfg, kiss_fftr_mem_length);
+        if (!plan) {
+            ei_dsp_free(cfg, kiss_fftr_mem_length);
+        }
 
         return EIDSP_OK;
     #else
@@ -1843,13 +1881,13 @@ public:
         size_t frame_size,
         float *out_buffer,
         size_t out_buffer_size,
-        uint16_t fft_points)
+        uint16_t fft_points, rfft_plan *plan = nullptr)
     {
         if (out_buffer_size != static_cast<size_t>(fft_points / 2 + 1)) {
             EIDSP_ERR(EIDSP_MATRIX_SIZE_MISMATCH);
         }
 
-        int r = numpy::rfft(frame, frame_size, out_buffer, out_buffer_size, fft_points);
+        int r = numpy::rfft(frame, frame_size, out_buffer, out_buffer_size, fft_points, plan);
         if (r != EIDSP_OK) {
             return r;
         }
