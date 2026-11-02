@@ -126,7 +126,12 @@ typedef struct {
 typedef struct {
     float zero_point;
     float scale;
+    bool add_softmax;
 } ei_fill_result_classification_i8_config_t;
+
+typedef struct {
+    bool add_softmax;
+} ei_fill_result_classification_f32_config_t;
 
 typedef struct {
     float threshold;

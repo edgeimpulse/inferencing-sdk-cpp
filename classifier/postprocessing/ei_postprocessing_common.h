@@ -187,6 +187,33 @@ __attribute__((unused)) static void process_cubes(ei_impulse_result_t *result, s
     result->bounding_boxes_count = added_boxes_count;
 }
 
+#if EI_CLASSIFIER_LOAD_CLASSIFICATION_SOFTMAX
+static void process_classification_softmax(uint32_t label_count, ei_impulse_result_t *result) {
+    float max_value = -FLT_MAX;
+
+    // Find max for numerical stability
+    for (uint32_t ix = 0; ix < label_count; ix++) {
+        if (result->classification[ix].value > max_value) {
+            max_value = result->classification[ix].value;
+        }
+    }
+
+    // exp() + sum
+    float sum = 0.0f;
+
+    for (uint32_t ix = 0; ix < label_count; ix++) {
+        float v = std::exp(result->classification[ix].value - max_value);
+        result->classification[ix].value = v;
+        sum += v;
+    }
+
+    // Normalize
+    for (uint32_t ix = 0; ix < label_count; ix++) {
+        result->classification[ix].value /= sum;
+    }
+}
+#endif
+
 /**
  * Fill the result structure from an unquantized output tensor
  */
@@ -198,6 +225,8 @@ EI_IMPULSE_ERROR process_classification_f32(ei_impulse_handle_t *handle,
                                             void *state)
 {
     const ei_impulse_t *impulse = handle->impulse;
+    const ei_fill_result_classification_f32_config_t *config = (ei_fill_result_classification_f32_config_t*)config_ptr;
+    (void)config; // mark as used, otherwise we get a warning if EI_CLASSIFIER_LOAD_CLASSIFICATION_SOFTMAX = 0
 
 #ifdef EI_DSP_RESULT_OVERRIDE
     uint32_t stop_count = EI_DSP_RESULT_OVERRIDE;
@@ -226,6 +255,12 @@ EI_IMPULSE_ERROR process_classification_f32(ei_impulse_handle_t *handle,
 #endif
         result->classification[ix].value = value;
     }
+
+#if EI_CLASSIFIER_LOAD_CLASSIFICATION_SOFTMAX
+    if (config->add_softmax) {
+        process_classification_softmax(impulse->label_count, result);
+    }
+#endif
 
     return EI_IMPULSE_OK;
 }
@@ -259,6 +294,12 @@ __attribute__((unused)) static EI_IMPULSE_ERROR process_classification_i8(ei_imp
         result->classification[ix].label = impulse->categories[ix];
         result->classification[ix].value = value;
     }
+
+#if EI_CLASSIFIER_LOAD_CLASSIFICATION_SOFTMAX
+    if (config->add_softmax) {
+        process_classification_softmax(impulse->label_count, result);
+    }
+#endif
 
     return EI_IMPULSE_OK;
 }
@@ -294,6 +335,12 @@ __attribute__((unused)) static EI_IMPULSE_ERROR process_classification_u8(ei_imp
         result->classification[ix].label = impulse->categories[ix];
         result->classification[ix].value = value;
     }
+
+#if EI_CLASSIFIER_LOAD_CLASSIFICATION_SOFTMAX
+    if (config->add_softmax) {
+        process_classification_softmax(impulse->label_count, result);
+    }
+#endif
 
     return EI_IMPULSE_OK;
 }
