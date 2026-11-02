@@ -317,6 +317,7 @@ public:
         // get signal data from the audio file
         EI_DSP_MATRIX(signal_frame, 1, stack_frame_info.frame_length);
 
+        numpy::rfft_plan fft_plan;
         for (size_t ix = 0; ix < stack_frame_info.frame_ixs.size(); ix++) {
             // don't read outside of the audio buffer... we'll automatically zero pad then
             size_t signal_offset = stack_frame_info.frame_ixs.at(ix);
@@ -340,7 +341,7 @@ public:
                 stack_frame_info.frame_length,
                 power_spectrum_frame.buffer,
                 power_spectrum_frame_size,
-                fft_length
+                fft_length, &fft_plan
             );
 
             if (ret != 0) {
